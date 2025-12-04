@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     const supabase = await createClient();
     const { data } = await supabase.from("base").select("maintenance").single();
