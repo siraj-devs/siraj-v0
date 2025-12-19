@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function Hero() {
   return (
-    <section className="text-center">
+    <section className="text-center py-20">
       {/* Small badge */}
       <p className="mb-8 inline-block rounded-full border border-primary/30 px-4 py-1.5 text-sm text-primary">
         نادي طلابي

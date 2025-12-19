@@ -20,6 +20,18 @@ export function Footer() {
           >
             الرئيسية
           </Link>
+          {/* <Link
+            href="#"
+            className="text-foreground transition-colors hover:text-primary"
+          >
+            الأمسيات
+          </Link>
+          <Link
+            href="#"
+            className="text-foreground transition-colors hover:text-primary"
+          >
+            التبرعات
+          </Link> */}
           <Link
             href="/join"
             className="text-foreground transition-colors hover:text-primary"
