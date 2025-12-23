@@ -1,0 +1,18 @@
+export function EIIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect width="32" height="32" rx="16" fill="#0E0E0E" />
+      <path
+        d="M11.4773 9.84V22.5H9.99727V9.84H11.4773ZM14.9954 9.84H22.4354V11.1H16.4754V15.28H21.4954V16.54H16.4754V21.24H22.6954V22.5H14.9954V9.84Z"
+        fill="#FAFAFA"
+      />
+    </svg>
+  );
+}
