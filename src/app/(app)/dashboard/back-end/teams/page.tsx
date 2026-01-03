@@ -159,7 +159,7 @@ export default function Teams() {
 
               <div className="flex items-center gap-5">
                 <div
-                  className={`h-15 w-15 flex-shrink-0 rounded-2xl p-2 ${team.icon_bg}`}
+                  className={`h-15 w-15 shrink-0 rounded-2xl p-2 ${team.icon_bg}`}
                 ></div>
                 <div>
                   <h2 className="text-2xl text-gray-800 md:text-3xl">

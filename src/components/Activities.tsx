@@ -1,8 +1,8 @@
 export default function Activities() {
   return (
     <>
-      <div className="container mx-auto">
-        <div className="grid grid-cols-3 gap-8">
+      <div className="container px-4 lg:mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
             <div className="mb-10">
               <svg
@@ -34,8 +34,8 @@ export default function Activities() {
                 </defs>
               </svg>
             </div>
-            <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
-              التبرعات
+            <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
+              جمع التبرعات
             </h2>
             <p className="text-center text-xl text-foreground/80 max-w-xs">
               كفالة الأيتام، حفر آبار، إصلاح مدارس بالقرى.
@@ -60,11 +60,11 @@ export default function Activities() {
                 />
               </svg>
             </div>
-            <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
+            <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
               أمسيات أسبوعية
             </h2>
             <p className="max-w-xs text-center text-xl text-foreground/80">
-              مجالس لتدارس القرآن الكريم والسنة النبوية.
+              مجالس تدارس القرآن الكريم والسنة النبوية.
             </p>
           </div>
           <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
@@ -86,11 +86,11 @@ export default function Activities() {
                 />
               </svg>
             </div>
-            <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
+            <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
               حفظ القرآن
             </h2>
             <p className="max-w-xs text-center text-xl text-foreground/80">
-              أكادمية سراج لتحفيظ القرآن الكريم وتجويده.
+              حِلقُ تحفيظ القرآن الكريم وتجويده.
             </p>
           </div>
         </div>

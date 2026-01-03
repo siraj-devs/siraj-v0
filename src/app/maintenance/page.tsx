@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function Page() {
   return (
-    <main className="container mx-auto mt-[73px] flex min-h-[90vh] flex-col items-center justify-center px-4 py-8 text-center">
+    <main className="container mx-auto mt-[73px] flex min-h-[90vh] flex-col items-center justify-center py-8 text-center">
       <div
         className="aspect-square"
         style={{ position: "relative", width: "25%" }}

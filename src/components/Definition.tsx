@@ -1,7 +1,7 @@
 export default function Definition() {
   return (
     <>
-      <div className="container mx-auto">
+      <div className="container px-4 lg:mx-auto">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Left column with one card */}
           <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
@@ -20,7 +20,7 @@ export default function Definition() {
                 />
               </svg>
             </div>
-            <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
+            <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
               الرؤية
             </h2>
             <p className="text-center text-xl text-foreground/80">
@@ -49,14 +49,14 @@ export default function Definition() {
                   />
                 </svg>
               </div>
-              <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
-                المبادئ التأسيسية
+              <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
+                المبدأ
               </h2>
               <p className="max-w-3xl text-center text-xl text-foreground/80">
                 القرآن هو لبّ هذا المشروع؛ نعيش معه تدبّرا وتزكية ليكون محور
                 الأنشطة. وتأتي السنة النبوية كمنهج تربوي بنائي وإصلاحي. كما يقوم
-                النادي على رؤية تنطلق من القرآن والسنة، ترفض الانغلاق والذوبان،
-                وتجمع بين العقل المفكر والقلب الذاكر.
+                النادي على رفض للانغلاق وللذوبان، وجمع بين العقل المفكر والقلب
+                الذاكر.
               </p>
             </div>
             <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
@@ -75,15 +75,15 @@ export default function Definition() {
                   />
                 </svg>
               </div>
-              <h2 className="mb-4 font-kufam text-4xl font-medium text-foreground">
+              <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
                 الهدف
               </h2>
               <p className="max-w-3xl text-center text-xl text-foreground/80">
                 النادي تربوي علمي دعوي مجتمعي؛ يجمع بين تزكية النفس وتنمية الوعي
                 وخدمة الناس بأنشطة تُترجم الإيمان إلى أثر. كما يركز على تنمية
                 المهارات الأساسية مثل التواصل والعمل الجماعي والقيادة. والانضمام
-                إليه هو دخول في رحلة إيمانية وعملية، تقوم على القدوة والنية
-                المخلصة وصدق الهمة.
+                إليه هو دخول في رحلة إيمانية وعملية، تقوم على النية
+                المخلصة والصحبة الصالحة وصدق الهمة.
               </p>
             </div>
           </div>
