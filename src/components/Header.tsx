@@ -36,13 +36,13 @@ export async function Header() {
             className="text-foreground transition-colors hover:text-primary"
           >
             التبرعات
-          </Link> */}
+          </Link>
           <Link
             href="/join"
             className="text-foreground transition-colors hover:text-primary"
           >
             انضم إلينا
-          </Link>
+          </Link> */}
         </nav>
 
         <div className="flex justify-end">

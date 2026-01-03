@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { checkFormCompletionStatus } from "@/lib/form-status";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export default async function Page() {
+  notFound(); // Temporary disable the page
+
   const formStatus = await checkFormCompletionStatus();
   // If user is not logged in, redirect to login
   if (!formStatus.isLoggedIn) redirect("/login");

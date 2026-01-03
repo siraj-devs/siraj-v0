@@ -31,13 +31,13 @@ export function Footer() {
             className="text-foreground transition-colors hover:text-primary"
           >
             التبرعات
-          </Link> */}
+          </Link>
           <Link
             href="/join"
             className="text-foreground transition-colors hover:text-primary"
           >
             انضم إلينا
-          </Link>
+          </Link> */}
         </nav>
 
         {/* Instagram icon */}
@@ -98,7 +98,7 @@ export function Footer() {
         {/* Copyright and credits */}
         <p className="flex items-center justify-between text-xs text-muted-foreground md:text-sm">
           <span>© 2025 سراج</span>
-          <span>صمم من طرف sirajdev</span>
+          <span>صمم من طرف <Link href="https://github.com/siraj-devs">sirajdevs</Link></span>
         </p>
       </div>
     </footer>

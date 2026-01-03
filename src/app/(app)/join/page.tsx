@@ -1,9 +1,11 @@
 import { JoinForm } from "@/components/join-form";
 import { checkFormCompletionStatus } from "@/lib/form-status";
 import { getSession } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export default async function Page() {
+  notFound(); // Temporary disable the page
+
   const formStatus = await checkFormCompletionStatus();
   const session = await getSession();
   // // If user is not logged in, redirect to login

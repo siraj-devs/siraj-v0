@@ -7,17 +7,17 @@ import ProposedPrograms from "@/components/ProposedPrograms";
 export default function Home() {
   return (
     <>
-      <div className="flex flex-col gap-48 pb-20">
+      <div className="flex flex-col gap-36 py-20">
         <Hero />
-        <div className="flex flex-col gap-20">
+        <div className="flex flex-col gap-16">
           <DecorativeLines title="التعريف" />
           <MainContent />
         </div>
-        <div className="flex flex-col gap-20" >
+        <div className="flex flex-col gap-16" >
           <DecorativeLines title="الأنشطة" />
           <Activities />
         </div>
-        <div className="flex flex-col gap-20">
+        <div className="flex flex-col gap-16">
           <DecorativeLines title="البرامج المقترحة" />
           <ProposedPrograms />
         </div>

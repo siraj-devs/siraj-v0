@@ -1,9 +1,9 @@
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+// import { Button } from "@/components/ui/button";
+// import Link from "next/link";
 
 export function Hero() {
   return (
-    <section className="text-center py-20">
+    <section className="text-center">
       {/* Small badge */}
       <p className="mb-8 inline-block rounded-full border border-primary/30 px-4 py-1.5 text-sm text-primary">
         نادي طلابي
@@ -51,7 +51,7 @@ export function Hero() {
       </svg>
 
       {/* Quranic verse */}
-      <div className="mb-12">
+      <div>
         <p className="font-amiri">
           <span className="mb-2 text-xl text-foreground/80 md:text-2xl">
             ﴿ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ ﴾
@@ -63,11 +63,11 @@ export function Hero() {
       </div>
 
       {/* CTA Button */}
-      <Link href="/join">
+      {/* <Link href="/join">
         <Button size="lg">
           تقديم طلب الانضمام
         </Button>
-      </Link>
+      </Link> */}
     </section>
   );
 }
