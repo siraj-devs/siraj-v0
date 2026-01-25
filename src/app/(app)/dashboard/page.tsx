@@ -12,7 +12,7 @@ export default async function Page() {
   const submissions: Submission[] = data ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-4">
       <div className="rounded-lg bg-white p-6 shadow">
         <h2 className="mb-4 text-xl font-semibold">
           إرساليات ({submissions?.length || 0})

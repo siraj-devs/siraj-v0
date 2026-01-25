@@ -1,16 +1,5 @@
 import { cookies } from 'next/headers'
 
-export interface SessionData {
-  user: {
-    id: string
-    name: string
-    email: string
-    login: string
-    image?: string
-  }
-  accessToken: string
-}
-
 export async function getSession(): Promise<SessionData | null> {
   try {
     const cookieStore = await cookies()

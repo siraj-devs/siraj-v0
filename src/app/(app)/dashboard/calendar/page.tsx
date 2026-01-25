@@ -1,159 +1,123 @@
-import React from "react";
-
-function formatKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+async function getHijriMonth(
+  hijriYear: number,
+  hijriMonth: number,
+): Promise<HijriDay[]> {
+  const res = await fetch(
+    `https://api.aladhan.com/v1/hToGCalendar/${hijriMonth}/${hijriYear}`,
+    { cache: "force-cache" },
+  );
+  const json = await res.json();
+  return json.data;
 }
 
-function CalendarMonthView({
-  monthOffset = 0,
-  minDate,
-  maxDate,
-  highlightedDates,
+const WEEKDAYS_AR = [
+  "الأحد",
+  "الاثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+  "السبت",
+];
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function getWeekIndex(en: string) {
+  return WEEKDAY_INDEX[en] ?? 0;
+}
+
+async function HijriCalendarMonth({
+  hijriYear,
+  hijriMonth,
 }: {
-  monthOffset?: number;
-  minDate?: Date;
-  maxDate?: Date;
-  highlightedDates?: Date[];
+  hijriYear: number;
+  hijriMonth: number;
 }) {
-  const today = new Date();
-  // normalize total months and compute correct year/month for the requested offset
-  const totalMonth = today.getMonth() + monthOffset;
-  const year = today.getFullYear() + Math.floor(totalMonth / 12);
-  const month = ((totalMonth % 12) + 12) % 12; // 0-11 normalized for negative offsets
-  const firstOfMonth = new Date(year, month, 1);
-  const lastOfMonth = new Date(year, month + 1, 0);
-  const daysInMonth = lastOfMonth.getDate();
-  const startWeekDay = firstOfMonth.getDay(); // 0 (Sun) - 6 (Sat)
+  const days = await getHijriMonth(hijriYear, hijriMonth);
+  if (!days.length) return null;
 
-  const startOfDay = (d: Date) => {
-    const dd = new Date(d);
-    dd.setHours(0, 0, 0, 0);
-    return dd;
-  };
-  const endOfDay = (d: Date) => {
-    const dd = new Date(d);
-    dd.setHours(23, 59, 59, 999);
-    return dd;
-  };
+  const monthName = days[0].hijri.month.ar;
+  const yearLabel = days[0].hijri.year;
 
-  const min = minDate ? startOfDay(minDate) : undefined;
-  const max = maxDate ? endOfDay(maxDate) : undefined;
+  const startWeekday = getWeekIndex(days[0].gregorian.weekday.en);
 
-  // highlighted set for O(1) checks
-  const highlightedSet = new Set(
-    (highlightedDates || []).map((d) => formatKey(startOfDay(d))),
-  );
-
-  // compute only the required number of weeks (no always-42 cells)
-  const totalCellsNeeded = startWeekDay + daysInMonth;
-  const weeks = Math.ceil(totalCellsNeeded / 7);
-  const totalCells = weeks * 7;
-  const cells = Array.from({ length: totalCells }).map((_, i) => {
-    const dayNumber = i - startWeekDay + 1;
-    return dayNumber >= 1 && dayNumber <= daysInMonth ? dayNumber : null;
-  });
-
-  const monthLabel = new Date(year, month, 1).toLocaleString("ar-u-nu-latn", {
-    month: "long",
-    year: "numeric",
-  });
-  const weekDayLabels = [
-    "الأحد",
-    "الاثنين",
-    "الثلاثاء",
-    "الأربعاء",
-    "الخميس",
-    "الجمعة",
-    "السبت",
+  const cells: (HijriDay | null)[] = [
+    ...Array(startWeekday).fill(null),
+    ...days,
   ];
 
-  const gridStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(7, 1fr)",
-    gap: 4,
-  };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return (
-    <section aria-label="Calendar month view">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 style={{ margin: 0, fontSize: 18 }}>{monthLabel}</h2>
-      </div>
+    <section className="flex w-full flex-col sm:p-6">
+      <h2 className="mb-3 text-center text-base font-bold sm:mb-4 sm:text-lg">
+        {monthName} {yearLabel}
+      </h2>
 
-      <div style={{ ...gridStyle, marginBottom: 6 }}>
-        {weekDayLabels.map((d) => (
-          <div key={d} className="pb-1.5 text-center text-xs text-[#444]">
+      {/* Weekdays */}
+      <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
+        {WEEKDAYS_AR.map((d, i) => (
+          <div
+            key={d}
+            className={`text-center text-[10px] font-bold sm:text-xs ${
+              i === 3 ? "text-amber-600" : "text-gray-600"
+            }`}
+          >
             {d}
           </div>
         ))}
       </div>
 
-      <div style={gridStyle}>
+      {/* Days */}
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {cells.map((day, idx) => {
-          if (day === null) {
-            return (
-              <div
-                key={idx}
-                className="flex aspect-square items-center justify-center rounded-lg border border-black/5 p-2"
-                aria-hidden
-              ></div>
-            );
+          if (!day) {
+            return <div key={idx} className="h-12 sm:h-14" />;
           }
 
-          const cellDate = startOfDay(new Date(year, month, day));
-          const isBeforeMin = min ? cellDate < min : false;
-          const isAfterMax = max ? cellDate > max : false;
-          const isDisabled = isBeforeMin || isAfterMax;
+          const isWed = getWeekIndex(day.gregorian.weekday.en) === 3;
 
-          const isToday =
-            !isDisabled &&
-            day === today.getDate() &&
-            month === today.getMonth() &&
-            year === today.getFullYear();
+          const [dd, mm, yyyy] = day.gregorian.date.split("-").map(Number);
 
-          const isHighlighted = highlightedSet.has(formatKey(cellDate));
+          const cellDate = new Date(yyyy, mm - 1, dd);
+          cellDate.setHours(0, 0, 0, 0);
+
+          const isToday = cellDate.getTime() === today.getTime();
+          const isPast = cellDate < today && !isToday;
 
           return (
             <div
               key={idx}
-              role="button"
-              tabIndex={isDisabled ? -1 : 0}
-              aria-disabled={isDisabled}
-              title={
-                isHighlighted
-                  ? `Highlighted: ${cellDate.toLocaleDateString()}`
-                  : undefined
-              }
-              className={`flex aspect-square items-center justify-center rounded-lg p-2 ${
-                isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+              title={`${day.hijri.day} ${day.hijri.month.ar} ${day.hijri.year} هـ\n${day.gregorian.weekday.en} م`}
+              className={`flex h-12 flex-col items-center justify-center rounded-md text-sm transition sm:h-14 ${
+                isPast ? "opacity-30" : ""
               } ${
-                isDisabled
-                  ? "bg-transparent"
-                  : isToday
-                    ? "bg-blue-50"
-                    : isHighlighted
-                      ? "bg-yellow-50"
-                      : "bg-gray-50"
+                isToday
+                  ? "text- bg-blue-50 font-bold text-blue-800 shadow ring-2 ring-blue-200"
+                  : isWed
+                    ? "border border-amber-200 bg-amber-50 font-semibold text-amber-800"
+                    : "border bg-white text-gray-700 hover:bg-gray-50"
               }`}
-              style={{
-                color: isDisabled ? "#9aa0a6" : "#111",
-                boxSizing: "border-box",
-                fontWeight: isToday ? 600 : 400,
-                border: isToday
-                  ? "2px solid #2563eb"
-                  : isHighlighted
-                    ? "2px solid #f59e0b"
-                    : "1px solid rgba(0,0,0,0.06)",
-                opacity: isDisabled ? 0.5 : 1,
-                position: "relative",
-              }}
             >
-              <span>{day}</span>
-              {isHighlighted && isToday && (
-                <span
-                  aria-hidden
-                  className="absolute top-1.5 right-2 size-2 rounded-full bg-[#d97706] shadow-[0_0_0_3px_rgba(249,115,22,0.12)]"
-                />
-              )}
+              <span className="text-sm font-semibold sm:text-base">
+                {day.hijri.day}
+              </span>
+              <span
+                className={`text-[9px] sm:text-[10px] ${
+                  isToday ? "text-gray-400" : "text-gray-400"
+                }`}
+              >
+                {dd}
+              </span>
             </div>
           );
         })}
@@ -163,68 +127,42 @@ function CalendarMonthView({
 }
 
 export default async function Page() {
-  const min = new Date();
-  const max = new Date(2026, 1, 18);
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const yyyy = today.getFullYear();
+  const dateStr = `${dd}-${mm}-${yyyy}`;
 
-  const highlightedDates = (() => {
-    // normalize start/end to UTC midnight
-    const now = new Date();
-    const startUtc = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const maxDate = new Date(max);
-    const endUtc = new Date(
-      Date.UTC(
-        maxDate.getUTCFullYear(),
-        maxDate.getUTCMonth(),
-        maxDate.getUTCDate(),
-      ),
-    );
+  const res = await fetch(`https://api.aladhan.com/v1/gToH/${dateStr}`, {
+    cache: "no-store",
+  });
+  const json = await res.json();
+  const currentHijriData = json.data.hijri;
 
-    const wednesdays: Date[] = [];
-    const WED = 3; // Sunday=0, Monday=1, ..., Wednesday=3
+  const startMonth = currentHijriData.month.number;
+  const startYear = parseInt(currentHijriData.year, 10);
 
-    const offset = (WED - startUtc.getUTCDay() + 7) % 7;
-    const firstWednesday = new Date(
-      Date.UTC(
-        startUtc.getUTCFullYear(),
-        startUtc.getUTCMonth(),
-        startUtc.getUTCDate() + offset,
-      ),
-    );
-
-    if (firstWednesday <= endUtc) {
-      for (
-        let d = new Date(firstWednesday);
-        d <= endUtc;
-        d = new Date(
-          Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 7),
-        )
-      ) {
-        // push a UTC-midnight Date
-        wednesdays.push(
-          new Date(
-            Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
-          ),
-        );
-      }
+  const monthsToRender = Array.from({ length: 6 }).map((_, i) => {
+    let m = startMonth + i;
+    let y = startYear;
+    while (m > 12) {
+      m -= 12;
+      y++;
     }
-
-    return wednesdays;
-  })();
+    return { month: m, year: y };
+  });
 
   return (
-    <div className="bg-red50 flex flex-wrap justify-center gap-12">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-red100">
-          <CalendarMonthView
-            monthOffset={i}
-            minDate={min} 
-            maxDate={max}
-            highlightedDates={highlightedDates}
+    <div className="container px-4 mx-auto space-y-4 p-3 sm:space-y-6 sm:p-6">
+      <div className="grid grid-cols-1 place-items-center gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        {monthsToRender.map((item) => (
+          <HijriCalendarMonth
+            key={`${item.year}-${item.month}`}
+            hijriYear={item.year}
+            hijriMonth={item.month}
           />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

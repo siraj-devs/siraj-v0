@@ -26,3 +26,26 @@ interface Submission {
   email_sent_at: string;
   created_at: string;
 }
+
+interface SessionData {
+  user: {
+    id: string
+    name: string
+    email: string
+    login: string
+    image?: string
+  }
+  accessToken: string
+}
+
+interface HijriDay {
+  hijri: {
+    day: string;
+    month: { number: number; ar: string };
+    year: string;
+  };
+  gregorian: {
+    date: string;
+    weekday: { en: string };
+  };
+}

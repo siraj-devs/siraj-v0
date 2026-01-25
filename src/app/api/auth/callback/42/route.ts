@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       maxAge: expires_in,
     });
     return response;
-  } catch (error) {
+  } catch {
     return NextResponse.redirect(
       new URL("/login?error=callback_error", request.url),
     );

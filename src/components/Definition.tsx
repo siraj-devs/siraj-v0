@@ -1,8 +1,8 @@
 export default function Definition() {
   return (
     <>
-      <div className="container px-4 lg:mx-auto">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+      <div className="container px-4 mx-auto">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left column with one card */}
           <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
             <div className="mb-10">
@@ -32,7 +32,7 @@ export default function Definition() {
             </p>
           </div>
           {/* Right column with two cards */}
-          <div className="flex flex-col gap-8 md:col-span-2">
+          <div className="flex flex-col gap-8 lg:col-span-2">
             <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 p-15 shadow-md backdrop-blur-md">
               <div className="mb-10">
                 <svg
