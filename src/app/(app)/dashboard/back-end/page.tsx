@@ -10,31 +10,31 @@ export default function BackEndPage() {
           </h1>
           <div className="flex flex-wrap justify-center gap-5 text-xl md:gap-25">
             <Link
-              href="/back-end/evenings"
+              href="/dashboard/back-end/evenings"
               className="text-foreground transition-colors hover:text-primary"
             >
               الأمسيات
             </Link>
             <Link
-              href="/back-end/tasks"
+              href="/dashboard/back-end/tasks"
               className="text-foreground transition-colors hover:text-primary"
             >
               المهام
             </Link>
             <Link
-              href="/back-end/teams"
+              href="/dashboard/back-end/teams"
               className="text-foreground transition-colors hover:text-primary"
             >
               الفرق
             </Link>
             <Link
-              href="/back-end/members"
+              href="/dashboard/back-end/members"
               className="text-foreground transition-colors hover:text-primary"
             >
               الأعضاء
             </Link>
             <Link
-              href="/back-end/meetings"
+              href="/dashboard/back-end/meetings"
               className="text-foreground transition-colors hover:text-primary"
             >
               اللقاءات

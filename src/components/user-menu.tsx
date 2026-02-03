@@ -73,7 +73,7 @@ export function UserMenu({
 
             <button
               onClick={() => logout()}
-              className="block w-full px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="block w-full cursor-pointer px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               تسجيل الخروج
             </button>
