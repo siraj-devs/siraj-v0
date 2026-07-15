@@ -47,6 +47,16 @@ interface AppMember {
   role: MemberRole
 }
 
+type TransactionType = "income" | "expense"
+
+interface ClubTransaction {
+  id: number
+  due_at: string
+  amount: number
+  type: TransactionType
+  note: string
+}
+
 interface HijriDay {
   hijri: {
     day: string;

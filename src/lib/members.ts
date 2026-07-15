@@ -86,5 +86,5 @@ export async function getMemberByFtConnectionId(
 }
 
 export function canAccessDashboard(role: MemberRole | null | undefined) {
-  return role === "owner";
+  return role === "owner" || role === "admin";
 }

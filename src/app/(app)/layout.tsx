@@ -1,6 +1,8 @@
 import { Footer, Header } from "@/components";
 import type React from "react";
 
+export const dynamic = "force-dynamic";
+
 export default function Layout({
   children,
 }: Readonly<{
