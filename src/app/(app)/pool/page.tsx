@@ -23,6 +23,14 @@ function Hadith({ children }: { children: ReactNode }) {
   );
 }
 
+function Ayah({ ayah, surah, verse }: { ayah: string; surah: string; verse: number }) {
+  return (
+    <blockquote className="my-6 border-r-2 border-primary pr-5 font-amiri text-xl leading-relaxed text-foreground/90 md:text-2xl">
+      ﴿ {ayah} ﴾ <span className="text-xs text-muted-foreground">[{surah}:{verse}]</span>
+    </blockquote>
+  );
+}
+
 function AdviceItem({
   title,
   children,
@@ -63,7 +71,7 @@ export default function PoolPage() {
         <p className="mb-6 inline-block rounded-full border border-primary/30 px-4 py-1.5 text-sm text-primary">
           لـ ex-pooler را كنشوفكم
         </p>
-        <h1 className="mb-4 font-kufam text-3xl font-bold leading-snug text-foreground md:text-4xl lg:text-5xl">
+        <h1 className="mb-4 font-kufam text-3xl leading-snug font-bold text-foreground md:text-4xl lg:text-5xl">
           كلام من قلب student
           <span className="mt-2 block text-primary">إلى قلب pooler</span>
         </h1>
@@ -77,8 +85,8 @@ export default function PoolPage() {
           </p>
           <div className="space-y-5 text-start text-lg leading-8 text-foreground/80">
             <p>
-              مرحبا بكم خوتي فـ 1337 بنگرير. الحمد لله اللي وصلكم لهاد المرحلة،
-              ونسأل الله أن يجعلها بداية خير عليكم فدينكم ودنياكم.
+              مرحبا بكم خوتي فـ 1337 ابن جرير. الحمد لله اللي وصلكم لهاد
+              المرحلة، ونسأل الله أن يجعلها بداية خير عليكم فدينكم ودنياكم.
             </p>
             <p>
               هاد الرسالة قراوها بتأن حيت فيها كلام غادي يعاونكوم تدوزو هاد 4
@@ -97,8 +105,8 @@ export default function PoolPage() {
               ما دير أي حاجة — فكذلك المسبح.
             </p>
             <Hadith>
-              قال النبي صلى الله عليه وسلم: «إنما الأعمال بالنیات، وإنما لكل امرئ
-              ما نوى»
+              قال النبي صلى الله عليه وسلم: «إنما الأعمال بالنیات، وإنما لكل
+              امرئ ما نوى»
             </Hadith>
             <p>
               فاللي جا يقرا باش ينفع راسو وينفع الأمة ديالوا، ويطلب الرزق الحلال
@@ -124,22 +132,22 @@ export default function PoolPage() {
               المسبح.
             </p>
             <p className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 text-foreground/85">
-              خاصك ترد البال لهادشي لي غنقولك، حيت تمنيت كن شي واحد نصحني بيه فاش
-              كنت pooler:
+              خاصك ترد البال لهادشي لي غنقولك، حيت تمنيت كن شي واحد نصحني بيه
+              فاش كنت pooler:
             </p>
           </div>
         </section>
 
         {/* Advice */}
         <section className="animate-[fade-up_0.8s_ease-out_0.25s_both]">
-          <Hadith>«واستعينوا بالصبر والصلاة»</Hadith>
-          <ol className="mt-8 space-y-8 list-none">
+          <Ayah ayah="وَاسْتَعِينُواْ بِالصَّبْرِ وَالصَّلَوٰةِ وَإِنَّهَا لَكَبِيرَةٌ اِلَّا عَلى الْخَٰشِعِينَ" surah="البقرة" verse={44} />
+          <ol className="mt-8 list-none space-y-8">
             <AdviceItem title="حافظ على الصلاة فوقتها">
               ماتخليوش الكود ينسيكوم الصلاة. الصلاة هي الصلة لي بينك وبين المولى
-              عز وجل، وهي أساس الدين. كفاش نت كمسلم باغي الله يسهل عليك وأنت مضيع
-              الحق ديالو لي هو العبادة؟ زد على ذلك، معندكش عذر أمام الله عز وجل
-              حيت طريز موفرة الحرية الكاملة فالوقت — مكينش لي يهدر معاك. والصلاة
-              هي لي اتعطيكوم البركة فالوقت والفهم.
+              عز وجل، وهي أساس الدين. كفاش نت كمسلم باغي الله يسهل عليك وأنت
+              مضيع الحق ديالو لي هو العبادة؟ زد على ذلك، معندكش عذر أمام الله عز
+              وجل حيت طريز موفرة الحرية الكاملة فالوقت — مكينش لي يهدر معاك.
+              والصلاة هي لي اتعطيكوم البركة فالوقت والفهم.
             </AdviceItem>
             <AdviceItem title="الصدق وعدم الغش">
               البركة كاينة فالصدق. اللي كيغش كيغش راسو قبل الآخر، وكيمحق البركة
@@ -159,22 +167,6 @@ export default function PoolPage() {
           </ol>
         </section>
 
-        {/* Closing */}
-        <section className="animate-[fade-up_0.8s_ease-out_0.3s_both]">
-          <SectionTitle>كلمة أخيرة</SectionTitle>
-          <div className="space-y-5 text-lg leading-8 text-foreground/80">
-            <p>
-              هاد 4 سيمانات غادي يعلّموكم كثر من الكود — غادي يعلّموكم الصبر،
-              والانضباط، والاعتماد على الله مع الأخذ بالأسباب.
-            </p>
-            <p>
-              اسهرو ولكن متعيقوش (والصراحة القضية ممحتاجاش السهيير، لأنه اتخرج
-              غير على صحتك — من الأحسن تفيق بكري أو تجي). عياو، ولكن ماتنساوش أن
-              التوفيق كامل من عند الله. بذلو المجهود، وخليو النتيجة عليه سبحانه.
-            </p>
-          </div>
-        </section>
-
         {/* Greater message — Quran */}
         <section className="animate-[fade-up_0.8s_ease-out_0.32s_both]">
           <div className="space-y-5 text-lg leading-8 text-foreground/80">
@@ -189,15 +181,23 @@ export default function PoolPage() {
             <p className="text-foreground/85">
               كيقولنا ربنا سبحانه فواحد الرسالة:
             </p>
-            <blockquote className="rounded-2xl flex justify-center items-center border border-primary/20 bg-primary/5 p-6">
-              <p className="font-amiri w-fit text-xl leading-loose text- text-foreground/90 md:text-2xl">
-                ﴿ یَـٰۤأَیُّهَا ٱلنَّاسُ قَدۡ جَاۤءَتۡكُم مَّوۡعِظَةࣱ مِّن
-                رَّبِّكُمۡ وَشِفَاۤءࣱ لِّمَا فِی ٱلصُّدُورِ وَهُدࣰى وَرَحۡمَةࣱ
-                لِّلۡمُؤۡمِنِینَ ﴾ <span className="text-xs text-muted-foreground">
-                [يونس:57]
-              </span>
-              </p>
-            </blockquote>
+            <Ayah ayah="یَـٰۤأَیُّهَا ٱلنَّاسُ قَدۡ جَاۤءَتۡكُم مَّوۡعِظَةࣱ مِّن رَّبِّكُمۡ وَشِفَاۤءࣱ لِّمَا فِی ٱلصُّدُورِ وَهُدࣰى وَرَحۡمَةࣱ لِّلۡمُؤۡمِنِینَ" surah="يونس" verse={57} />
+          </div>
+        </section>
+
+        {/* Closing */}
+        <section className="animate-[fade-up_0.8s_ease-out_0.3s_both]">
+          <SectionTitle>وفي الختام</SectionTitle>
+          <div className="space-y-5 text-lg leading-8 text-foreground/80">
+            <p>
+              هاد 4 سيمانات غادي يعلّموكم كثر من الكود — غادي يعلّموكم الصبر،
+              والانضباط، والاعتماد على الله مع الأخذ بالأسباب.
+            </p>
+            <p>
+              اسهرو ولكن متعيقوش (والصراحة القضية ممحتاجاش السهيير، لأنه اتخرج
+              غير على صحتك — من الأحسن تفيق بكري أو تجي). عياو، ولكن ماتنساوش أن
+              التوفيق كامل من عند الله. بذلو المجهود، وخليو النتيجة عليه سبحانه.
+            </p>
           </div>
         </section>
 

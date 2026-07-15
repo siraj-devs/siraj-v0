@@ -1,10 +1,12 @@
 import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUserFromFtConnection } from "@/lib/users";
 import { NextRequest, NextResponse } from "next/server";
 
 enum FtError {
   CONNECTION_FAILED = "connection_failed",
   UPDATE_FAILED = "update_failed",
+  USER_FAILED = "user_failed",
 }
 
 type FtData = {
@@ -51,6 +53,13 @@ async function ft_connection(data: FtData): Promise<FtError | null> {
 
   if (authorizedUpdateError) return FtError.UPDATE_FAILED;
 
+  const appUser = await ensureUserFromFtConnection({
+    ftConnectionId: data.id,
+    name: data.displayname,
+  });
+
+  if (!appUser) return FtError.USER_FAILED;
+
   return null;
 }
 
@@ -84,7 +93,6 @@ export async function GET(request: NextRequest) {
         new URL(`/login?error=${ftError}`, request.url),
       );
 
-    // Create a simple session (you can store this in cookies or database)
     const sessionData = {
       user: {
         id: userInfo.id.toString(),
@@ -95,10 +103,8 @@ export async function GET(request: NextRequest) {
       accessToken: access_token,
     };
 
-    // Determine redirect URL from state parameter
     const redirectUrl = state ? decodeURIComponent(state) : "/";
 
-    // Set session cookie
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
     response.cookies.set("42-session", JSON.stringify(sessionData), {
       httpOnly: true,

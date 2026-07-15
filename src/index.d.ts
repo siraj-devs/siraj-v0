@@ -31,11 +31,20 @@ interface SessionData {
   user: {
     id: string
     name: string
-    email: string
+    email?: string
     login: string
-    image?: string
+    image?: string | null
   }
   accessToken: string
+}
+
+type UserRole = "owner" | "admin" | "member" | "visitor"
+
+interface AppUser {
+  id: number
+  name: string
+  ft_connection: number | null
+  role: UserRole
 }
 
 interface HijriDay {

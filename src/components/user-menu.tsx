@@ -66,6 +66,13 @@ export function UserMenu({
                 >
                   الاتصالات
                 </Link>
+                <Link
+                  href="/dashboard/pool"
+                  className="block px-4 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => setIsOpen(false)}
+                >
+                  المسبح
+                </Link>
               </>
             )}
 
