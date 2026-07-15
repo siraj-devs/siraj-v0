@@ -1,5 +1,5 @@
+import { canAccessDashboard, getMemberByFtConnectionId } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
-import { canAccessDashboard, getUserByFtConnectionId } from "@/lib/users";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function proxy(request: NextRequest) {
@@ -31,8 +31,8 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const appUser = await getUserByFtConnectionId(session.user.id);
-    if (!canAccessDashboard(appUser?.role))
+    const member = await getMemberByFtConnectionId(session.user.id);
+    if (!canAccessDashboard(member?.role))
       return NextResponse.redirect(new URL("/", request.url));
   }
 }

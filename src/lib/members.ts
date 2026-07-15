@@ -1,90 +1,90 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type UserRole = "owner" | "admin" | "member" | "visitor";
+export type MemberRole = "owner" | "admin" | "visitor";
 
-export type AppUser = {
+export type AppMember = {
   id: number;
   name: string;
   ft_connection: number | null;
-  role: UserRole;
+  role: MemberRole;
 };
 
-const USER_COLUMNS = "id, name, ft_connection, role";
+const MEMBER_COLUMNS = "id, name, ft_connection, role";
 
-export async function ensureUserFromFtConnection(params: {
+export async function ensureMemberFromFtConnection(params: {
   ftConnectionId: number;
   name: string;
-}): Promise<AppUser | null> {
+}): Promise<AppMember | null> {
   const supabase = await createClient();
   const { ftConnectionId, name } = params;
 
   const { data: existing, error: selectError } = await supabase
-    .from("users")
-    .select(USER_COLUMNS)
+    .from("members")
+    .select(MEMBER_COLUMNS)
     .eq("ft_connection", ftConnectionId)
     .maybeSingle();
 
   if (selectError) {
-    console.error("Error fetching user:", selectError);
+    console.error("Error fetching member:", selectError);
     return null;
   }
 
   if (existing) {
     if (existing.name !== name) {
       const { data: updated, error: updateError } = await supabase
-        .from("users")
+        .from("members")
         .update({ name })
         .eq("id", existing.id)
-        .select(USER_COLUMNS)
+        .select(MEMBER_COLUMNS)
         .single();
 
       if (updateError) {
-        console.error("Error updating user name:", updateError);
-        return existing as AppUser;
+        console.error("Error updating member name:", updateError);
+        return existing as AppMember;
       }
 
-      return updated as AppUser;
+      return updated as AppMember;
     }
 
-    return existing as AppUser;
+    return existing as AppMember;
   }
 
   const { data: created, error: insertError } = await supabase
-    .from("users")
+    .from("members")
     .insert({
       name,
       ft_connection: ftConnectionId,
       role: "visitor",
     })
-    .select(USER_COLUMNS)
+    .select(MEMBER_COLUMNS)
     .single();
 
   if (insertError) {
-    console.error("Error creating user:", insertError);
+    console.error("Error creating member:", insertError);
     return null;
   }
 
-  return created as AppUser;
+  return created as AppMember;
 }
 
-export async function getUserByFtConnectionId(
+export async function getMemberByFtConnectionId(
   ftConnectionId: string | number,
-): Promise<AppUser | null> {
+): Promise<AppMember | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("members")
-    .select(USER_COLUMNS)
+    .select(MEMBER_COLUMNS)
     .eq("ft_connection", Number(ftConnectionId))
     .maybeSingle();
 
   if (error) {
-    console.error("Error fetching user by ft_connection:", error);
+    console.error("Error fetching member by ft_connection:", error);
     return null;
   }
 
-  return (data as AppUser | null) ?? null;
+  return (data as AppMember | null) ?? null;
 }
 
-export function canAccessDashboard(role: UserRole | null | undefined) {
+export function canAccessDashboard(role: MemberRole | null | undefined) {
   return role === "owner";
 }

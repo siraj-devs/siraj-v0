@@ -38,13 +38,13 @@ interface SessionData {
   accessToken: string
 }
 
-type UserRole = "owner" | "admin" | "member" | "visitor"
+type MemberRole = "owner" | "admin" | "visitor"
 
-interface AppUser {
+interface AppMember {
   id: number
   name: string
   ft_connection: number | null
-  role: UserRole
+  role: MemberRole
 }
 
 interface HijriDay {

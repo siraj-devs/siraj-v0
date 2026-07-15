@@ -7,8 +7,8 @@ import {
 import { getSession } from "@/lib/session";
 import {
   canAccessDashboard,
-  getUserByFtConnectionId,
-} from "@/lib/users";
+  getMemberByFtConnectionId,
+} from "@/lib/members";
 import { NextRequest, NextResponse } from "next/server";
 
 export type PoolerProfileResponse = {
@@ -74,7 +74,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const appUser = await getUserByFtConnectionId(session.user.id);
+  const appUser = await getMemberByFtConnectionId(session.user.id);
   if (!canAccessDashboard(appUser?.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

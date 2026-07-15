@@ -21,9 +21,9 @@ import { toast } from "sonner";
 interface UserData {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   login: string;
-  image?: string;
+  image?: string | null;
 }
 
 export function JoinForm({ userData }: { userData?: UserData }) {

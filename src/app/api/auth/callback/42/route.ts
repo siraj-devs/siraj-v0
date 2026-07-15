@@ -1,6 +1,6 @@
+import { ensureMemberFromFtConnection } from "@/lib/members";
 import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
 import { createClient } from "@/lib/supabase/server";
-import { ensureUserFromFtConnection } from "@/lib/users";
 import { NextRequest, NextResponse } from "next/server";
 
 enum FtError {
@@ -53,12 +53,12 @@ async function ft_connection(data: FtData): Promise<FtError | null> {
 
   if (authorizedUpdateError) return FtError.UPDATE_FAILED;
 
-  const appUser = await ensureUserFromFtConnection({
+  const member = await ensureMemberFromFtConnection({
     ftConnectionId: data.id,
     name: data.displayname,
   });
 
-  if (!appUser) return FtError.USER_FAILED;
+  if (!member) return FtError.USER_FAILED;
 
   return null;
 }
