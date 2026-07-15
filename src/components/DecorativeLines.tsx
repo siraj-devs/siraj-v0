@@ -1,22 +1,31 @@
-export default function DecorativeLines({ title }: { title: string }) {
+import { Rosette } from "@/components/islamic-motif";
+import { toArabicIndic } from "@/lib/utils";
+
+export default function DecorativeLines({
+  title,
+  index,
+  eyebrow,
+}: {
+  title: string;
+  index?: number;
+  eyebrow?: string;
+}) {
   return (
-    <div className="relative">
-      {/* Line 1 */}
-      <div className="absolute top-0 right-0 left-0 flex items-center">
-        <div className="h-0.5 w-4/6 bg-gray-400/40"></div>
-        <div className="h-5 w-5 shrink-0 rounded-full border-2 border-gray-400/40"></div>
+    <div className="flex flex-col items-center gap-4 text-center">
+      {(eyebrow || index !== undefined) && (
+        <span className="font-kufam text-sm text-primary/70">
+          {index !== undefined && `${index} — `}
+          {eyebrow}
+        </span>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="h-px w-10 bg-primary/30 md:w-16" />
+        <Rosette className="size-4 text-primary/50" />
+        <span className="h-px w-10 bg-primary/30 md:w-16" />
       </div>
-
-      {/* Center text */}
-      <div className="relative z-10 mt-2 py-8 text-center">
-        <h1 className="text-4xl font-semibold font-kufam text-foreground">{title}</h1>
-      </div>
-
-      {/* Line 2 */}
-      <div className="absolute right-0 bottom-0 left-0 flex items-center justify-end">
-        <div className="h-5 w-5 shrink-0 rounded-full border-2 border-gray-400/40"></div>
-        <div className="h-0.5 w-4/6 bg-gray-400/40"></div>
-      </div>
+      <h2 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+        {title}
+      </h2>
     </div>
   );
 }

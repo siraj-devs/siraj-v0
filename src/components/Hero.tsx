@@ -1,20 +1,16 @@
-// import { Button } from "@/components/ui/button";
-// import Link from "next/link";
-
 export function Hero() {
   return (
-    <section className="text-center">
-      {/* Small badge */}
-      <p className="mb-8 inline-block rounded-full border border-primary/30 px-4 py-1.5 text-sm text-primary">
+    <section className="relative flex pt-24 lg:pt-32 flex-col items-center justify-center overflow-hidden text-center">
+      <p className="mb-8 inline-block animate-[fade-up_0.6s_ease-out] rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary">
         نادي طلابي
       </p>
 
-      {/* Main heading with Arabic calligraphy style */}
       <svg
-        className="mx-auto mb-6 size-56"
+        className="mx-auto mb-8 size-48 animate-[fade-up_0.7s_ease-out_0.05s_both] drop-shadow-sm md:size-56 lg:size-64"
         viewBox="0 0 448 437"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
+        aria-label="سراج"
       >
         <path
           d="M255.773 263.391L262.073 241.991L355.333 205.301L346.273 225.481L255.773 263.391Z"
@@ -50,24 +46,19 @@ export function Hero() {
         />
       </svg>
 
-      {/* Quranic verse */}
-      <div>
+      <div className="animate-[fade-up_0.8s_ease-out_0.12s_both]">
         <p className="font-amiri">
-          <span className="mb-2 text-xl text-foreground/80 md:text-2xl">
+          <span className="text-xl text-foreground/85 md:text-2xl lg:text-3xl">
             ﴿ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ ﴾
           </span>
-          <span className="mr-1 text-xs font-light text-muted-foreground">
-            {"[العصر:3]"}
+          <span className="mr-2 text-xs font-light text-muted-foreground">
+            [العصر:3]
           </span>
         </p>
+        <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-foreground/60 md:text-lg">
+          إحياء الصلة بالله، وبناء طالب يحمل رسالة الإسلام علماً وعملاً
+        </p>
       </div>
-
-      {/* CTA Button */}
-      {/* <Link href="/join">
-        <Button size="lg">
-          تقديم طلب الانضمام
-        </Button>
-      </Link> */}
     </section>
   );
 }

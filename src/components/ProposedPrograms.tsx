@@ -1,62 +1,86 @@
+import { Rosette } from "@/components/islamic-motif";
+import { toArabicIndic } from "@/lib/utils";
 import Image from "next/image";
 
 function ProposedProgram({
+  index,
   imageSrc,
   title,
   description,
 }: {
+  index: number;
   imageSrc: string;
   title: string;
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-gray-300/50 bg-white/10 px-8 py-28 shadow-md backdrop-blur-md">
-      <div className="mb-10">
+    <div className="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-border/80 bg-background/60 px-6 py-12 text-center shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_18px_60px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] md:px-8 md:py-14">
+      <Rosette className="pointer-events-none absolute -right-6 -bottom-6 size-28 text-primary/5 transition-transform duration-500 group-hover:rotate-12" />
+
+      <span className="mb-6 font-kufam text-sm text-primary/50">
+        {toArabicIndic(index)}
+      </span>
+
+      <div className="relative mb-8">
+        <div
+          aria-hidden
+          className="absolute inset-0 scale-125 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in oklch, var(--primary) 35%, transparent) 0%, transparent 70%)",
+          }}
+        />
         <Image
-          width={900}
-          height={900}
+          width={140}
+          height={140}
           src={imageSrc}
           alt={title}
-          className="h-35 w-35 rounded-full border"
+          className="relative size-28 rounded-full border border-primary/20 object-cover transition-transform duration-300 group-hover:scale-105 md:size-32"
         />
       </div>
-      <h2 className="mb-2 font-kufam text-3xl font-medium text-foreground">
+      <h3 className="relative mb-3 font-kufam text-2xl font-medium text-foreground md:text-3xl">
         {title}
-      </h2>
-      <p className="max-w-xl text-center text-xl text-foreground/80">
+      </h3>
+      <p className="relative max-w-sm text-base leading-8 text-foreground/70 md:text-lg">
         {description}
       </p>
     </div>
   );
 }
 
+const programs = [
+  {
+    imageSrc: "/image1.svg",
+    title: "البناء المنهجي",
+    description:
+      "برنامج تعليمي منهجي يهدف إلى تجاوز الشتات المعرفي عبر خطة منهجية طويلة الأمد تجمع بين التأصيل الشرعي والبناء الفكري والسلوكي.",
+  },
+  {
+    imageSrc: "/image1.svg",
+    title: "صناعة عقل",
+    description:
+      "صناعة عقول المصلحين عبر استنباط وبيان معالم الإصلاح من قصص الأنبياء، وقصص القرآن، والسيرة النبوية، والتجارب الإصلاحية، الأعمال الإسلامية.",
+  },
+  {
+    imageSrc: "/image4.svg",
+    title: "قادة الفكر",
+    description:
+      "برنامج فكري نخبوي لقراءة ومناقشة كتب أبرز مفكري الإسلام ممن اجتمعت فيهم قوة العقل وجودة العمل. يهدف للتعرف على طريقة تحليل الواقع المعقد وتكييفه وتنزيل النصوص.",
+  },
+  {
+    imageSrc: "/image4.svg",
+    title: "التأصيل العلمي",
+    description:
+      "يهدف البرنامج إلى التأصيل العلمي الأوّلي في عشرة علوم شرعية أساسية، بما يمثل لطالب العلم قاعدة يمكن له البناء عليها والارتقاء من خلالها في مدارج العلم والتحصيل.",
+  },
+];
+
 export default function ProposedPrograms() {
   return (
-    <>
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          <ProposedProgram
-            imageSrc="/image1.svg"
-            title="البناء المنهجي"
-            description="برنامج تعليمي منهجي يهدف إلى تجاوز الشتات المعرفي عبر خطة منهجية طويلة الأمد تجمع بين التأصيل الشرعي والبناء الفكري والسلوكي."
-          />
-          <ProposedProgram
-            imageSrc="/image2.svg"
-            title="صناعة عقل"
-            description="صناعة عقول المصلحين عبر استنباط وبيان معالم الإصلاح من قصص الأنبياء، وقصص القرآن، والسيرة النبوية، والتجارب الإصلاحية، الأعمال الإسلامية."
-          />
-          <ProposedProgram
-            imageSrc="/image3.svg"
-            title="قادة الفكر"
-            description="برنامج فكري نخبوي لقراءة ومناقشة كتب أبرز مفكري الإسلام ممن اجتمعت فيهم قوة العقل وجودة العمل. يهدف للتعرف على طريقة تحليل الواقع المعقد وتكييفه وتنزيل النصوص."
-          />
-          <ProposedProgram
-            imageSrc="/image4.svg"
-            title="التأصيل العلمي"
-            description="يهدف البرنامج إلى التأصيل العلمي الأوّلي في عشرة علوم شرعية أساسية، بما يمثل لطالب العلم قاعدة يمكن له البناء عليها والارتقاء من خلالها في مدارج العلم والتحصيل."
-          />
-        </div>
-      </div>
-    </>
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
+      {programs.map((program, i) => (
+        <ProposedProgram key={program.title} index={i + 1} {...program} />
+      ))}
+    </div>
   );
 }
