@@ -9,7 +9,7 @@ export default function Layout({
   return (
     <>
       <Header />
-      <main className="mt-[73px] flex min-h-[90vh] flex-col justify-center py-8">
+      <main className="mx-auto mt-[73px] flex min-h-[90vh] w-full max-w-7xl flex-col justify-center px-4 py-8">
         {children}
       </main>
       <Footer />
