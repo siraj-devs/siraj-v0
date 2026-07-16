@@ -25,7 +25,7 @@ export function getDiscordAvatarUrl(
   }
 
   try {
-    const index = Number(BigInt(id) % 6n);
+    const index = Number(BigInt(id) % BigInt(6));
     return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
   } catch {
     return null;
