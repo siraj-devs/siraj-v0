@@ -1,4 +1,3 @@
-import { ensureMemberFromFtConnection } from "@/lib/members";
 import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -6,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 enum FtError {
   CONNECTION_FAILED = "connection_failed",
   UPDATE_FAILED = "update_failed",
-  USER_FAILED = "user_failed",
 }
 
 type FtData = {
@@ -52,13 +50,6 @@ async function ft_connection(data: FtData): Promise<FtError | null> {
     .is("authorized_at", null);
 
   if (authorizedUpdateError) return FtError.UPDATE_FAILED;
-
-  const member = await ensureMemberFromFtConnection({
-    ftConnectionId: data.id,
-    name: data.displayname,
-  });
-
-  if (!member) return FtError.USER_FAILED;
 
   return null;
 }

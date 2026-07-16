@@ -28,7 +28,7 @@ export default function BackEndPage() {
               الفرق
             </Link>
             <Link
-              href="/dashboard/back-end/members"
+              href="/dashboard/members"
               className="text-foreground transition-colors hover:text-primary"
             >
               الأعضاء
