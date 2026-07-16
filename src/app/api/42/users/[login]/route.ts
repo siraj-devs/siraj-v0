@@ -6,8 +6,8 @@ import {
 } from "@/lib/oauth";
 import { getSession } from "@/lib/session";
 import {
-  canAccessDashboard,
-  getMemberByFtConnectionId,
+  canManageMembers,
+  getMemberForSession,
 } from "@/lib/members";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -74,8 +74,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const appUser = await getMemberByFtConnectionId(session.user.id);
-  if (!canAccessDashboard(appUser?.role)) {
+  const appUser = await getMemberForSession(session);
+  if (!canManageMembers(appUser?.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

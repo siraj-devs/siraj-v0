@@ -1,6 +1,32 @@
-import { canAccessDashboard, getMemberByFtConnectionId } from "@/lib/members";
+import {
+  canAccessDashboard,
+  canAccessDashboardPath,
+  getMemberForSession,
+} from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+
+function readSessionCookie(request: NextRequest): SessionData | null {
+  const ft = request.cookies.get("42-session");
+  if (ft) {
+    try {
+      return { ...JSON.parse(ft.value), provider: "42" as const };
+    } catch {
+      return null;
+    }
+  }
+
+  const dc = request.cookies.get("dc-session");
+  if (dc) {
+    try {
+      return { ...JSON.parse(dc.value), provider: "discord" as const };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
 
 export async function proxy(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
@@ -21,19 +47,16 @@ export async function proxy(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname.startsWith("/dashboard")) {
-    if (!request.cookies.has("42-session"))
+    const session = readSessionCookie(request);
+    if (!session)
       return NextResponse.redirect(new URL("/login", request.url));
 
-    let session: SessionData;
-    try {
-      session = JSON.parse(request.cookies.get("42-session")!.value);
-    } catch {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    const member = await getMemberByFtConnectionId(session.user.id);
+    const member = await getMemberForSession(session);
     if (!canAccessDashboard(member?.role))
       return NextResponse.redirect(new URL("/", request.url));
+
+    if (!canAccessDashboardPath(member?.role, request.nextUrl.pathname))
+      return NextResponse.redirect(new URL("/dashboard/members", request.url));
   }
 }
 

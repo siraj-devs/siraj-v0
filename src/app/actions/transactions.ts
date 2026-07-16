@@ -2,7 +2,7 @@
 
 import {
   canAccessDashboard,
-  getMemberByFtConnectionId,
+  getMemberForSession,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +22,7 @@ async function requireDashboardMember() {
   const session = await getSession();
   if (!session) throw new Error("غير مصرح");
 
-  const member = await getMemberByFtConnectionId(session.user.id);
+  const member = await getMemberForSession(session);
   if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
 
   return { session, member };

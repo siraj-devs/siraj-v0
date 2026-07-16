@@ -1,19 +1,21 @@
 "use client";
 
-import LoginButton from "@/components/login-button";
 import { Logo } from "@/components/logo";
 import { UserMenu } from "@/components/user-menu";
+import { Button } from "@/components/ui/button";
+import type { MemberRole } from "@/lib/members";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const links = [
-  { href: "/", label: "الرئيسية" },
-] as const;
+const links = [{ href: "/", label: "الرئيسية" }] as const;
 
 type SiteHeaderProps = {
   isLoggedIn: boolean;
-  user: (SessionData["user"] & { isAdmin: boolean }) | null;
+  user: (SessionData["user"] & {
+    isAdmin: boolean;
+    role: MemberRole | null;
+  }) | null;
 };
 
 export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
@@ -32,12 +34,6 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
     };
   }, [open]);
 
-  const auth = !isLoggedIn ? (
-    <LoginButton varient="secondary" size="sm" />
-  ) : (
-    <UserMenu user={user} />
-  );
-
   return (
     <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 lg:grid lg:grid-cols-3">
@@ -47,7 +43,6 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
           </Link>
         </div>
 
-        {/* Desktop nav */}
         <nav className="hidden justify-center gap-8 text-base lg:flex">
           {links.map((link) => (
             <Link
@@ -60,22 +55,28 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
           ))}
         </nav>
 
-        <div className="hidden justify-end lg:flex">{auth}</div>
+        <div className="flex items-center justify-end gap-2">
+          {isLoggedIn ? (
+            <UserMenu user={user} />
+          ) : (
+            <Button asChild variant="secondary" size="sm" className="hidden lg:inline-flex">
+              <Link href="/login">تسجيل الدخول</Link>
+            </Button>
+          )}
 
-        {/* Mobile / tablet toggle */}
-        <button
-          type="button"
-          className="flex size-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted lg:hidden"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
-          onClick={() => setOpen((prev) => !prev)}
-        >
-          {open ? <X className="size-6" /> : <Menu className="size-6" />}
-        </button>
+          <button
+            type="button"
+            className="flex size-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted lg:hidden"
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            {open ? <X className="size-6" /> : <Menu className="size-6" />}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile / tablet menu */}
       {open && (
         <>
           <div
@@ -100,7 +101,15 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
                   </Link>
                 ))}
               </nav>
-              <div className="border-t border-border pt-4">{auth}</div>
+              {!isLoggedIn && (
+                <div className="border-t border-border pt-4">
+                  <Button asChild variant="secondary" className="w-full">
+                    <Link href="/login" onClick={() => setOpen(false)}>
+                      تسجيل الدخول
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </>

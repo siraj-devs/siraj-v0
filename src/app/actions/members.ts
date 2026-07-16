@@ -3,7 +3,7 @@
 import {
   canAccessDashboard,
   canManageMembers,
-  getMemberByFtConnectionId,
+  getMemberForSession,
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
@@ -14,6 +14,8 @@ import { revalidatePath } from "next/cache";
 export type MemberProfile = AppMember & {
   login: string | null;
   avatar: string | null;
+  dc_username: string | null;
+  dc_avatar: string | null;
 };
 
 export type FtConnectionOption = {
@@ -23,13 +25,20 @@ export type FtConnectionOption = {
   avatar: string | null;
 };
 
-const ROLE_VALUES: MemberRole[] = ["owner", "admin", "visitor"];
+export type DcConnectionOption = {
+  id: string;
+  username: string;
+  email: string | null;
+  avatar: string | null;
+};
+
+const ROLE_VALUES: MemberRole[] = ["owner", "admin", "veteran", "visitor"];
 
 async function requireDashboardAccess() {
   const session = await getSession();
   if (!session) throw new Error("غير مصرح");
 
-  const member = await getMemberByFtConnectionId(session.user.id);
+  const member = await getMemberForSession(session);
   if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
 
   return { session, member };
@@ -53,7 +62,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
   const { data, error } = await supabase
     .from("members")
     .select(
-      "id, name, role, ft_connection, ft_connections(login, avatar)",
+      "id, name, role, ft_connection, dc_connection, ft_connections(login, avatar), dc_connections(username, avatar)",
     )
     .order("role", { ascending: true })
     .order("name", { ascending: true });
@@ -64,17 +73,23 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
   }
 
   return (data ?? []).map((row) => {
-    const connection = Array.isArray(row.ft_connections)
+    const ft = Array.isArray(row.ft_connections)
       ? row.ft_connections[0]
       : row.ft_connections;
+    const dc = Array.isArray(row.dc_connections)
+      ? row.dc_connections[0]
+      : row.dc_connections;
 
     return {
       id: row.id,
       name: row.name,
       role: row.role as MemberRole,
       ft_connection: row.ft_connection,
-      login: connection?.login ?? null,
-      avatar: connection?.avatar ?? null,
+      dc_connection: row.dc_connection,
+      login: ft?.login ?? null,
+      avatar: ft?.avatar ?? dc?.avatar ?? null,
+      dc_username: dc?.username ?? null,
+      dc_avatar: dc?.avatar ?? null,
     };
   });
 }
@@ -91,7 +106,7 @@ export async function getAvailableFtConnections(
     .not("ft_connection", "is", null);
 
   if (membersError) {
-    console.error("Error fetching linked connections:", membersError);
+    console.error("Error fetching linked ft connections:", membersError);
     throw new Error("تعذر جلب الاتصالات");
   }
 
@@ -121,10 +136,55 @@ export async function getAvailableFtConnections(
     }));
 }
 
+export async function getAvailableDcConnections(
+  currentConnectionId?: string | null,
+): Promise<DcConnectionOption[]> {
+  await requireOwner();
+  const supabase = await createClient();
+
+  const { data: members, error: membersError } = await supabase
+    .from("members")
+    .select("dc_connection")
+    .not("dc_connection", "is", null);
+
+  if (membersError) {
+    console.error("Error fetching linked dc connections:", membersError);
+    throw new Error("تعذر جلب اتصالات Discord");
+  }
+
+  const linkedIds = new Set(
+    (members ?? [])
+      .map((m) => m.dc_connection as string | null)
+      .filter(
+        (id): id is string => id != null && id !== currentConnectionId,
+      ),
+  );
+
+  const { data: connections, error } = await supabase
+    .from("dc_connections")
+    .select("id, username, email, avatar")
+    .order("username", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching dc_connections:", error);
+    throw new Error("تعذر جلب اتصالات Discord");
+  }
+
+  return (connections ?? [])
+    .filter((c) => !linkedIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      username: c.username,
+      email: c.email,
+      avatar: c.avatar,
+    }));
+}
+
 export async function createMember(input: {
   name: string;
   role: MemberRole;
   ft_connection?: number | null;
+  dc_connection?: string | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     await requireOwner();
@@ -132,6 +192,7 @@ export async function createMember(input: {
     const name = input.name?.trim();
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
+    const dc_connection = input.dc_connection?.trim() || null;
 
     if (!name) return { success: false, error: "الاسم مطلوب" };
     if (!ROLE_VALUES.includes(role))
@@ -142,6 +203,7 @@ export async function createMember(input: {
       name,
       role,
       ft_connection,
+      dc_connection,
     });
 
     if (error) {
@@ -163,6 +225,7 @@ export async function updateMember(input: {
   name: string;
   role: MemberRole;
   ft_connection?: number | null;
+  dc_connection?: string | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const { member: current } = await requireOwner();
@@ -171,6 +234,7 @@ export async function updateMember(input: {
     const name = input.name?.trim();
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
+    const dc_connection = input.dc_connection?.trim() || null;
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
@@ -188,7 +252,7 @@ export async function updateMember(input: {
     const supabase = await createClient();
     const { error } = await supabase
       .from("members")
-      .update({ name, role, ft_connection })
+      .update({ name, role, ft_connection, dc_connection })
       .eq("id", id);
 
     if (error) {

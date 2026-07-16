@@ -1,18 +1,19 @@
 import Link from "next/link";
+import { getSession } from "@/lib/session";
 import { Logo } from "./logo";
 
-export function Footer() {
+export async function Footer() {
+  const session = await getSession();
+
   return (
     <footer className="mt-auto border-t border-border bg-background py-12">
       <div className="mx-auto w-full max-w-7xl px-4">
-        {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Link href="/">
             <Logo className="size-12" />
           </Link>
         </div>
 
-        {/* Navigation links */}
         <nav className="mb-8 flex flex-wrap justify-center gap-6 text-sm md:gap-8 md:text-base">
           <Link
             href="/"
@@ -20,9 +21,16 @@ export function Footer() {
           >
             الرئيسية
           </Link>
+          {!session && (
+            <Link
+              href="/login"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              تسجيل الدخول
+            </Link>
+          )}
         </nav>
 
-        {/* Instagram icon */}
         <div className="mb-8 flex justify-center gap-4">
           <Link
             href="https://instagram.com/siraj_1337"
@@ -60,10 +68,12 @@ export function Footer() {
           </Link>
         </div>
 
-        {/* Copyright and credits */}
         <p className="flex items-center justify-between text-xs text-muted-foreground md:text-sm">
           <span>© 2026 سراج</span>
-          <span>صمم من طرف <Link href="https://github.com/siraj-devs">sirajdevs</Link></span>
+          <span>
+            صمم من طرف{" "}
+            <Link href="https://github.com/siraj-devs">sirajdevs</Link>
+          </span>
         </p>
       </div>
     </footer>

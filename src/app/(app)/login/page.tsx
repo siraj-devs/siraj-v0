@@ -14,10 +14,13 @@ export default async function Page() {
         </h1>
 
         <p className="mb-2 text-base leading-relaxed text-muted-foreground lg:text-lg">
-          سجل دخولك باستخدام حساب 42 للانضمام إلى النادي.
+          سجل دخولك باستخدام حساب 42 أو Discord للانضمام إلى النادي.
         </p>
       </div>
-      <LoginButton />
+      <div className="flex w-full max-w-sm flex-col gap-3">
+        <LoginButton provider="42" />
+        <LoginButton provider="discord" varient="secondary" />
+      </div>
     </div>
   );
 }

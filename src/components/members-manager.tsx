@@ -4,6 +4,7 @@ import {
   createMember,
   deleteMember,
   updateMember,
+  type DcConnectionOption,
   type FtConnectionOption,
   type MemberProfile,
 } from "@/app/actions/members";
@@ -21,6 +22,7 @@ import { toast } from "sonner";
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: "مالك",
   admin: "مشرف",
+  veteran: "مخضرم",
   visitor: "عضو",
 };
 
@@ -38,6 +40,11 @@ const ROLE_STYLES: Record<
     accent: "from-primary/20 to-transparent",
     ring: "ring-primary/45",
   },
+  veteran: {
+    badge: "bg-sky-500/10 text-sky-800 ring-sky-500/20",
+    accent: "from-sky-500/15 to-transparent",
+    ring: "ring-sky-400/40",
+  },
   visitor: {
     badge: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20",
     accent: "from-emerald-500/12 to-transparent",
@@ -49,12 +56,14 @@ type MemberFormState = {
   name: string;
   role: MemberRole;
   ft_connection: string;
+  dc_connection: string;
 };
 
 const emptyForm: MemberFormState = {
   name: "",
   role: "visitor",
   ft_connection: "",
+  dc_connection: "",
 };
 
 type RoleFilter = "all" | MemberRole;
@@ -68,12 +77,14 @@ function initials(name: string) {
 
 export function MembersManager({
   members,
-  connections,
+  ftConnections,
+  dcConnections,
   canManage,
   currentMemberId,
 }: {
   members: MemberProfile[];
-  connections: FtConnectionOption[];
+  ftConnections: FtConnectionOption[];
+  dcConnections: DcConnectionOption[];
   canManage: boolean;
   currentMemberId: number | null;
 }) {
@@ -106,7 +117,7 @@ export function MembersManager({
         acc[m.role] += 1;
         return acc;
       },
-      { all: 0, owner: 0, admin: 0, visitor: 0 },
+      { all: 0, owner: 0, admin: 0, veteran: 0, visitor: 0 },
     );
   }, [members]);
 
@@ -117,17 +128,18 @@ export function MembersManager({
       if (!q) return true;
       return (
         m.name.toLowerCase().includes(q) ||
-        (m.login?.toLowerCase().includes(q) ?? false)
+        (m.login?.toLowerCase().includes(q) ?? false) ||
+        (m.dc_username?.toLowerCase().includes(q) ?? false)
       );
     });
   }, [members, query, roleFilter]);
 
   const editingMember = members.find((m) => m.id === editingId) ?? null;
 
-  const connectionOptions =
+  const ftOptions =
     modal === "edit" && editingMember?.ft_connection
       ? [
-          ...connections.filter((c) => c.id !== editingMember.ft_connection),
+          ...ftConnections.filter((c) => c.id !== editingMember.ft_connection),
           ...(editingMember.login
             ? [
                 {
@@ -139,7 +151,24 @@ export function MembersManager({
               ]
             : []),
         ].sort((a, b) => a.login.localeCompare(b.login))
-      : connections;
+      : ftConnections;
+
+  const dcOptions =
+    modal === "edit" && editingMember?.dc_connection
+      ? [
+          ...dcConnections.filter((c) => c.id !== editingMember.dc_connection),
+          ...(editingMember.dc_username
+            ? [
+                {
+                  id: editingMember.dc_connection,
+                  username: editingMember.dc_username,
+                  email: null,
+                  avatar: editingMember.dc_avatar,
+                } satisfies DcConnectionOption,
+              ]
+            : []),
+        ].sort((a, b) => a.username.localeCompare(b.username))
+      : dcConnections;
 
   function openCreate() {
     if (!canManage) return;
@@ -155,6 +184,7 @@ export function MembersManager({
       name: member.name,
       role: member.role,
       ft_connection: member.ft_connection ? String(member.ft_connection) : "",
+      dc_connection: member.dc_connection ?? "",
     });
     setEditingId(member.id);
     setModal("edit");
@@ -175,6 +205,7 @@ export function MembersManager({
       name: form.name,
       role: form.role,
       ft_connection: form.ft_connection ? Number(form.ft_connection) : null,
+      dc_connection: form.dc_connection || null,
     };
 
     startTransition(async () => {
@@ -214,12 +245,12 @@ export function MembersManager({
     { key: "all", label: "الكل" },
     { key: "owner", label: "مالك" },
     { key: "admin", label: "مشرف" },
+    { key: "veteran", label: "مخضرم" },
     { key: "visitor", label: "عضو" },
   ];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
-      {/* Header */}
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="space-y-3">
@@ -228,24 +259,28 @@ export function MembersManager({
               الأعضاء
             </h1>
             <p className="max-w-lg text-foreground/65">
-              عرض أعضاء نادي سراج، أدوارهم، وحساباتهم على 42.
+              عرض أعضاء نادي سراج، أدوارهم، وربط حسابات 42 و Discord.
             </p>
           </div>
 
           {canManage && (
-            <Button onClick={openCreate} className="shrink-0 gap-2 self-start md:self-auto">
+            <Button
+              onClick={openCreate}
+              className="shrink-0 gap-2 self-start md:self-auto"
+            >
               <Plus className="size-4" />
               عضو جديد
             </Button>
           )}
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {(
             [
               ["all", "الإجمالي", counts.all],
               ["owner", "مالك", counts.owner],
               ["admin", "مشرف", counts.admin],
+              ["veteran", "مخضرم", counts.veteran],
               ["visitor", "عضو", counts.visitor],
             ] as const
           ).map(([key, label, value]) => (
@@ -260,22 +295,19 @@ export function MembersManager({
               }`}
             >
               <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="mt-1 font-kufam text-2xl text-foreground">
-                {value}
-              </p>
+              <p className="mt-1 font-kufam text-2xl text-foreground">{value}</p>
             </button>
           ))}
         </div>
       </header>
 
-      {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-sm">
           <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث بالاسم أو login…"
+            placeholder="ابحث بالاسم أو 42 أو Discord…"
             className="pr-10"
           />
         </div>
@@ -298,7 +330,6 @@ export function MembersManager({
         </div>
       </div>
 
-      {/* Grid */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((member) => {
@@ -389,20 +420,31 @@ export function MembersManager({
                     {ROLE_LABELS[member.role]}
                   </span>
 
-                  {member.login ? (
-                    <Link
-                      href={`https://profile.intra.42.fr/users/${member.login}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-auto font-mono text-xs text-muted-foreground transition hover:text-primary"
-                    >
-                      @{member.login}
-                    </Link>
-                  ) : (
-                    <span className="mt-auto text-xs text-muted-foreground/50">
-                      غير مربوط بـ 42
-                    </span>
-                  )}
+                  <div className="mt-auto flex flex-col items-center gap-1">
+                    {member.login ? (
+                      <Link
+                        href={`https://profile.intra.42.fr/users/${member.login}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs text-muted-foreground transition hover:text-primary"
+                      >
+                        42/@{member.login}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">
+                        بدون 42
+                      </span>
+                    )}
+                    {member.dc_username ? (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        DC/@{member.dc_username}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">
+                        بدون Discord
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             );
@@ -428,7 +470,6 @@ export function MembersManager({
         </div>
       )}
 
-      {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="absolute inset-0" onClick={closeModal} aria-hidden />
@@ -442,7 +483,7 @@ export function MembersManager({
                   {modal === "create" ? "إضافة عضو" : "تعديل عضو"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  حدّد الاسم والدور واربط حساب 42 إن وُجد.
+                  حدّد الاسم والدور واربط حساب 42 و/أو Discord.
                 </p>
               </div>
               <button
@@ -471,21 +512,23 @@ export function MembersManager({
 
             <div className="space-y-2">
               <Label>الدور</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["visitor", "admin", "owner"] as MemberRole[]).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, role }))}
-                    className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                      form.role === role
-                        ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                        : "border-border text-muted-foreground hover:border-border hover:bg-muted/50"
-                    }`}
-                  >
-                    {ROLE_LABELS[role]}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(["visitor", "veteran", "admin", "owner"] as MemberRole[]).map(
+                  (role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, role }))}
+                      className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                        form.role === role
+                          ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                          : "border-border text-muted-foreground hover:border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      {ROLE_LABELS[role]}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
@@ -503,10 +546,33 @@ export function MembersManager({
                 className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <option value="">بدون ربط</option>
-                {connectionOptions.map((c) => (
+                {ftOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.login}
                     {c.name ? ` — ${c.name}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="member-dc">حساب Discord</Label>
+              <select
+                id="member-dc"
+                value={form.dc_connection}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    dc_connection: e.target.value,
+                  }))
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <option value="">بدون ربط</option>
+                {dcOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.username}
+                    {c.email ? ` — ${c.email}` : ""}
                   </option>
                 ))}
               </select>

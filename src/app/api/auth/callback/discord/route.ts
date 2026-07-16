@@ -1,55 +1,54 @@
-import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
+import {
+  exchangeDiscordCodeForToken,
+  getDiscordAvatarUrl,
+  getDiscordUserInfo,
+  type DiscordUser,
+} from "@/lib/discord-oauth";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-enum FtError {
+enum DcError {
   CONNECTION_FAILED = "connection_failed",
   UPDATE_FAILED = "update_failed",
 }
 
-type FtData = {
-  id: number;
-  displayname: string;
-  login: string;
-  image?: { link: string };
-};
-
-async function ft_connection(data: FtData): Promise<FtError | null> {
+async function dc_connection(data: DiscordUser): Promise<DcError | null> {
   const supabase = await createClient();
+  const avatar = getDiscordAvatarUrl(data.id, data.avatar);
 
   const { error: supabaseError } = await supabase
-    .from("ft_connections")
+    .from("dc_connections")
     .upsert(
       {
         id: data.id,
-        name: data.displayname,
-        login: data.login,
-        avatar: data.image?.link ?? null,
+        username: data.username,
+        avatar,
+        email: data.email ?? null,
       },
       { onConflict: "id" },
     )
     .select();
 
-  if (supabaseError) return FtError.CONNECTION_FAILED;
+  if (supabaseError) return DcError.CONNECTION_FAILED;
 
   const { error: accessUpdateError } = await supabase
-    .from("ft_connections")
+    .from("dc_connections")
     .update({
       access_at: new Date().toISOString(),
     })
     .eq("id", data.id);
 
-  if (accessUpdateError) return FtError.UPDATE_FAILED;
+  if (accessUpdateError) return DcError.UPDATE_FAILED;
 
   const { error: authorizedUpdateError } = await supabase
-    .from("ft_connections")
+    .from("dc_connections")
     .update({
       authorized_at: new Date().toISOString(),
     })
     .eq("id", data.id)
     .is("authorized_at", null);
 
-  if (authorizedUpdateError) return FtError.UPDATE_FAILED;
+  if (authorizedUpdateError) return DcError.UPDATE_FAILED;
 
   return null;
 }
@@ -70,41 +69,45 @@ export async function GET(request: NextRequest) {
         new URL("/login?error=no_code", request.url),
       );
 
-    const { access_token, expires_in } = await exchangeCodeForToken(code);
+    const { access_token, expires_in } =
+      await exchangeDiscordCodeForToken(code);
 
-    const userInfo = await getUserInfo(access_token);
+    const userInfo = await getDiscordUserInfo(access_token);
     if (!userInfo)
       return NextResponse.redirect(
         new URL("/login?error=user_info_error", request.url),
       );
 
-    const ftError = await ft_connection(userInfo);
-    if (ftError)
+    const dcError = await dc_connection(userInfo);
+    if (dcError)
       return NextResponse.redirect(
-        new URL(`/login?error=${ftError}`, request.url),
+        new URL(`/login?error=${dcError}`, request.url),
       );
+
+    const avatar = getDiscordAvatarUrl(userInfo.id, userInfo.avatar);
 
     const sessionData = {
       user: {
-        id: userInfo.id.toString(),
-        login: userInfo.login,
-        name: userInfo.displayname,
-        image: userInfo.image?.link ?? null,
+        id: userInfo.id,
+        login: userInfo.username,
+        name: userInfo.global_name ?? userInfo.username,
+        email: userInfo.email ?? undefined,
+        image: avatar,
       },
       accessToken: access_token,
-      provider: "42" as const,
+      provider: "discord" as const,
     };
 
     const redirectUrl = state ? decodeURIComponent(state) : "/";
 
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
-    response.cookies.set("42-session", JSON.stringify(sessionData), {
+    response.cookies.set("dc-session", JSON.stringify(sessionData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: expires_in,
     });
-    response.cookies.delete("dc-session");
+    response.cookies.delete("42-session");
     return response;
   } catch {
     return NextResponse.redirect(

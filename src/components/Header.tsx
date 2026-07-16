@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { checkFormCompletionStatus } from "@/lib/form-status";
 import {
   canAccessDashboard,
-  getMemberByFtConnectionId,
+  getMemberForSession,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
 
@@ -10,9 +10,7 @@ export async function Header() {
   const formStatus = await checkFormCompletionStatus();
   const session = await getSession();
 
-  const member = session
-    ? await getMemberByFtConnectionId(session.user.id)
-    : null;
+  const member = session ? await getMemberForSession(session) : null;
 
   return (
     <SiteHeader
@@ -22,6 +20,7 @@ export async function Header() {
           ? {
               ...session.user,
               isAdmin: canAccessDashboard(member?.role),
+              role: member?.role ?? null,
             }
           : null
       }
