@@ -52,7 +52,6 @@ async function requireOwner() {
 
 function revalidateMembers() {
   revalidatePath("/dashboard/members");
-  revalidatePath("/dashboard/back-end/members");
 }
 
 export async function getClubMembers(): Promise<MemberProfile[]> {

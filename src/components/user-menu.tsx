@@ -10,7 +10,6 @@ const OWNER_LINKS = [
   { href: "/dashboard", label: "لوحة التحكم" },
   { href: "/dashboard/calendar", label: "التقويم" },
   { href: "/dashboard/connections", label: "الاتصالات" },
-  { href: "/dashboard/pool", label: "المسبح" },
   { href: "/dashboard/finance", label: "المالية" },
   { href: "/dashboard/members", label: "الأعضاء" },
 ] as const;
