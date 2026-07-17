@@ -14,7 +14,7 @@ export default async function Page() {
         </h1>
 
         <p className="mb-2 text-base leading-relaxed text-muted-foreground lg:text-lg">
-          سجل دخولك باستخدام حساب 42 أو Discord للانضمام إلى النادي.
+          سجل دخولك باستخدام حساب 42 أو ديسكورد للانضمام إلى النادي.
         </p>
       </div>
       <div className="flex w-full max-w-sm flex-col gap-3">

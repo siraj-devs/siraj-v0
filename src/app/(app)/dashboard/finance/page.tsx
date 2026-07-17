@@ -5,7 +5,7 @@ export default async function FinancePage() {
   const transactions = await getTransactions();
 
   return (
-    <div className="px-1 py-6 md:py-10">
+    <div className="py-6 md:py-10">
       <FinanceTracker initialTransactions={transactions} />
     </div>
   );

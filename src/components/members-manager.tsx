@@ -259,7 +259,7 @@ export function MembersManager({
               الأعضاء
             </h1>
             <p className="max-w-lg text-foreground/65">
-              عرض أعضاء نادي سراج، أدوارهم، وربط حسابات 42 و Discord.
+              عرض أعضاء نادي سراج، أدوارهم، وربط حسابات 42 و ديسكورد.
             </p>
           </div>
 
@@ -307,7 +307,7 @@ export function MembersManager({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث بالاسم أو 42 أو Discord…"
+            placeholder="ابحث بالاسم أو 42 أو ديسكورد…"
             className="pr-10"
           />
         </div>
@@ -437,11 +437,11 @@ export function MembersManager({
                     )}
                     {member.dc_username ? (
                       <span className="font-mono text-xs text-muted-foreground">
-                        DC/@{member.dc_username}
+                        ديسكورد/@{member.dc_username}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground/50">
-                        بدون Discord
+                        بدون ديسكورد
                       </span>
                     )}
                   </div>
@@ -483,7 +483,7 @@ export function MembersManager({
                   {modal === "create" ? "إضافة عضو" : "تعديل عضو"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  حدّد الاسم والدور واربط حساب 42 و/أو Discord.
+                  حدّد الاسم والدور واربط حساب 42 و/أو ديسكورد.
                 </p>
               </div>
               <button
@@ -556,7 +556,7 @@ export function MembersManager({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="member-dc">حساب Discord</Label>
+              <Label htmlFor="member-dc">حساب ديسكورد</Label>
               <select
                 id="member-dc"
                 value={form.dc_connection}

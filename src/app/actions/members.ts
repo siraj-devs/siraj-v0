@@ -149,7 +149,7 @@ export async function getAvailableDcConnections(
 
   if (membersError) {
     console.error("Error fetching linked dc connections:", membersError);
-    throw new Error("تعذر جلب اتصالات Discord");
+    throw new Error("تعذر جلب اتصالات ديسكورد");
   }
 
   const linkedIds = new Set(
@@ -167,7 +167,7 @@ export async function getAvailableDcConnections(
 
   if (error) {
     console.error("Error fetching dc_connections:", error);
-    throw new Error("تعذر جلب اتصالات Discord");
+    throw new Error("تعذر جلب اتصالات ديسكورد");
   }
 
   return (connections ?? [])

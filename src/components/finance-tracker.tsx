@@ -9,11 +9,34 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+
+type TypeFilter = "all" | TransactionType;
+
+type TransactionFormState = {
+  due_at: string;
+  amount: string;
+  type: TransactionType;
+  note: string;
+};
+
+function todayInputValue() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const emptyForm = (): TransactionFormState => ({
+  due_at: todayInputValue(),
+  amount: "",
+  type: "income",
+  note: "",
+});
 
 function formatAmount(amount: number) {
   return new Intl.NumberFormat("ar-MA", {
@@ -33,14 +56,6 @@ function formatDate(value: string) {
   });
 }
 
-function todayInputValue() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 export function FinanceTracker({
   initialTransactions,
 }: {
@@ -48,10 +63,19 @@ export function FinanceTracker({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [dueAt, setDueAt] = useState(todayInputValue);
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState<TransactionType>("income");
-  const [note, setNote] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState<TransactionFormState>(emptyForm);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modalOpen]);
 
   const totals = useMemo(() => {
     return initialTransactions.reduce(
@@ -66,14 +90,34 @@ export function FinanceTracker({
 
   const balance = totals.income - totals.expense;
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return initialTransactions.filter((tx) => {
+      if (typeFilter !== "all" && tx.type !== typeFilter) return false;
+      if (!q) return true;
+      return tx.note.toLowerCase().includes(q);
+    });
+  }, [initialTransactions, query, typeFilter]);
+
+  function openCreate() {
+    setForm(emptyForm());
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setForm(emptyForm());
+  }
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+
     startTransition(async () => {
       const result = await createTransaction({
-        due_at: dueAt,
-        amount: Number(amount),
-        type,
-        note,
+        due_at: form.due_at,
+        amount: Number(form.amount),
+        type: form.type,
+        note: form.note,
       });
 
       if (!result.success) {
@@ -82,13 +126,14 @@ export function FinanceTracker({
       }
 
       toast.success("تم تسجيل المعاملة");
-      setAmount("");
-      setNote("");
+      closeModal();
       router.refresh();
     });
   }
 
   function onDelete(id: number) {
+    if (!confirm("هل أنت متأكد من حذف هذه المعاملة؟")) return;
+
     startTransition(async () => {
       const result = await deleteTransaction(id);
       if (!result.success) {
@@ -100,165 +145,296 @@ export function FinanceTracker({
     });
   }
 
+  const filters: { key: TypeFilter; label: string }[] = [
+    { key: "all", label: "الكل" },
+    { key: "income", label: "دخل" },
+    { key: "expense", label: "مصروف" },
+  ];
+
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
-      <header className="space-y-2 text-center md:text-start">
-        <p className="text-sm text-primary">إدارة الصندوق</p>
-        <h1 className="font-kufam text-3xl font-semibold text-foreground md:text-4xl">
-          المالية
-        </h1>
-        <p className="text-foreground/65">
-          تتبّع مداخيل ومصاريف النادي، وسجّل كل معاملة بتاريخ استحقاقها.
-        </p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
+      <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-3">
+            <p className="text-sm text-primary">إدارة الصندوق</p>
+            <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              المالية
+            </h1>
+            <p className="max-w-lg text-foreground/65">
+              تتبّع مداخيل ومصاريف النادي، وسجّل كل معاملة بتاريخ استحقاقها.
+            </p>
+          </div>
+
+          <Button
+            onClick={openCreate}
+            className="shrink-0 gap-2 self-start md:self-auto"
+          >
+            <Plus className="size-4" />
+            معاملة جديدة
+          </Button>
+        </div>
+
+        <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => setTypeFilter("income")}
+            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
+              typeFilter === "income"
+                ? "border-emerald-500/40 bg-background shadow-sm"
+                : "border-transparent bg-background/50 hover:border-border"
+            }`}
+          >
+            <p className="text-xs text-muted-foreground">إجمالي الدخل</p>
+            <p className="mt-1 font-kufam text-2xl text-emerald-700">
+              {formatAmount(totals.income)}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTypeFilter("expense")}
+            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
+              typeFilter === "expense"
+                ? "border-rose-500/40 bg-background shadow-sm"
+                : "border-transparent bg-background/50 hover:border-border"
+            }`}
+          >
+            <p className="text-xs text-muted-foreground">إجمالي المصروف</p>
+            <p className="mt-1 font-kufam text-2xl text-rose-700">
+              {formatAmount(totals.expense)}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTypeFilter("all")}
+            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
+              typeFilter === "all"
+                ? "border-primary/40 bg-background shadow-sm"
+                : "border-transparent bg-background/50 hover:border-border"
+            }`}
+          >
+            <p className="text-xs text-muted-foreground">الرصيد</p>
+            <p className="mt-1 font-kufam text-2xl text-foreground">
+              {formatAmount(balance)}
+            </p>
+          </button>
+        </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border/80 bg-background/60 p-5 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)]">
-          <p className="text-sm text-muted-foreground">إجمالي الدخل</p>
-          <p className="mt-2 font-kufam text-2xl text-emerald-700">
-            {formatAmount(totals.income)}
-          </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="ابحث في الملاحظات…"
+            className="pr-10"
+          />
         </div>
-        <div className="rounded-2xl border border-border/80 bg-background/60 p-5 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)]">
-          <p className="text-sm text-muted-foreground">إجمالي المصروف</p>
-          <p className="mt-2 font-kufam text-2xl text-rose-700">
-            {formatAmount(totals.expense)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5">
-          <p className="text-sm text-primary/80">الرصيد</p>
-          <p className="mt-2 font-kufam text-2xl text-foreground">
-            {formatAmount(balance)}
-          </p>
-        </div>
-      </section>
 
-      <section className="rounded-2xl border border-border/80 bg-background/60 p-6 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] md:p-8">
-        <h2 className="mb-6 font-kufam text-xl font-medium text-foreground">
-          إضافة معاملة
-        </h2>
-        <form onSubmit={onSubmit} className="grid gap-5 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="due_at">تاريخ الاستحقاق</Label>
-            <Input
-              id="due_at"
-              type="date"
-              required
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="amount">المبلغ (درهم)</Label>
-            <Input
-              id="amount"
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              required
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-3 md:col-span-2">
-            <Label>نوع المعاملة</Label>
-            <RadioGroup
-              value={type}
-              onValueChange={(value) => setType(value as TransactionType)}
-              className="flex flex-wrap gap-4"
+        <div className="flex flex-wrap gap-2">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setTypeFilter(f.key)}
+              className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+                typeFilter === f.key
+                  ? "bg-foreground text-background"
+                  : "bg-muted text-foreground/70 hover:bg-muted/80"
+              }`}
             >
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-4 py-2 has-[[data-state=checked]]:border-primary/40 has-[[data-state=checked]]:bg-primary/5">
-                <RadioGroupItem value="income" id="type-income" />
-                <span>دخل</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-4 py-2 has-[[data-state=checked]]:border-primary/40 has-[[data-state=checked]]:bg-primary/5">
-                <RadioGroupItem value="expense" id="type-expense" />
-                <span>مصروف</span>
-              </label>
-            </RadioGroup>
-          </div>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="note">ملاحظة</Label>
-            <Input
-              id="note"
-              type="text"
-              maxLength={500}
-              placeholder="مثال: تبرع لفعالية، شراء مستلزمات…"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <Button type="submit" disabled={pending}>
-              {pending ? "جاري الحفظ…" : "تسجيل المعاملة"}
-            </Button>
-          </div>
-        </form>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="font-kufam text-xl font-medium text-foreground">
-          سجل المعاملات ({initialTransactions.length})
-        </h2>
-
-        {initialTransactions.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-muted-foreground">
-            لا توجد معاملات بعد. سجّل أول دخل أو مصروف للنادي.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {initialTransactions.map((tx) => (
-              <li
-                key={tx.id}
-                className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-background/60 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs ${
-                        tx.type === "income"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-rose-100 text-rose-800"
-                      }`}
-                    >
-                      {tx.type === "income" ? "دخل" : "مصروف"}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(tx.due_at)}
-                    </span>
-                  </div>
-                  <p className="font-kufam text-lg text-foreground">
-                    {formatAmount(tx.amount)}
-                  </p>
-                  {tx.note && (
-                    <p className="truncate text-sm text-foreground/70">
-                      {tx.note}
-                    </p>
-                  )}
+      {filtered.length > 0 ? (
+        <ul className="space-y-3">
+          {filtered.map((tx) => (
+            <li
+              key={tx.id}
+              className="group flex flex-col gap-3 rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_50px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4"
+            >
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                      tx.type === "income"
+                        ? "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20"
+                        : "bg-rose-500/10 text-rose-800 ring-rose-500/20"
+                    }`}
+                  >
+                    {tx.type === "income" ? "دخل" : "مصروف"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDate(tx.due_at)}
+                  </span>
                 </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={pending}
-                  aria-label="حذف المعاملة"
-                  onClick={() => onDelete(tx.id)}
-                  className="self-end text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-center"
+                <p
+                  className={`font-kufam text-xl ${
+                    tx.type === "income" ? "text-emerald-700" : "text-rose-700"
+                  }`}
                 >
-                  <Trash2 />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  {tx.type === "income" ? "+" : "−"}
+                  {formatAmount(tx.amount)}
+                </p>
+                {tx.note ? (
+                  <p className="truncate text-sm text-foreground/70">{tx.note}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground/50">بدون ملاحظة</p>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={pending}
+                aria-label="حذف المعاملة"
+                onClick={() => onDelete(tx.id)}
+                className="self-end text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-center"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-20 text-center">
+          <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+            <Search className="size-6" />
+          </div>
+          <p className="font-kufam text-lg text-foreground">لا نتائج</p>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            {initialTransactions.length === 0
+              ? "لم تُسجَّل أي معاملة بعد. ابدأ بإضافة أول دخل أو مصروف."
+              : "جرّب تغيير البحث أو فلتر النوع."}
+          </p>
+          {initialTransactions.length === 0 && (
+            <Button onClick={openCreate} className="mt-6 gap-2">
+              <Plus className="size-4" />
+              إضافة معاملة
+            </Button>
+          )}
+        </div>
+      )}
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="absolute inset-0" onClick={closeModal} aria-hidden />
+          <form
+            onSubmit={onSubmit}
+            className="relative z-10 w-full max-w-md animate-[fade-up_0.25s_ease-out] space-y-5 rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-kufam text-2xl font-semibold text-foreground">
+                  إضافة معاملة
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  سجّل دخلاً أو مصروفاً مع تاريخ الاستحقاق.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="إغلاق"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="due_at">تاريخ الاستحقاق</Label>
+              <Input
+                id="due_at"
+                type="date"
+                required
+                autoFocus
+                value={form.due_at}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, due_at: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">المبلغ (درهم)</Label>
+              <Input
+                id="amount"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                required
+                placeholder="0.00"
+                value={form.amount}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, amount: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>نوع المعاملة</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["income", "دخل"],
+                    ["expense", "مصروف"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({ ...prev, type: value }))
+                    }
+                    className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                      form.type === value
+                        ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="note">ملاحظة</Label>
+              <Input
+                id="note"
+                type="text"
+                maxLength={500}
+                placeholder="مثال: تبرع لفعالية، شراء مستلزمات…"
+                value={form.note}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeModal}
+                disabled={pending}
+                className="flex-1"
+              >
+                إلغاء
+              </Button>
+              <Button type="submit" disabled={pending} className="flex-1">
+                {pending ? "جاري الحفظ…" : "حفظ"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -60,7 +60,7 @@ export default function LoginButton({
   };
 
   const label =
-    provider === "discord" ? "تسجيل الدخول عبر Discord" : "تسجيل الدخول عبر 42";
+    provider === "discord" ? "تسجيل الدخول عبر ديسكورد" : "تسجيل الدخول عبر 42";
 
   return (
     <Button
