@@ -34,7 +34,7 @@ export default function BackEndPage() {
               الأعضاء
             </Link>
             <Link
-              href="/dashboard/back-end/meetings"
+              href="/dashboard/meetings"
               className="text-foreground transition-colors hover:text-primary"
             >
               اللقاءات

@@ -12,12 +12,14 @@ const OWNER_LINKS = [
   { href: "/dashboard/connections", label: "الاتصالات" },
   { href: "/dashboard/finance", label: "المالية" },
   { href: "/dashboard/members", label: "الأعضاء" },
+  { href: "/dashboard/meetings", label: "اللقاءات" },
 ] as const;
 
 const ADMIN_LINKS = [
   { href: "/dashboard/members", label: "الأعضاء" },
   { href: "/dashboard/calendar", label: "التقويم" },
   { href: "/dashboard/finance", label: "المالية" },
+  { href: "/dashboard/meetings", label: "اللقاءات" },
 ] as const;
 
 export function UserMenu({

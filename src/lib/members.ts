@@ -73,6 +73,7 @@ export const ADMIN_DASHBOARD_PATHS = [
   "/dashboard/members",
   "/dashboard/calendar",
   "/dashboard/finance",
+  "/dashboard/meetings",
 ] as const;
 
 export function canAccessDashboardPath(
