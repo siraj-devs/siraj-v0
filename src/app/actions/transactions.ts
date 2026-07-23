@@ -2,6 +2,7 @@
 
 import {
   canAccessDashboard,
+  canManageMembers,
   getMemberForSession,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
@@ -26,6 +27,12 @@ async function requireDashboardMember() {
   if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
 
   return { session, member };
+}
+
+async function requireOwner() {
+  const ctx = await requireDashboardMember();
+  if (!canManageMembers(ctx.member?.role)) throw new Error("غير مصرح");
+  return ctx;
 }
 
 export async function getTransactions(): Promise<ClubTransaction[]> {
@@ -59,7 +66,7 @@ export async function createTransaction(input: {
   note: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     const due_at = input.due_at?.trim();
     const note = input.note?.trim() ?? "";
@@ -98,7 +105,7 @@ export async function deleteTransaction(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };

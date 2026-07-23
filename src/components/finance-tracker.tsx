@@ -58,8 +58,10 @@ function formatDate(value: string) {
 
 export function FinanceTracker({
   initialTransactions,
+  canManage,
 }: {
   initialTransactions: ClubTransaction[];
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -100,6 +102,7 @@ export function FinanceTracker({
   }, [initialTransactions, query, typeFilter]);
 
   function openCreate() {
+    if (!canManage) return;
     setForm(emptyForm());
     setModalOpen(true);
   }
@@ -111,6 +114,7 @@ export function FinanceTracker({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!canManage) return;
 
     startTransition(async () => {
       const result = await createTransaction({
@@ -132,6 +136,7 @@ export function FinanceTracker({
   }
 
   function onDelete(id: number) {
+    if (!canManage) return;
     if (!confirm("هل أنت متأكد من حذف هذه المعاملة؟")) return;
 
     startTransition(async () => {
@@ -165,13 +170,15 @@ export function FinanceTracker({
             </p>
           </div>
 
-          <Button
-            onClick={openCreate}
-            className="shrink-0 gap-2 self-start md:self-auto"
-          >
-            <Plus className="size-4" />
-            معاملة جديدة
-          </Button>
+          {canManage && (
+            <Button
+              onClick={openCreate}
+              className="shrink-0 gap-2 self-start md:self-auto"
+            >
+              <Plus className="size-4" />
+              معاملة جديدة
+            </Button>
+          )}
         </div>
 
         <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -286,17 +293,19 @@ export function FinanceTracker({
                 )}
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={pending}
-                aria-label="حذف المعاملة"
-                onClick={() => onDelete(tx.id)}
-                className="self-end text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-center"
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              {canManage && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={pending}
+                  aria-label="حذف المعاملة"
+                  onClick={() => onDelete(tx.id)}
+                  className="self-end text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-center"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -311,7 +320,7 @@ export function FinanceTracker({
               ? "لم تُسجَّل أي معاملة بعد. ابدأ بإضافة أول دخل أو مصروف."
               : "جرّب تغيير البحث أو فلتر النوع."}
           </p>
-          {initialTransactions.length === 0 && (
+          {canManage && initialTransactions.length === 0 && (
             <Button onClick={openCreate} className="mt-6 gap-2">
               <Plus className="size-4" />
               إضافة معاملة
@@ -320,7 +329,7 @@ export function FinanceTracker({
         </div>
       )}
 
-      {modalOpen && (
+      {canManage && modalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="absolute inset-0" onClick={closeModal} aria-hidden />
           <form

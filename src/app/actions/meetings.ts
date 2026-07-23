@@ -2,6 +2,7 @@
 
 import {
   canAccessDashboard,
+  canManageMembers,
   getMemberForSession,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
@@ -48,6 +49,12 @@ async function requireDashboardMember() {
   if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
 
   return { session, member };
+}
+
+async function requireOwner() {
+  const ctx = await requireDashboardMember();
+  if (!canManageMembers(ctx.member?.role)) throw new Error("غير مصرح");
+  return ctx;
 }
 
 function revalidateMeetings() {
@@ -175,7 +182,7 @@ export async function getMeetings(): Promise<ClubMeeting[]> {
 }
 
 export async function getMeetingMemberOptions(): Promise<MeetingMemberOption[]> {
-  await requireDashboardMember();
+  await requireOwner();
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -201,7 +208,7 @@ export async function getMeetingMemberOptions(): Promise<MeetingMemberOption[]> 
 }
 
 export async function getMeetingFtOptions(): Promise<MeetingFtOption[]> {
-  await requireDashboardMember();
+  await requireOwner();
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -229,7 +236,7 @@ export async function createMeeting(input: {
   end_time: string;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     const name = input.name?.trim();
     const date = input.date?.trim();
@@ -272,7 +279,7 @@ export async function updateMeeting(input: {
   end_time: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     const id = Number(input.id);
     const name = input.name?.trim();
@@ -312,7 +319,7 @@ export async function deleteMeeting(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
@@ -337,7 +344,7 @@ export async function addMeetingMember(input: {
   member_id: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     const meeting_id = Number(input.meeting_id);
     const member_id = Number(input.member_id);
@@ -372,7 +379,7 @@ export async function addMeetingGuest(input: {
   ft_connection?: number | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     const meeting_id = Number(input.meeting_id);
     const name = input.name?.trim();
@@ -438,7 +445,7 @@ export async function removeMeetingAttendee(
   attendeeId: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireDashboardMember();
+    await requireOwner();
 
     if (!attendeeId || !Number.isFinite(attendeeId))
       return { success: false, error: "معرّف غير صالح" };

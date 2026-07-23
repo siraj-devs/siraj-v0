@@ -83,10 +83,12 @@ export function MeetingsManager({
   meetings,
   members,
   ftConnections,
+  canManage,
 }: {
   meetings: ClubMeeting[];
   members: MeetingMemberOption[];
   ftConnections: MeetingFtOption[];
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -136,6 +138,7 @@ export function MeetingsManager({
   }, [members, activeMeeting]);
 
   function openCreate() {
+    if (!canManage) return;
     setForm(emptyMeetingForm());
     setEditingId(null);
     setModal("create");
@@ -143,6 +146,7 @@ export function MeetingsManager({
   }
 
   function openEdit(meeting: ClubMeeting) {
+    if (!canManage) return;
     setForm({
       name: meeting.name,
       date: meeting.date,
@@ -174,6 +178,7 @@ export function MeetingsManager({
 
   function onSubmitMeeting(event: FormEvent) {
     event.preventDefault();
+    if (!canManage) return;
 
     const payload = {
       name: form.name,
@@ -201,6 +206,7 @@ export function MeetingsManager({
   }
 
   function onDelete(id: number) {
+    if (!canManage) return;
     if (!confirm("هل أنت متأكد من حذف هذا اللقاء؟")) return;
 
     startTransition(async () => {
@@ -217,7 +223,7 @@ export function MeetingsManager({
 
   function onAddMember(event: FormEvent) {
     event.preventDefault();
-    if (!editingId || !selectedMemberId) return;
+    if (!canManage || !editingId || !selectedMemberId) return;
 
     startTransition(async () => {
       const result = await addMeetingMember({
@@ -236,7 +242,7 @@ export function MeetingsManager({
 
   function onAddGuest(event: FormEvent) {
     event.preventDefault();
-    if (!editingId) return;
+    if (!canManage || !editingId) return;
 
     startTransition(async () => {
       const result = await addMeetingGuest({
@@ -257,6 +263,7 @@ export function MeetingsManager({
   }
 
   function onRemoveAttendee(id: number) {
+    if (!canManage) return;
     startTransition(async () => {
       const result = await removeMeetingAttendee(id);
       if (!result.success) {
@@ -267,6 +274,8 @@ export function MeetingsManager({
       router.refresh();
     });
   }
+
+  const MAX_ATTENDEES = 7;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -282,13 +291,15 @@ export function MeetingsManager({
             </p>
           </div>
 
-          <Button
-            onClick={openCreate}
-            className="shrink-0 gap-2 self-start md:self-auto"
-          >
-            <Plus className="size-4" />
-            لقاء جديد
-          </Button>
+          {canManage && (
+            <Button
+              onClick={openCreate}
+              className="shrink-0 gap-2 self-start md:self-auto"
+            >
+              <Plus className="size-4" />
+              لقاء جديد
+            </Button>
+          )}
         </div>
 
         <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -384,23 +395,27 @@ export function MeetingsManager({
                           <Users className="size-3.5" />
                           الحضور
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(meeting)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
-                        >
-                          <Pencil className="size-3.5" />
-                          تعديل
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => onDelete(meeting.id)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                        >
-                          <Trash2 className="size-3.5" />
-                          حذف
-                        </button>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(meeting)}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                            >
+                              <Pencil className="size-3.5" />
+                              تعديل
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => onDelete(meeting.id)}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+                            >
+                              <Trash2 className="size-3.5" />
+                              حذف
+                            </button>
+                          </>
+                        )}
                       </div>
                     </>
                   )}
@@ -409,7 +424,7 @@ export function MeetingsManager({
 
               {meeting.attendees.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
-                  {meeting.attendees.slice(0, 8).map((a) => (
+                  {meeting.attendees.slice(0, MAX_ATTENDEES).map((a) => (
                     <div
                       key={a.id}
                       className="flex items-center gap-2 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs"
@@ -431,9 +446,9 @@ export function MeetingsManager({
                       <span className="max-w-24 truncate">{a.name}</span>
                     </div>
                   ))}
-                  {meeting.attendees.length > 8 && (
+                  {meeting.attendees.length > MAX_ATTENDEES && (
                     <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                      +{meeting.attendees.length - 8}
+                      +{meeting.attendees.length - MAX_ATTENDEES}
                     </span>
                   )}
                 </div>
@@ -452,7 +467,7 @@ export function MeetingsManager({
               ? "لم يُنشأ أي لقاء بعد. ابدأ بإضافة أول لقاء للنادي."
               : "جرّب تغيير نص البحث."}
           </p>
-          {meetings.length === 0 && (
+          {canManage && meetings.length === 0 && (
             <Button onClick={openCreate} className="mt-6 gap-2">
               <Plus className="size-4" />
               إضافة لقاء
@@ -461,7 +476,7 @@ export function MeetingsManager({
         </div>
       )}
 
-      {(modal === "create" || modal === "edit") && (
+      {canManage && (modal === "create" || modal === "edit") && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="absolute inset-0" onClick={closeModal} aria-hidden />
           <form
@@ -601,103 +616,111 @@ export function MeetingsManager({
             </div>
 
             <div className="space-y-5 overflow-y-auto p-6 sm:p-8 sm:pt-5">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAttendeeTab("member")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                    attendeeTab === "member"
-                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  عضو
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAttendeeTab("guest")}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                    attendeeTab === "guest"
-                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  ضيف
-                </button>
-              </div>
-
-              {attendeeTab === "member" ? (
-                <form onSubmit={onAddMember} className="space-y-3">
-                  <Label htmlFor="add-member">إضافة عضو</Label>
+              {canManage && (
+                <>
                   <div className="flex gap-2">
-                    <select
-                      id="add-member"
-                      value={selectedMemberId}
-                      onChange={(e) => setSelectedMemberId(e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                    <button
+                      type="button"
+                      onClick={() => setAttendeeTab("member")}
+                      className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                        attendeeTab === "member"
+                          ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                          : "border-border text-muted-foreground hover:bg-muted/50"
+                      }`}
                     >
-                      <option value="">اختر عضواً…</option>
-                      {availableMembers.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                          {m.login ? ` (@${m.login})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      type="submit"
-                      disabled={pending || !selectedMemberId}
-                      className="shrink-0 gap-1"
+                      عضو
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttendeeTab("guest")}
+                      className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                        attendeeTab === "guest"
+                          ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                          : "border-border text-muted-foreground hover:bg-muted/50"
+                      }`}
                     >
-                      <UserPlus className="size-4" />
-                      إضافة
-                    </Button>
+                      ضيف
+                    </button>
                   </div>
-                </form>
-              ) : (
-                <form onSubmit={onAddGuest} className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="guest-name">اسم الضيف</Label>
-                    <Input
-                      id="guest-name"
-                      required
-                      value={guestForm.name}
-                      onChange={(e) =>
-                        setGuestForm((prev) => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                      placeholder="اسم الضيف"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="guest-ft">حساب 42 (اختياري)</Label>
-                    <select
-                      id="guest-ft"
-                      value={guestForm.ft_connection}
-                      onChange={(e) =>
-                        setGuestForm((prev) => ({
-                          ...prev,
-                          ft_connection: e.target.value,
-                        }))
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      <option value="">بدون ربط</option>
-                      {ftConnections.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.login}
-                          {c.name ? ` — ${c.name}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button type="submit" disabled={pending} className="w-full gap-2">
-                    <UserPlus className="size-4" />
-                    إضافة ضيف
-                  </Button>
-                </form>
+
+                  {attendeeTab === "member" ? (
+                    <form onSubmit={onAddMember} className="space-y-3">
+                      <Label htmlFor="add-member">إضافة عضو</Label>
+                      <div className="flex gap-2">
+                        <select
+                          id="add-member"
+                          value={selectedMemberId}
+                          onChange={(e) => setSelectedMemberId(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                          <option value="">اختر عضواً…</option>
+                          {availableMembers.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                              {m.login ? ` (@${m.login})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          type="submit"
+                          disabled={pending || !selectedMemberId}
+                          className="shrink-0 gap-1"
+                        >
+                          <UserPlus className="size-4" />
+                          إضافة
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <form onSubmit={onAddGuest} className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="guest-name">اسم الضيف</Label>
+                        <Input
+                          id="guest-name"
+                          required
+                          value={guestForm.name}
+                          onChange={(e) =>
+                            setGuestForm((prev) => ({
+                              ...prev,
+                              name: e.target.value,
+                            }))
+                          }
+                          placeholder="اسم الضيف"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="guest-ft">حساب 42 (اختياري)</Label>
+                        <select
+                          id="guest-ft"
+                          value={guestForm.ft_connection}
+                          onChange={(e) =>
+                            setGuestForm((prev) => ({
+                              ...prev,
+                              ft_connection: e.target.value,
+                            }))
+                          }
+                          className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                          <option value="">بدون ربط</option>
+                          {ftConnections.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.login}
+                              {c.name ? ` — ${c.name}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={pending}
+                        className="w-full gap-2"
+                      >
+                        <UserPlus className="size-4" />
+                        إضافة ضيف
+                      </Button>
+                    </form>
+                  )}
+                </>
               )}
 
               <div className="space-y-2">
@@ -751,15 +774,17 @@ export function MeetingsManager({
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => onRemoveAttendee(a.id)}
-                          className="rounded-lg p-1.5 text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
-                          aria-label="إزالة"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                        {canManage && (
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => onRemoveAttendee(a.id)}
+                            className="rounded-lg p-1.5 text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
+                            aria-label="إزالة"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
