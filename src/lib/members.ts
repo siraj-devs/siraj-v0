@@ -1,6 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type MemberRole = "owner" | "admin" | "veteran" | "visitor";
+export type MemberRole =
+  | "owner"
+  | "admin"
+  | "participant"
+  | "veteran"
+  | "newcomer";
+
+/** Highest privilege first — used for members list ordering. */
+export const MEMBER_ROLE_ORDER: readonly MemberRole[] = [
+  "owner",
+  "admin",
+  "participant",
+  "veteran",
+  "newcomer",
+] as const;
+
+export function memberRoleRank(role: MemberRole) {
+  const index = MEMBER_ROLE_ORDER.indexOf(role);
+  return index === -1 ? MEMBER_ROLE_ORDER.length : index;
+}
 
 export type AppMember = {
   id: number;
@@ -60,21 +79,25 @@ export async function getMemberForSession(
   return getMemberByFtConnectionId(session.user.id);
 }
 
+/** Owner / admin / participant may open the dashboard (view). */
 export function canAccessDashboard(role: MemberRole | null | undefined) {
-  return role === "owner" || role === "admin" || role === "veteran";
+  return role === "owner" || role === "admin" || role === "participant";
 }
 
 export function canManageMembers(role: MemberRole | null | undefined) {
   return role === "owner";
 }
 
-/** Dashboard routes admin/veteran may open. Owners may open any /dashboard path. */
-export const ADMIN_DASHBOARD_PATHS = [
+/** Limited dashboard routes for admin & participant. Owners may open any path. */
+export const VIEWER_DASHBOARD_PATHS = [
   "/dashboard/members",
   "/dashboard/calendar",
   "/dashboard/finance",
   "/dashboard/meetings",
 ] as const;
+
+/** @deprecated Use VIEWER_DASHBOARD_PATHS */
+export const ADMIN_DASHBOARD_PATHS = VIEWER_DASHBOARD_PATHS;
 
 export function canAccessDashboardPath(
   role: MemberRole | null | undefined,
@@ -84,7 +107,7 @@ export function canAccessDashboardPath(
   if (role === "owner") return true;
 
   const path = pathname.replace(/\/+$/, "") || "/";
-  return ADMIN_DASHBOARD_PATHS.some(
+  return VIEWER_DASHBOARD_PATHS.some(
     (allowed) => path === allowed || path.startsWith(`${allowed}/`),
   );
 }

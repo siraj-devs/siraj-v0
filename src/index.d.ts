@@ -39,7 +39,7 @@ interface SessionData {
   provider?: "42" | "discord"
 }
 
-type MemberRole = "owner" | "admin" | "veteran" | "visitor"
+type MemberRole = "owner" | "admin" | "participant" | "veteran" | "newcomer"
 
 interface AppMember {
   id: number

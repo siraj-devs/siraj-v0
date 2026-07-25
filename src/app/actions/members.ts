@@ -4,6 +4,7 @@ import {
   canAccessDashboard,
   canManageMembers,
   getMemberForSession,
+  memberRoleRank,
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
@@ -32,7 +33,13 @@ export type DcConnectionOption = {
   avatar: string | null;
 };
 
-const ROLE_VALUES: MemberRole[] = ["owner", "admin", "veteran", "visitor"];
+const ROLE_VALUES: MemberRole[] = [
+  "owner",
+  "admin",
+  "participant",
+  "veteran",
+  "newcomer",
+];
 
 async function requireDashboardAccess() {
   const session = await getSession();
@@ -63,7 +70,6 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
     .select(
       "id, name, role, ft_connection, dc_connection, ft_connections(login, avatar), dc_connections(username, avatar)",
     )
-    .order("role", { ascending: true })
     .order("name", { ascending: true });
 
   if (error) {
@@ -71,26 +77,32 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
     throw new Error("تعذر جلب الأعضاء");
   }
 
-  return (data ?? []).map((row) => {
-    const ft = Array.isArray(row.ft_connections)
-      ? row.ft_connections[0]
-      : row.ft_connections;
-    const dc = Array.isArray(row.dc_connections)
-      ? row.dc_connections[0]
-      : row.dc_connections;
+  return (data ?? [])
+    .map((row) => {
+      const ft = Array.isArray(row.ft_connections)
+        ? row.ft_connections[0]
+        : row.ft_connections;
+      const dc = Array.isArray(row.dc_connections)
+        ? row.dc_connections[0]
+        : row.dc_connections;
 
-    return {
-      id: row.id,
-      name: row.name,
-      role: row.role as MemberRole,
-      ft_connection: row.ft_connection,
-      dc_connection: row.dc_connection,
-      login: ft?.login ?? null,
-      avatar: ft?.avatar ?? dc?.avatar ?? null,
-      dc_username: dc?.username ?? null,
-      dc_avatar: dc?.avatar ?? null,
-    };
-  });
+      return {
+        id: row.id,
+        name: row.name,
+        role: row.role as MemberRole,
+        ft_connection: row.ft_connection,
+        dc_connection: row.dc_connection,
+        login: ft?.login ?? null,
+        avatar: ft?.avatar ?? dc?.avatar ?? null,
+        dc_username: dc?.username ?? null,
+        dc_avatar: dc?.avatar ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const byRole = memberRoleRank(a.role) - memberRoleRank(b.role);
+      if (byRole !== 0) return byRole;
+      return a.name.localeCompare(b.name, "ar");
+    });
 }
 
 export async function getAvailableFtConnections(

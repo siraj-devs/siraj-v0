@@ -22,8 +22,9 @@ import { toast } from "sonner";
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: "مالك",
   admin: "مشرف",
+  participant: "عضو",
   veteran: "مخضرم",
-  visitor: "عضو",
+  newcomer: "وافد",
 };
 
 const ROLE_STYLES: Record<
@@ -40,15 +41,20 @@ const ROLE_STYLES: Record<
     accent: "from-primary/20 to-transparent",
     ring: "ring-primary/45",
   },
+  participant: {
+    badge: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20",
+    accent: "from-emerald-500/12 to-transparent",
+    ring: "ring-emerald-400/35",
+  },
   veteran: {
     badge: "bg-sky-500/10 text-sky-800 ring-sky-500/20",
     accent: "from-sky-500/15 to-transparent",
     ring: "ring-sky-400/40",
   },
-  visitor: {
-    badge: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20",
-    accent: "from-emerald-500/12 to-transparent",
-    ring: "ring-emerald-400/35",
+  newcomer: {
+    badge: "bg-violet-500/10 text-violet-800 ring-violet-500/20",
+    accent: "from-violet-500/12 to-transparent",
+    ring: "ring-violet-400/35",
   },
 };
 
@@ -61,7 +67,7 @@ type MemberFormState = {
 
 const emptyForm: MemberFormState = {
   name: "",
-  role: "visitor",
+  role: "newcomer",
   ft_connection: "",
   dc_connection: "",
 };
@@ -117,7 +123,14 @@ export function MembersManager({
         acc[m.role] += 1;
         return acc;
       },
-      { all: 0, owner: 0, admin: 0, veteran: 0, visitor: 0 },
+      {
+        all: 0,
+        owner: 0,
+        admin: 0,
+        participant: 0,
+        veteran: 0,
+        newcomer: 0,
+      },
     );
   }, [members]);
 
@@ -245,8 +258,9 @@ export function MembersManager({
     { key: "all", label: "الكل" },
     { key: "owner", label: "مالك" },
     { key: "admin", label: "مشرف" },
+    { key: "participant", label: "عضو" },
     { key: "veteran", label: "مخضرم" },
-    { key: "visitor", label: "عضو" },
+    { key: "newcomer", label: "وافد" },
   ];
 
   return (
@@ -274,14 +288,15 @@ export function MembersManager({
           )}
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {(
             [
               ["all", "الإجمالي", counts.all],
               ["owner", "مالك", counts.owner],
               ["admin", "مشرف", counts.admin],
+              ["participant", "عضو", counts.participant],
               ["veteran", "مخضرم", counts.veteran],
-              ["visitor", "عضو", counts.visitor],
+              ["newcomer", "وافد", counts.newcomer],
             ] as const
           ).map(([key, label, value]) => (
             <button
@@ -512,9 +527,16 @@ export function MembersManager({
 
             <div className="space-y-2">
               <Label>الدور</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(["visitor", "veteran", "admin", "owner"] as MemberRole[]).map(
-                  (role) => (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {(
+                  [
+                    "newcomer",
+                    "participant",
+                    "veteran",
+                    "admin",
+                    "owner",
+                  ] as MemberRole[]
+                ).map((role) => (
                     <button
                       key={role}
                       type="button"

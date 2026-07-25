@@ -15,7 +15,7 @@ const OWNER_LINKS = [
   { href: "/dashboard/meetings", label: "اللقاءات" },
 ] as const;
 
-const ADMIN_LINKS = [
+const VIEWER_LINKS = [
   { href: "/dashboard/members", label: "الأعضاء" },
   { href: "/dashboard/calendar", label: "التقويم" },
   { href: "/dashboard/finance", label: "المالية" },
@@ -33,7 +33,7 @@ export function UserMenu({
   const [isOpen, setIsOpen] = useState(false);
   const isAdmin = user?.isAdmin ?? false;
   const avatarSrc = user?.image || null;
-  const links = user?.role === "owner" ? OWNER_LINKS : ADMIN_LINKS;
+  const links = user?.role === "owner" ? OWNER_LINKS : VIEWER_LINKS;
 
   return (
     <div className="relative">
