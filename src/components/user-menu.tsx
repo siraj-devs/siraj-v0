@@ -13,6 +13,7 @@ const OWNER_LINKS = [
   { href: "/dashboard/finance", label: "المالية" },
   { href: "/dashboard/members", label: "الأعضاء" },
   { href: "/dashboard/meetings", label: "اللقاءات" },
+  { href: "/dashboard/content", label: "المحتوى" },
 ] as const;
 
 const VIEWER_LINKS = [

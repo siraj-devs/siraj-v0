@@ -1,5 +1,17 @@
 import type { NextConfig } from "next";
 
+function supabaseHostname() {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!url) return null;
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const supabaseHost = supabaseHostname();
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -18,6 +30,15 @@ const nextConfig: NextConfig = {
         hostname: "cdn.discordapp.com",
         pathname: "/embed/avatars/**",
       },
+      ...(supabaseHost
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: supabaseHost,
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
     ],
     dangerouslyAllowLocalIP: true,
   },

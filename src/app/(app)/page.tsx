@@ -2,6 +2,7 @@ import Activities from "@/components/Activities";
 import DecorativeLines from "@/components/DecorativeLines";
 import MainContent from "@/components/Definition";
 import { Hero } from "@/components/Hero";
+import ProposedPrograms from "@/components/ProposedPrograms";
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
         <DecorativeLines index={2} eyebrow="ماذا نقدم" title="الأنشطة" />
         <Activities />
       </section>
+      <ProposedPrograms />
     </div>
   );
 }
