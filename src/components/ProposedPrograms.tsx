@@ -196,7 +196,11 @@ export default async function ProposedPrograms() {
 
   return (
     <section className="flex flex-col gap-10 md:gap-14">
-      <DecorativeLines index={3} eyebrow="مساراتنا" title="البرامج المقترحة" />
+      <DecorativeLines
+        index={3}
+        eyebrow="ماذا نقترح؟"
+        title="البرامج المقترحة"
+      />
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
         {programs.map((program, i) => (
           <ProposedProgramCard

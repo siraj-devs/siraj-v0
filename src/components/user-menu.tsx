@@ -2,22 +2,41 @@
 
 import { logout } from "@/app/actions";
 import type { MemberRole } from "@/lib/members";
+import {
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  Handshake,
+  Link2,
+  LogOut,
+  type LucideIcon,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
-const OWNER_LINKS = [
-  { href: "/dashboard/submissions", label: "التقديمات" },
-  { href: "/dashboard/connections", label: "الاتصالات" },
-  { href: "/dashboard/content", label: "المحتوى" },
-] as const;
+const OWNER_LINKS: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { href: "/dashboard/submissions", label: "التقديمات", icon: ClipboardList },
+  { href: "/dashboard/connections", label: "الاتصالات", icon: Link2 },
+  { href: "/dashboard/content", label: "المحتوى", icon: FileText },
+];
 
-const VIEWER_LINKS = [
-  { href: "/dashboard/members", label: "الأعضاء" },
-  { href: "/dashboard/calendar", label: "التقويم" },
-  { href: "/dashboard/finance", label: "المالية" },
-  { href: "/dashboard/meetings", label: "اللقاءات" },
-] as const;
+const VIEWER_LINKS: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { href: "/dashboard/members", label: "الأعضاء", icon: Users },
+  { href: "/dashboard/calendar", label: "التقويم", icon: CalendarDays },
+  { href: "/dashboard/finance", label: "المالية", icon: Wallet },
+  { href: "/dashboard/meetings", label: "اللقاءات", icon: Handshake },
+];
 
 export function UserMenu({
   user,
@@ -63,7 +82,7 @@ export function UserMenu({
             className="fixed inset-0 z-30 h-screen cursor-default"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute left-0 z-40 mt-2 w-48 overflow-hidden rounded-md border border-border bg-background shadow-lg md:right-0 md:left-auto rtl:right-auto rtl:left-0">
+          <div className="absolute left-0 z-40 mt-2 w-52 overflow-hidden rounded-md border border-border bg-background shadow-lg md:right-0 md:left-auto rtl:right-auto rtl:left-0">
             <div className="border-b border-border px-4 py-2">
               <p className="truncate text-sm font-medium text-foreground">
                 {user?.name ?? user?.login}
@@ -80,9 +99,10 @@ export function UserMenu({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="block px-4 py-2 text-sm transition-colors hover:bg-muted"
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
                     onClick={() => setIsOpen(false)}
                   >
+                    <link.icon className="size-4 shrink-0 text-muted-foreground" />
                     {link.label}
                   </Link>
                 ))}
@@ -95,9 +115,10 @@ export function UserMenu({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="block px-4 py-2 text-sm transition-colors hover:bg-muted"
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
                     onClick={() => setIsOpen(false)}
                   >
+                    <link.icon className="size-4 shrink-0 text-muted-foreground" />
                     {link.label}
                   </Link>
                 ))}
@@ -107,8 +128,9 @@ export function UserMenu({
 
             <button
               onClick={() => logout()}
-              className="block w-full cursor-pointer px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-red-50"
+              className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-red-50"
             >
+              <LogOut className="size-4 shrink-0" />
               تسجيل الخروج
             </button>
           </div>
