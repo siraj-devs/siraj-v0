@@ -12,13 +12,18 @@ const links = [{ href: "/", label: "الرئيسية" }] as const;
 
 type SiteHeaderProps = {
   isLoggedIn: boolean;
+  showLogin?: boolean;
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
   }) | null;
 };
 
-export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
+export function SiteHeader({
+  isLoggedIn,
+  showLogin = true,
+  user,
+}: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -58,11 +63,11 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
         <div className="flex items-center justify-end gap-2">
           {isLoggedIn ? (
             <UserMenu user={user} />
-          ) : (
+          ) : showLogin ? (
             <Button asChild variant="secondary" size="sm" className="hidden lg:inline-flex">
               <Link href="/login">تسجيل الدخول</Link>
             </Button>
-          )}
+          ) : null}
 
           <button
             type="button"
@@ -101,7 +106,7 @@ export function SiteHeader({ isLoggedIn, user }: SiteHeaderProps) {
                   </Link>
                 ))}
               </nav>
-              {!isLoggedIn && (
+              {!isLoggedIn && showLogin && (
                 <div className="border-t border-border pt-4">
                   <Button asChild variant="secondary" className="w-full">
                     <Link href="/login" onClick={() => setOpen(false)}>

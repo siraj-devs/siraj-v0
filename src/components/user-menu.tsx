@@ -65,7 +65,7 @@ export function UserMenu({
             className="fixed inset-0 z-30 h-screen cursor-default"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute left-0 z-40 mt-2 w-48 overflow-hidden rounded-md border border-border bg-background py-1 shadow-lg md:right-0 md:left-auto rtl:right-auto rtl:left-0">
+          <div className="absolute left-0 z-40 mt-2 w-48 overflow-hidden rounded-md border border-border bg-background shadow-lg md:right-0 md:left-auto rtl:right-auto rtl:left-0">
             <div className="border-b border-border px-4 py-2">
               <p className="truncate text-sm font-medium text-foreground">
                 {user?.name ?? user?.login}
@@ -88,11 +88,11 @@ export function UserMenu({
                 </Link>
               ))}
 
-            <hr className="my-1 border-border" />
+            <hr className="border-border" />
 
             <button
               onClick={() => logout()}
-              className="block w-full cursor-pointer px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-muted"
+              className="block w-full cursor-pointer px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-red-50"
             >
               تسجيل الخروج
             </button>

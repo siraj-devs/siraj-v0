@@ -5,16 +5,21 @@ import {
   getMemberForSession,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
+import { isPublicPathDisabled } from "@/lib/disabled-pages";
 
 export async function Header() {
-  const formStatus = await checkFormCompletionStatus();
-  const session = await getSession();
+  const [formStatus, session, loginDisabled] = await Promise.all([
+    checkFormCompletionStatus(),
+    getSession(),
+    isPublicPathDisabled("/login"),
+  ]);
 
   const member = session ? await getMemberForSession(session) : null;
 
   return (
     <SiteHeader
       isLoggedIn={formStatus.isLoggedIn}
+      showLogin={!loginDisabled}
       user={
         session
           ? {

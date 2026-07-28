@@ -1,5 +1,6 @@
 import { getProposedProgramsForDashboard } from "@/app/actions/content";
-import { ContentManager } from "@/components/content-manager";
+import { getDisabledPagesForDashboard } from "@/app/actions/disabled-pages";
+import { ContentDashboard } from "@/components/content-dashboard";
 import {
   canManageMembers,
   getMemberForSession,
@@ -16,11 +17,16 @@ export default async function ContentPage() {
 
   if (!canManage) redirect("/dashboard/members");
 
-  const programs = await getProposedProgramsForDashboard();
+  const [programs, pages] = await Promise.all([
+    getProposedProgramsForDashboard(),
+    getDisabledPagesForDashboard(),
+  ]);
 
   return (
-    <div className="py-6 md:py-10">
-      <ContentManager programs={programs} canManage={canManage} />
-    </div>
+    <ContentDashboard
+      programs={programs}
+      pages={pages}
+      canManage={canManage}
+    />
   );
 }

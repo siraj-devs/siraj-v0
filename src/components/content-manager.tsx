@@ -7,6 +7,7 @@ import {
   type ProgramLinks,
   type ProposedProgram,
 } from "@/app/actions/content";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,7 @@ export function ContentManager({
   const [query, setQuery] = useState("");
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
+  const [deleting, setDeleting] = useState<ProposedProgram | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -156,6 +158,12 @@ export function ContentManager({
     setOpenMenuId(null);
   }
 
+  function openDelete(program: ProposedProgram) {
+    if (!canManage) return;
+    setOpenMenuId(null);
+    setDeleting(program);
+  }
+
   function closeModal() {
     setModal(null);
     setEditingId(null);
@@ -198,18 +206,17 @@ export function ContentManager({
     });
   }
 
-  function onDelete(id: number) {
-    if (!canManage) return;
-    if (!confirm("هل أنت متأكد من حذف هذا البرنامج؟")) return;
+  function onConfirmDelete() {
+    if (!canManage || !deleting) return;
 
     startTransition(async () => {
-      const result = await deleteProposedProgram(id);
+      const result = await deleteProposedProgram(deleting.id);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       toast.success("تم حذف البرنامج");
-      setOpenMenuId(null);
+      setDeleting(null);
       router.refresh();
     });
   }
@@ -217,45 +224,23 @@ export function ContentManager({
   const currentImage = previewUrl ?? editing?.image ?? null;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
-      <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
-        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-3">
-            <p className="text-sm text-primary">إدارة الموقع</p>
-            <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              المحتوى
-            </h1>
-            <p className="max-w-lg text-foreground/65">
-              إدارة البرامج المقترحة الظاهرة في الصفحة الرئيسية.
-            </p>
-          </div>
-
-          {canManage && (
-            <Button
-              onClick={openCreate}
-              className="shrink-0 gap-2 self-start md:self-auto"
-            >
-              <Plus className="size-4" />
-              برنامج جديد
-            </Button>
-          )}
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="font-kufam text-2xl font-semibold text-foreground">
+            البرامج المقترحة
+          </h2>
+          <p className="max-w-xl text-sm text-foreground/65">
+            تظهر في الصفحة الرئيسية بالترتيب المحدد.
+          </p>
         </div>
-
-        <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-primary/40 bg-background px-4 py-3 shadow-sm">
-            <p className="text-xs text-muted-foreground">البرامج المقترحة</p>
-            <p className="mt-1 font-kufam text-2xl text-foreground">
-              {programs.length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
-            <p className="text-xs text-muted-foreground">مع صورة</p>
-            <p className="mt-1 font-kufam text-2xl text-foreground">
-              {programs.filter((p) => p.image).length}
-            </p>
-          </div>
-        </div>
-      </header>
+        {canManage && (
+          <Button onClick={openCreate} className="gap-2 self-start sm:self-auto">
+            <Plus className="size-4" />
+            برنامج جديد
+          </Button>
+        )}
+      </div>
 
       <div className="relative w-full sm:max-w-sm">
         <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -335,7 +320,7 @@ export function ContentManager({
                         <button
                           type="button"
                           disabled={pending}
-                          onClick={() => onDelete(program.id)}
+                          onClick={() => openDelete(program)}
                           className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-40"
                         >
                           <Trash2 className="size-3.5" />
@@ -350,7 +335,7 @@ export function ContentManager({
           ))}
         </ul>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-16 text-center">
           <p className="font-kufam text-lg text-foreground">لا نتائج</p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             {programs.length === 0
@@ -365,6 +350,22 @@ export function ContentManager({
           )}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="حذف البرنامج"
+        description={
+          deleting
+            ? `هل أنت متأكد من حذف «${deleting.name}»؟ لا يمكن التراجع عن هذا الإجراء.`
+            : ""
+        }
+        confirmLabel="حذف"
+        pending={pending}
+        onCancel={() => {
+          if (!pending) setDeleting(null);
+        }}
+        onConfirm={onConfirmDelete}
+      />
 
       {canManage && modal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -495,6 +496,6 @@ export function ContentManager({
           </form>
         </div>
       )}
-    </div>
+    </section>
   );
 }
