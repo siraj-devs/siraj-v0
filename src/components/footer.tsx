@@ -4,9 +4,9 @@ import { isPublicPathDisabled } from "@/lib/disabled-pages";
 import { Logo } from "./logo";
 
 export async function Footer() {
-  const [session, loginDisabled] = await Promise.all([
+  const [session, joinDisabled] = await Promise.all([
     getSession(),
-    isPublicPathDisabled("/login"),
+    isPublicPathDisabled("/join"),
   ]);
 
   return (
@@ -25,7 +25,15 @@ export async function Footer() {
           >
             الرئيسية
           </Link>
-          {!session && !loginDisabled && (
+          {!joinDisabled && (
+            <Link
+              href="/join"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              إنضم إلينا
+            </Link>
+          )}
+          {!session && (
             <Link
               href="/login"
               className="text-foreground transition-colors hover:text-primary"

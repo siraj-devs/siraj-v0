@@ -1,48 +1,66 @@
 "use server";
 
+import {
+  canManageMembers,
+  getMemberForSession,
+} from "@/lib/members";
 import { getSession } from "@/lib/session";
+import {
+  getSubmissionAvailabilityLabel,
+  getSubmissionTeamLabel,
+  getSubmissions,
+  type SubmissionRow,
+} from "@/lib/submissions";
 import { createClient } from "@/lib/supabase/server";
 import nodemailer from "nodemailer";
 
-// Get team name in Arabic
-function getTeamName(teamValue: string): string {
-  const teams: { [key: string]: string } = {
-    design: "🎨 فريق التصميم",
-    evenings: "🌙 فريق الأمسيات",
-    activities: "📅 فريق الأنشطة والفعاليات",
-  };
-  return teams[teamValue] || teamValue;
+async function requireOwner() {
+  const session = await getSession();
+  if (!session) throw new Error("غير مصرح");
+  const member = await getMemberForSession(session);
+  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
+  return { session, member };
 }
 
-// Get time availability in Arabic
-function getTimeAvailability(value: string): string {
-  const times: { [key: string]: string } = {
-    "less-3": "أقل من 3 ساعات",
-    "3-5": "من 3 إلى 5 ساعات",
-    "more-5": "أكثر من 5 ساعات",
-  };
-  return times[value] || value;
+export async function getSubmissionsForDashboard(): Promise<SubmissionRow[]> {
+  await requireOwner();
+  return getSubmissions();
 }
 
 export async function submitJoinForm(formData: JoinFormData) {
   try {
-    // Get the current user session
     const session = await getSession();
 
     if (!session?.user?.id) {
       throw new Error("User not authenticated");
     }
 
-    // First, store the form data in the database
+    const name = formData.name.trim();
+    if (
+      !/^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]+$/.test(
+        name,
+      )
+    ) {
+      return {
+        success: false,
+        message: "الاسم الكامل يجب أن يكون بالعربية فقط",
+      };
+    }
+
+    const connectionId = session.user.id;
+    const provider = session.provider ?? null;
+    const connectionLabel =
+      provider === "42"
+        ? `@${session.user.login}`
+        : session.user.login;
+
     const supabase = await createClient();
 
     const { data: submission, error: dbError } = await supabase
       .from("submissions")
       .insert({
-        id: session.user.id,
-        avatar: session.user.image ?? null,
-        login: formData.login,
-        name: formData.name,
+        connection_id: connectionId,
+        name,
         email: formData.email,
         tel: formData.tel,
         team: formData.team,
@@ -56,21 +74,35 @@ export async function submitJoinForm(formData: JoinFormData) {
 
     if (dbError) {
       console.error("Database error:", dbError);
+      if (dbError.code === "23505") {
+        return {
+          success: false,
+          message: "لقد قمت بإرسال طلب انضمام مسبقاً",
+        };
+      }
       throw new Error("Failed to store form submission in database");
     }
 
-    // Now proceed with email sending
     const adminEmail = process.env.ADMIN_EMAIL;
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = process.env.SMTP_PORT;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
-    if (!adminEmail) {
-      throw new Error("Admin email not configured");
+    if (!adminEmail || !smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      console.warn(
+        "Skipping join notification email: ADMIN_EMAIL or SMTP is not configured",
+      );
+      return { success: true, message: "تم إرسال طلبك بنجاح" };
     }
 
-    // Format the email content
+    const providerLabel =
+      provider === "42" ? "42" : provider === "discord" ? "ديسكورد" : "غير معروف";
+    const teamLabel = getSubmissionTeamLabel(formData.team);
+    const availabilityLabel = getSubmissionAvailabilityLabel(
+      formData.availability,
+    );
+
     const emailContent = `
 طلب انضمام جديد - نادي سراج
 
@@ -78,8 +110,9 @@ export async function submitJoinForm(formData: JoinFormData) {
 المعلومات الشخصية
 ═══════════════════════════════════
 
-اسم المستخدم: ${formData.login}
-الاسم الكامل: ${formData.name}
+الاتصال: ${providerLabel} / ${connectionLabel}
+معرّف الاتصال: ${connectionId}
+الاسم الكامل: ${name}
 البريد الإلكتروني: ${formData.email}
 رقم الهاتف: ${formData.tel}
 
@@ -87,7 +120,7 @@ export async function submitJoinForm(formData: JoinFormData) {
 معلومات الانضمام
 ═══════════════════════════════════
 
-الفريق المختار: ${getTeamName(formData.team)}
+الفريق المختار: ${teamLabel}
 
 المهارات:
 ${formData.skills.map((skill) => `  • ${skill}`).join("\n")}
@@ -95,7 +128,7 @@ ${formData.skills.map((skill) => `  • ${skill}`).join("\n")}
 نبذة عن المتقدم:
 ${formData.about}
 
-الوقت المتاح أسبوعياً: ${getTimeAvailability(formData.availability)}
+الوقت المتاح أسبوعياً: ${availabilityLabel}
 
 ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا توجد ملاحظات إضافية"}
 
@@ -107,7 +140,6 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
     })}
     `;
 
-    // HTML version for better formatting
     const emailHTML = `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -138,12 +170,16 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
       <div class="section">
         <div class="section-title">المعلومات الشخصية</div>
         <div class="field">
-          <span class="field-label">اسم المستخدم:</span>
-          <span class="field-value">${formData.login}</span>
+          <span class="field-label">الاتصال:</span>
+          <span class="field-value">${providerLabel} / ${connectionLabel}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">معرّف الاتصال:</span>
+          <span class="field-value" dir="ltr">${connectionId}</span>
         </div>
         <div class="field">
           <span class="field-label">الاسم الكامل:</span>
-          <span class="field-value">${formData.name}</span>
+          <span class="field-value">${name}</span>
         </div>
         <div class="field">
           <span class="field-label">البريد الإلكتروني:</span>
@@ -159,7 +195,7 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
         <div class="section-title">معلومات الانضمام</div>
         <div class="field">
           <span class="field-label">الفريق المختار:</span>
-          <span class="field-value">${getTeamName(formData.team)}</span>
+          <span class="field-value">${teamLabel}</span>
         </div>
         <div class="field">
           <span class="field-label">المهارات:</span>
@@ -175,7 +211,7 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
         </div>
         <div class="field">
           <span class="field-label">الوقت المتاح أسبوعياً:</span>
-          <span class="field-value">${getTimeAvailability(formData.availability)}</span>
+          <span class="field-value">${availabilityLabel}</span>
         </div>
         ${
           formData.notes
@@ -204,44 +240,38 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
 </html>
     `;
 
-    // Send email using SMTP if configured
-    if (smtpHost && smtpPort && smtpUser && smtpPass) {
-      try {
-        // Create transporter
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: parseInt(smtpPort),
-          secure: false, // true for 465, false for other ports
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        });
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort),
+        secure: false,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
 
-        // Send email
-        await transporter.sendMail({
-          from: `"نادي سراج" <${smtpUser}>`,
-          to: adminEmail,
-          subject: `طلب انضمام جديد - ${formData.name}`,
-          text: emailContent,
-          html: emailHTML,
-        });
+      await transporter.sendMail({
+        from: `"نادي سراج" <${smtpUser}>`,
+        to: adminEmail,
+        subject: `طلب انضمام جديد - ${name}`,
+        text: emailContent,
+        html: emailHTML,
+      });
 
-        // Update database to mark email as sent
-        const { error: updateError } = await supabase
-          .from("submissions")
-          .update({
-            email_sent: true,
-            email_sent_at: new Date().toISOString(),
-          })
-          .eq("id", submission.id);
+      const { error: updateError } = await supabase
+        .from("submissions")
+        .update({
+          email_sent: true,
+          email_sent_at: new Date().toISOString(),
+        })
+        .eq("id", submission.id);
 
-        if (updateError) {
-          console.error("Failed to update email status:", updateError);
-        }
-      } catch (emailError) {
-        console.error("Email sending failed:", emailError);
+      if (updateError) {
+        console.error("Failed to update email status:", updateError);
       }
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
     }
 
     return { success: true, message: "تم إرسال طلبك بنجاح" };

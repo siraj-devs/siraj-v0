@@ -1,5 +1,4 @@
 interface JoinFormData {
-  login: string
   name: string
   email: string
   tel: string
@@ -12,9 +11,8 @@ interface JoinFormData {
 
 interface Submission {
   id: number;
-  login: string;
+  connection_id: string;
   name: string;
-  avatar: string;
   email: string;
   tel: string;
   team: string;
@@ -24,7 +22,7 @@ interface Submission {
   notes: string;
   email_sent: boolean;
   email_sent_at: string;
-  created_at: string;
+  submitted_at: string;
 }
 
 interface SessionData {

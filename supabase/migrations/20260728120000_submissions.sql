@@ -1,8 +1,7 @@
 CREATE TABLE IF NOT EXISTS public.submissions (
     id BIGSERIAL PRIMARY KEY,
-    login TEXT NOT NULL,
+    connection_id TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    avatar TEXT,
     email TEXT NOT NULL,
     tel TEXT NOT NULL,
     team TEXT NOT NULL,
@@ -12,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.submissions (
     notes TEXT,
     email_sent BOOLEAN DEFAULT FALSE,
     email_sent_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;

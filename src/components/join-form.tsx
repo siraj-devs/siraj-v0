@@ -15,7 +15,7 @@ import {
 import { TagInput } from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 interface UserData {
@@ -28,7 +28,6 @@ interface UserData {
 
 export function JoinForm({ userData }: { userData?: UserData }) {
   const router = useRouter();
-  const [login, setLogin] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [tel, setTel] = useState("");
@@ -39,19 +38,25 @@ export function JoinForm({ userData }: { userData?: UserData }) {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!userData) return;
-    setLogin(userData.login ?? "");
-    setName(userData.name ?? "");
-  }, [userData]);
+  const handleArabicNameChange = (value: string) => {
+    // Arabic letters, diacritics, tatweel, and spaces only
+    if (
+      /^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]*$/.test(
+        value,
+      )
+    ) {
+      setName(value);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
+    const trimmedName = name.trim();
+
     if (
-      !login ||
-      !name ||
+      !userData?.id ||
+      !trimmedName ||
       !email ||
       !team ||
       skills.length === 0 ||
@@ -61,12 +66,20 @@ export function JoinForm({ userData }: { userData?: UserData }) {
       return;
     }
 
+    if (
+      !/^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]+$/.test(
+        trimmedName,
+      )
+    ) {
+      toast.error("الاسم الكامل يجب أن يكون بالعربية فقط");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const result = await submitJoinForm({
-        login,
-        name,
+        name: trimmedName,
         email,
         tel,
         team,
@@ -78,7 +91,7 @@ export function JoinForm({ userData }: { userData?: UserData }) {
 
       if (result.success) {
         toast.success("تم إرسال طلبك بنجاح!");
-        router.push("/succ-join");
+        router.refresh();
       } else {
         toast.error(result.message);
       }
@@ -94,14 +107,11 @@ export function JoinForm({ userData }: { userData?: UserData }) {
       {/* Header */}
       <div className="mb-20 text-center">
         <h1 className="mb-6 font-kufam text-3xl font-bold text-foreground md:text-4xl lg:text-5xl">
-          هل ترغب في أن تكون جزءًا
-          <br />
-          من نادي سراج؟
+          هل ترغب في أن تكون جزءًا من نادي سراج؟
         </h1>
         <p className="mb-2 text-base leading-relaxed text-muted-foreground md:text-lg lg:text-xl">
-          يسعدنا اهتمامك! يرجى ملء النموذج التالي حتى نتعرف عليك أكثر
-          <br />
-          ونوجهك إلى الفريق الأنسب لمهاراتك واهتماماتك.
+          يسعدنا اهتمامك! يرجى ملء النموذج التالي حتى نتعرف عليك أكثر ونوجهك إلى
+          الفريق الأنسب لمهاراتك واهتماماتك.
         </p>
         <p className="text-sm text-destructive">* خانات إلزامية</p>
       </div>
@@ -125,36 +135,21 @@ export function JoinForm({ userData }: { userData?: UserData }) {
 
           <div className="space-y-6 rounded-lg bg-card/30 p-8">
             <div>
-              <Label htmlFor="login" className="mb-2 block text-right text-sm">
-                اسم المدرسي:
-              </Label>
-              <Input
-                id="login"
-                value={login}
-                onChange={() => {}}
-                className="bg-background py-5 text-right"
-                placeholder="aalaoui"
-                disabled
-                required
-              />
-            </div>
-
-            <div>
-              <Label
-                htmlFor="name"
-                className="mb-2 block text-right text-sm"
-              >
+              <Label htmlFor="name" className="mb-2 block text-right text-sm">
                 الاسم الكامل:
               </Label>
               <Input
                 id="name"
                 value={name}
-                onChange={() => {}}
+                onChange={(e) => handleArabicNameChange(e.target.value)}
                 className="bg-background py-5 text-right"
                 placeholder="أحمد العلوي"
-                disabled
                 required
+                autoComplete="name"
               />
+              <p className="mt-2 text-xs text-muted-foreground">
+                يُسمح فقط بالحروف العربية.
+              </p>
             </div>
 
             <div>
@@ -222,6 +217,12 @@ export function JoinForm({ userData }: { userData?: UserData }) {
                 </SelectItem>
                 <SelectItem value="activities" className="cursor-pointer">
                   📅 فريق الأنشطة والفعاليات
+                </SelectItem>
+                <SelectItem value="development" className="cursor-pointer">
+                  💻 فريق التطوير
+                </SelectItem>
+                <SelectItem value="undecided" className="cursor-pointer">
+                  🤔 لست متأكداً من الفريق
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -378,10 +379,10 @@ export function JoinForm({ userData }: { userData?: UserData }) {
               type="submit"
               disabled={
                 isSubmitting ||
-                !login ||
+                !userData?.id ||
                 !availability ||
                 !tel ||
-                !name ||
+                !name.trim() ||
                 !email ||
                 !team ||
                 skills.length === 0 ||

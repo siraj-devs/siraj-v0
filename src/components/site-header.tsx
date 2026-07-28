@@ -8,11 +8,15 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const links = [{ href: "/", label: "الرئيسية" }] as const;
+const allLinks = [
+  { href: "/", label: "الرئيسية" },
+  { href: "/join", label: "إنضم إلينا" },
+] as const;
 
 type SiteHeaderProps = {
   isLoggedIn: boolean;
   showLogin?: boolean;
+  showJoin?: boolean;
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
@@ -22,9 +26,13 @@ type SiteHeaderProps = {
 export function SiteHeader({
   isLoggedIn,
   showLogin = true,
+  showJoin = true,
   user,
 }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
+  const links = allLinks.filter(
+    (link) => link.href !== "/join" || showJoin,
+  );
 
   useEffect(() => {
     if (!open) return;

@@ -22,6 +22,7 @@ export function isProtectedFromDisable(path: string) {
   const normalized = normalizePublicPath(path);
   return (
     normalized === "/" ||
+    normalized === "/login" ||
     normalized.startsWith("/dashboard") ||
     normalized.startsWith("/api") ||
     normalized.startsWith("/_next") ||
