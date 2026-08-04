@@ -195,7 +195,10 @@ export default async function ProposedPrograms() {
   if (programs.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-10 md:gap-14">
+    <section
+      id="programs"
+      className="flex scroll-mt-24 flex-col gap-10 md:gap-14 lg:scroll-mt-28"
+    >
       <DecorativeLines
         index={3}
         eyebrow="ماذا نقترح؟"

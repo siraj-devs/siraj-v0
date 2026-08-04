@@ -1,9 +1,9 @@
-import Link from "next/link";
-import { getSession } from "@/lib/session";
+import { SocialIcon } from "@/components/social-icon";
 import { isPublicPathDisabled } from "@/lib/disabled-pages";
+import { getSession } from "@/lib/session";
 import { getSocialDisplayName } from "@/lib/social-platforms";
 import { getSocialLinks } from "@/lib/socials";
-import { SocialIcon } from "@/components/social-icon";
+import Link from "next/link";
 import { Logo } from "./logo";
 
 export async function Footer() {
@@ -71,7 +71,13 @@ export async function Footer() {
           <span>© 2026 سراج</span>
           <span>
             صمم من طرف{" "}
-            <Link href="https://github.com/siraj-devs">sirajdevs</Link>
+            <Link
+              href="https://github.com/siraj-devs"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              sirajdevs
+            </Link>
           </span>
         </p>
       </div>

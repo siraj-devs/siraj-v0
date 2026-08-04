@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS public.proposed_programs (
   description TEXT NOT NULL,
   "order" INTEGER NOT NULL DEFAULT 0,
   image TEXT,
-  links JSONB NOT NULL DEFAULT '{}'::jsonb
+  links JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_published BOOLEAN NOT NULL DEFAULT true
 );
 
 CREATE INDEX IF NOT EXISTS proposed_programs_order_idx

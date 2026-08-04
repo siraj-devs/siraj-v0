@@ -26,6 +26,7 @@ export type ProposedProgram = {
   order: number;
   image: string | null;
   links: ProgramLinks;
+  is_published: boolean;
 };
 
 const LINK_KEYS = [
@@ -54,6 +55,7 @@ function mapRow(row: {
   order: number;
   image: string | null;
   links: ProgramLinks | null;
+  is_published?: boolean | null;
 }): ProposedProgram {
   return {
     id: row.id,
@@ -62,6 +64,7 @@ function mapRow(row: {
     order: Number(row.order) || 0,
     image: row.image,
     links: normalizeLinks(row.links ?? {}),
+    is_published: row.is_published !== false,
   };
 }
 
@@ -84,11 +87,13 @@ function revalidateContent() {
   revalidatePath("/");
 }
 
+/** Public homepage: published programs only. */
 export async function getProposedPrograms(): Promise<ProposedProgram[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("proposed_programs")
-    .select("id, name, description, order, image, links")
+    .select("id, name, description, order, image, links, is_published")
+    .eq("is_published", true)
     .order("order", { ascending: true })
     .order("id", { ascending: true });
 
@@ -100,11 +105,25 @@ export async function getProposedPrograms(): Promise<ProposedProgram[]> {
   return (data ?? []).map(mapRow);
 }
 
+/** Dashboard: all programs including unpublished. */
 export async function getProposedProgramsForDashboard(): Promise<
   ProposedProgram[]
 > {
   await requireDashboardMember();
-  return getProposedPrograms();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("proposed_programs")
+    .select("id, name, description, order, image, links, is_published")
+    .order("order", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching proposed programs for dashboard:", error);
+    throw new Error("تعذر جلب البرامج المقترحة");
+  }
+
+  return (data ?? []).map(mapRow);
 }
 
 async function uploadProgramImage(file: File): Promise<string | null> {
@@ -171,6 +190,7 @@ export async function createProposedProgram(formData: FormData): Promise<
     const name = String(formData.get("name") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
     const order = Number(formData.get("order") ?? 0);
+    const is_published = formData.get("is_published") !== "false";
     const imageFile = formData.get("image");
     const links = normalizeLinks({
       telegram: String(formData.get("telegram") ?? ""),
@@ -199,6 +219,7 @@ export async function createProposedProgram(formData: FormData): Promise<
       order,
       image,
       links,
+      is_published,
     });
 
     if (error) {
@@ -226,6 +247,7 @@ export async function updateProposedProgram(formData: FormData): Promise<
     const name = String(formData.get("name") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
     const order = Number(formData.get("order") ?? 0);
+    const is_published = formData.get("is_published") !== "false";
     const imageFile = formData.get("image");
     const links = normalizeLinks({
       telegram: String(formData.get("telegram") ?? ""),
@@ -256,8 +278,9 @@ export async function updateProposedProgram(formData: FormData): Promise<
       description: string;
       order: number;
       links: ProgramLinks;
+      is_published: boolean;
       image?: string | null;
-    } = { name, description, order, links };
+    } = { name, description, order, links, is_published };
 
     if (imageFile instanceof File && imageFile.size > 0) {
       const uploaded = await uploadProgramImage(imageFile);
@@ -282,6 +305,34 @@ export async function updateProposedProgram(formData: FormData): Promise<
       success: false,
       error: error instanceof Error ? error.message : "غير مصرح",
     };
+  }
+}
+
+export async function setProposedProgramPublished(
+  id: number,
+  is_published: boolean,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requireOwner();
+
+    if (!id || !Number.isFinite(id))
+      return { success: false, error: "معرّف غير صالح" };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("proposed_programs")
+      .update({ is_published })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating program publish state:", error);
+      return { success: false, error: "تعذر تحديث حالة النشر" };
+    }
+
+    revalidateContent();
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
   }
 }
 

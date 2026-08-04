@@ -6,7 +6,7 @@ import {
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
 import {
-  getSocialLinks,
+  getSocialLinksForDashboard,
   isKnownSocialLabel,
   type SocialLink,
 } from "@/lib/socials";
@@ -28,18 +28,20 @@ function revalidateSocials() {
 
 export async function getSocialsForDashboard(): Promise<SocialLink[]> {
   await requireOwner();
-  return getSocialLinks();
+  return getSocialLinksForDashboard();
 }
 
 export async function upsertSocialLink(input: {
   label: string;
   link: string;
+  is_published?: boolean;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     await requireOwner();
 
     const label = input.label.trim().toLowerCase();
     const link = input.link.trim();
+    const is_published = input.is_published !== false;
 
     if (!isKnownSocialLabel(label)) {
       return { success: false, error: "المنصة غير مدعومة" };
@@ -50,7 +52,7 @@ export async function upsertSocialLink(input: {
 
     const supabase = await createClient();
     const { error } = await supabase.from("socials").upsert(
-      { label, link },
+      { label, link, is_published },
       { onConflict: "label" },
     );
 
@@ -59,6 +61,34 @@ export async function upsertSocialLink(input: {
       if (error.code === "23514")
         return { success: false, error: "البيانات غير صالحة" };
       return { success: false, error: "تعذر حفظ الرابط" };
+    }
+
+    revalidateSocials();
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function setSocialPublished(
+  label: string,
+  is_published: boolean,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requireOwner();
+
+    const normalized = label.trim().toLowerCase();
+    if (!normalized) return { success: false, error: "المنصة غير صالحة" };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("socials")
+      .update({ is_published })
+      .eq("label", normalized);
+
+    if (error) {
+      console.error("Error updating social publish state:", error);
+      return { success: false, error: "تعذر تحديث حالة النشر" };
     }
 
     revalidateSocials();

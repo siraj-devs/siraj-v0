@@ -15,6 +15,7 @@ export type SocialLabel = (typeof SOCIAL_PLATFORM_OPTIONS)[number]["label"];
 export type SocialLink = {
   label: string;
   link: string;
+  is_published: boolean;
 };
 
 export function getSocialDisplayName(label: string) {

@@ -9,10 +9,12 @@ import {
 } from "@/app/actions/content";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
+import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Globe,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -21,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -29,6 +32,7 @@ type FormState = {
   name: string;
   description: string;
   order: string;
+  is_published: boolean;
   telegram: string;
   website: string;
   facebook: string;
@@ -42,6 +46,7 @@ const emptyForm = (): FormState => ({
   name: "",
   description: "",
   order: "0",
+  is_published: true,
   telegram: "",
   website: "",
   facebook: "",
@@ -73,14 +78,61 @@ function linksFromProgram(links: ProgramLinks): Pick<
 }
 
 const LINK_FIELDS = [
-  { key: "telegram" as const, label: "تيليجرام" },
-  { key: "website" as const, label: "الموقع" },
-  { key: "facebook" as const, label: "فيسبوك" },
-  { key: "twitter" as const, label: "X / تويتر" },
-  { key: "instagram" as const, label: "إنستغرام" },
-  { key: "whatsapp" as const, label: "واتساب" },
-  { key: "youtube" as const, label: "يوتيوب" },
+  { key: "telegram" as const, label: "تيليجرام", icon: "telegram" as const },
+  { key: "website" as const, label: "الموقع", icon: "website" as const },
+  { key: "facebook" as const, label: "فيسبوك", icon: "facebook" as const },
+  { key: "twitter" as const, label: "X / تويتر", icon: "x" as const },
+  { key: "instagram" as const, label: "إنستغرام", icon: "instagram" as const },
+  { key: "whatsapp" as const, label: "واتساب", icon: "whatsapp" as const },
+  { key: "youtube" as const, label: "يوتيوب", icon: "youtube" as const },
 ];
+
+function ProgramCardLinks({
+  links,
+  centered,
+}: {
+  links: ProgramLinks;
+  centered?: boolean;
+}) {
+  const items = LINK_FIELDS.flatMap((field) => {
+    const href = links[field.key]?.trim();
+    if (!href) return [];
+    return [{ ...field, href }];
+  });
+
+  if (items.length === 0) return null;
+
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-1.5 pt-1 ${
+        centered ? "justify-center" : ""
+      }`}
+    >
+      {items.map((field) => (
+        <Link
+          key={field.key}
+          href={field.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={field.label}
+          title={field.label}
+          className="flex size-8 items-center justify-center rounded-full border border-border/80 text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {field.icon === "website" ? (
+            <Globe className="size-3.5" aria-hidden />
+          ) : (
+            <SocialIcon
+              label={field.icon}
+              title={field.label}
+              className="size-3.5"
+            />
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 export function ContentManager({
   programs,
@@ -152,6 +204,7 @@ export function ContentManager({
       name: program.name,
       description: program.description,
       order: String(program.order),
+      is_published: program.is_published,
       ...linksFromProgram(program.links),
     });
     setEditingId(program.id);
@@ -181,6 +234,7 @@ export function ContentManager({
     formData.set("name", form.name);
     formData.set("description", form.description);
     formData.set("order", form.order);
+    formData.set("is_published", form.is_published ? "true" : "false");
     formData.set("telegram", form.telegram);
     formData.set("website", form.website);
     formData.set("facebook", form.facebook);
@@ -233,7 +287,8 @@ export function ContentManager({
             البرامج المقترحة
           </h2>
           <p className="max-w-xl text-sm text-foreground/65">
-            تظهر في الصفحة الرئيسية بالترتيب المحدد.
+            تظهر في الصفحة الرئيسية بالترتيب المحدد. غير المنشور لا يظهر
+            للزوار.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -270,6 +325,8 @@ export function ContentManager({
               key={program.id}
               className={`rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 ${
                 openMenuId === program.id ? "z-50" : "z-0"
+              } ${
+                !program.is_published ? "opacity-70" : ""
               } ${
                 layout === "grid"
                   ? "relative flex flex-col gap-4"
@@ -316,6 +373,15 @@ export function ContentManager({
                     <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
                       ترتيب {program.order}
                     </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs ${
+                        program.is_published
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {program.is_published ? "منشور" : "مخفي"}
+                    </span>
                   </div>
                   <p
                     className={`text-sm text-foreground/70 ${
@@ -324,6 +390,10 @@ export function ContentManager({
                   >
                     {program.description}
                   </p>
+                  <ProgramCardLinks
+                    links={program.links}
+                    centered={layout === "grid"}
+                  />
                 </div>
               </div>
 
@@ -482,6 +552,50 @@ export function ContentManager({
                 />
               </div>
 
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium leading-none">
+                  الظهور في الموقع
+                </legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <label
+                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                      form.is_published
+                        ? "border-primary/40 bg-primary/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="program-form-publish"
+                      className="accent-primary"
+                      checked={form.is_published}
+                      onChange={() =>
+                        setForm((prev) => ({ ...prev, is_published: true }))
+                      }
+                    />
+                    منشور
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                      !form.is_published
+                        ? "border-border bg-muted text-foreground"
+                        : "border-border bg-background text-muted-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="program-form-publish"
+                      className="accent-primary"
+                      checked={!form.is_published}
+                      onChange={() =>
+                        setForm((prev) => ({ ...prev, is_published: false }))
+                      }
+                    />
+                    مخفي
+                  </label>
+                </div>
+              </fieldset>
+
               <div className="space-y-2">
                 <Label htmlFor="program-image">الصورة</Label>
                 {currentImage && (
@@ -506,7 +620,23 @@ export function ContentManager({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {LINK_FIELDS.map((field) => (
                   <div key={field.key} className="space-y-2">
-                    <Label htmlFor={`link-${field.key}`}>{field.label}</Label>
+                    <Label
+                      htmlFor={`link-${field.key}`}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+                        {field.icon === "website" ? (
+                          <Globe className="size-4" aria-hidden />
+                        ) : (
+                          <SocialIcon
+                            label={field.icon}
+                            title={field.label}
+                            className="size-4"
+                          />
+                        )}
+                      </span>
+                      {field.label}
+                    </Label>
                     <Input
                       id={`link-${field.key}`}
                       type="url"

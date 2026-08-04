@@ -35,6 +35,7 @@ export function SocialsManager({
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [label, setLabel] = useState<SocialLabel>("instagram");
   const [link, setLink] = useState("");
+  const [isPublished, setIsPublished] = useState(true);
   const [openMenuLabel, setOpenMenuLabel] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SocialLink | null>(null);
   const [layout, setLayout] = useState<ViewLayout>("list");
@@ -74,6 +75,7 @@ export function SocialsManager({
     setEditingLabel(null);
     setLabel(first.label);
     setLink("");
+    setIsPublished(true);
     setOpenMenuLabel(null);
     setModal("create");
   }
@@ -83,6 +85,7 @@ export function SocialsManager({
     setEditingLabel(social.label);
     setLabel(social.label as SocialLabel);
     setLink(social.link);
+    setIsPublished(social.is_published);
     setOpenMenuLabel(null);
     setModal("edit");
   }
@@ -91,6 +94,7 @@ export function SocialsManager({
     setModal(null);
     setEditingLabel(null);
     setLink("");
+    setIsPublished(true);
   }
 
   function onSubmit(event: FormEvent) {
@@ -98,7 +102,11 @@ export function SocialsManager({
     if (!canManage) return;
 
     startTransition(async () => {
-      const result = await upsertSocialLink({ label, link });
+      const result = await upsertSocialLink({
+        label,
+        link,
+        is_published: isPublished,
+      });
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -132,7 +140,7 @@ export function SocialsManager({
             روابط التواصل
           </h2>
           <p className="max-w-xl text-sm text-foreground/65">
-            الروابط الظاهرة في تذييل الموقع. المنصات بدون رابط لا تُعرض.
+            الروابط الظاهرة في تذييل الموقع. غير المنشور لا يظهر للزوار.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -164,6 +172,8 @@ export function SocialsManager({
               className={`rounded-2xl border border-border/80 bg-background/70 p-4 ${
                 openMenuLabel === social.label ? "z-50" : "z-0"
               } ${
+                !social.is_published ? "opacity-70" : ""
+              } ${
                 layout === "grid"
                   ? "relative flex flex-col gap-4"
                   : "relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
@@ -185,9 +195,24 @@ export function SocialsManager({
                     layout === "grid" ? "w-full" : ""
                   }`}
                 >
-                  <p className="font-kufam text-lg text-foreground">
-                    {getSocialDisplayName(social.label)}
-                  </p>
+                  <div
+                    className={`flex flex-wrap items-center gap-2 ${
+                      layout === "grid" ? "justify-center" : ""
+                    }`}
+                  >
+                    <p className="font-kufam text-lg text-foreground">
+                      {getSocialDisplayName(social.label)}
+                    </p>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs ${
+                        social.is_published
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {social.is_published ? "منشور" : "مخفي"}
+                    </span>
+                  </div>
                   <Link
                     href={social.link}
                     target="_blank"
@@ -354,6 +379,45 @@ export function SocialsManager({
                   autoFocus
                 />
               </div>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium leading-none">
+                  الظهور في الموقع
+                </legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <label
+                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                      isPublished
+                        ? "border-primary/40 bg-primary/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="social-form-publish"
+                      className="accent-primary"
+                      checked={isPublished}
+                      onChange={() => setIsPublished(true)}
+                    />
+                    منشور
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                      !isPublished
+                        ? "border-border bg-muted text-foreground"
+                        : "border-border bg-background text-muted-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="social-form-publish"
+                      className="accent-primary"
+                      checked={!isPublished}
+                      onChange={() => setIsPublished(false)}
+                    />
+                    مخفي
+                  </label>
+                </div>
+              </fieldset>
             </div>
 
             <div className="flex gap-3">

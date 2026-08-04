@@ -1,6 +1,9 @@
 export function Hero() {
   return (
-    <section className="relative flex pt-24 lg:pt-32 flex-col items-center justify-center overflow-hidden text-center">
+    <section
+      id="hero"
+      className="relative flex scroll-mt-24 flex-col items-center justify-center overflow-hidden pt-24 text-center lg:scroll-mt-28 lg:pt-32"
+    >
       <p className="mb-8 inline-block animate-[fade-up_0.6s_ease-out] rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm text-primary">
         نادي طلابي
       </p>
