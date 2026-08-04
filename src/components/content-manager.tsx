@@ -8,6 +8,7 @@ import {
   type ProposedProgram,
 } from "@/app/actions/content";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,6 +99,7 @@ export function ContentManager({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [layout, setLayout] = useState<ViewLayout>("list");
 
   useEffect(() => {
     if (!openMenuId && !modal) return;
@@ -234,12 +236,15 @@ export function ContentManager({
             تظهر في الصفحة الرئيسية بالترتيب المحدد.
           </p>
         </div>
-        {canManage && (
-          <Button onClick={openCreate} className="gap-2 self-start sm:self-auto">
-            <Plus className="size-4" />
-            برنامج جديد
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <LayoutToggle value={layout} onChange={setLayout} />
+          {canManage && (
+            <Button onClick={openCreate} className="gap-2">
+              <Plus className="size-4" />
+              برنامج جديد
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative w-full sm:max-w-sm">
@@ -253,28 +258,58 @@ export function ContentManager({
       </div>
 
       {filtered.length > 0 ? (
-        <ul className="space-y-3">
+        <ul
+          className={
+            layout === "grid"
+              ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              : "space-y-3"
+          }
+        >
           {filtered.map((program) => (
             <li
               key={program.id}
-              className="relative flex flex-col gap-4 rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+              className={`rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 ${
+                openMenuId === program.id ? "z-50" : "z-0"
+              } ${
+                layout === "grid"
+                  ? "relative flex flex-col gap-4"
+                  : "relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+              }`}
             >
-              <div className="flex min-w-0 items-center gap-4">
+              <div
+                className={`flex min-w-0 items-center gap-4 ${
+                  layout === "grid" ? "flex-col text-center sm:items-center" : ""
+                }`}
+              >
                 {program.image ? (
                   <Image
                     src={program.image}
                     alt={program.name}
-                    width={64}
-                    height={64}
-                    className="size-16 shrink-0 rounded-xl object-cover"
+                    width={layout === "grid" ? 96 : 64}
+                    height={layout === "grid" ? 96 : 64}
+                    className={`shrink-0 rounded-xl object-cover ${
+                      layout === "grid" ? "size-24" : "size-16"
+                    }`}
                   />
                 ) : (
-                  <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted font-kufam text-lg text-muted-foreground">
+                  <div
+                    className={`flex shrink-0 items-center justify-center rounded-xl bg-muted font-kufam text-lg text-muted-foreground ${
+                      layout === "grid" ? "size-24" : "size-16"
+                    }`}
+                  >
                     {program.order + 1}
                   </div>
                 )}
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div
+                  className={`min-w-0 space-y-1 ${
+                    layout === "grid" ? "w-full" : ""
+                  }`}
+                >
+                  <div
+                    className={`flex flex-wrap items-center gap-2 ${
+                      layout === "grid" ? "justify-center" : ""
+                    }`}
+                  >
                     <h3 className="truncate font-kufam text-lg text-foreground">
                       {program.name}
                     </h3>
@@ -282,14 +317,24 @@ export function ContentManager({
                       ترتيب {program.order}
                     </span>
                   </div>
-                  <p className="line-clamp-2 text-sm text-foreground/70">
+                  <p
+                    className={`text-sm text-foreground/70 ${
+                      layout === "grid" ? "line-clamp-3" : "line-clamp-2"
+                    }`}
+                  >
                     {program.description}
                   </p>
                 </div>
               </div>
 
               {canManage && (
-                <div className="relative shrink-0 self-end sm:self-center">
+                <div
+                  className={
+                    layout === "grid"
+                      ? "absolute top-3 left-3 z-20"
+                      : "relative shrink-0 self-end sm:self-center"
+                  }
+                >
                   <button
                     type="button"
                     onClick={() =>
@@ -305,10 +350,10 @@ export function ContentManager({
                   {openMenuId === program.id && (
                     <>
                       <div
-                        className="fixed inset-0 z-10"
+                        className="fixed inset-0 z-40"
                         onClick={() => setOpenMenuId(null)}
                       />
-                      <div className="absolute top-9 left-0 z-20 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
+                      <div className="absolute top-full left-0 z-50 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
                         <button
                           type="button"
                           onClick={() => openEdit(program)}

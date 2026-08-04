@@ -2,19 +2,23 @@
 
 import { ContentManager } from "@/components/content-manager";
 import { DisabledPagesManager } from "@/components/disabled-pages-manager";
+import { SocialsManager } from "@/components/socials-manager";
 import type { ProposedProgram } from "@/app/actions/content";
 import type { PublicPageStatus } from "@/lib/disabled-pages";
+import type { SocialLink } from "@/lib/social-platforms";
 import { useState } from "react";
 
-type ContentTab = "programs" | "disabled";
+type ContentTab = "programs" | "disabled" | "socials";
 
 export function ContentDashboard({
   programs,
   pages,
+  socials,
   canManage,
 }: {
   programs: ProposedProgram[];
   pages: PublicPageStatus[];
+  socials: SocialLink[];
   canManage: boolean;
 }) {
   const [tab, setTab] = useState<ContentTab>("programs");
@@ -25,6 +29,11 @@ export function ContentDashboard({
       id: "programs" as const,
       label: "البرامج المقترحة",
       count: programs.length,
+    },
+    {
+      id: "socials" as const,
+      label: "روابط التواصل",
+      count: socials.length,
     },
     {
       id: "disabled" as const,
@@ -42,14 +51,14 @@ export function ContentDashboard({
             المحتوى
           </h1>
           <p className="max-w-lg text-foreground/65">
-            إدارة البرامج المقترحة وتعطيل الصفحات العامة للموقع.
+            إدارة البرامج المقترحة، روابط التواصل، وتعطيل الصفحات العامة.
           </p>
         </div>
 
         <div
           role="tablist"
           aria-label="أقسام المحتوى"
-          className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3"
         >
           {tabs.map((item) => {
             const selected = tab === item.id;
@@ -87,6 +96,17 @@ export function ContentDashboard({
       >
         {tab === "programs" && (
           <ContentManager programs={programs} canManage={canManage} />
+        )}
+      </div>
+
+      <div
+        role="tabpanel"
+        id="content-panel-socials"
+        aria-labelledby="content-tab-socials"
+        hidden={tab !== "socials"}
+      >
+        {tab === "socials" && (
+          <SocialsManager socials={socials} canManage={canManage} />
         )}
       </div>
 
