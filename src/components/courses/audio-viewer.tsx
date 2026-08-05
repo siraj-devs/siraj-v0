@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Headphones, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export function AudioViewer({ title, url }: { title: string; url: string }) {
@@ -42,15 +42,18 @@ export function AudioViewer({ title, url }: { title: string; url: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <Headphones className="size-5 shrink-0 text-primary" />
+        <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+      </div>
       <audio ref={audioRef} src={url} preload="metadata" />
-      <div className="space-y-4 rounded-3xl border border-border bg-background/80 p-6">
+      <div className="space-y-4 rounded-3xl border border-border/70 bg-linear-to-b from-primary/6 to-transparent p-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={togglePlay}
-            className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_30px_-12px_color-mix(in_oklch,var(--primary)_70%,transparent)] transition hover:brightness-110"
             aria-label={playing ? "إيقاف" : "تشغيل"}
           >
             {playing ? <Pause className="size-5" /> : <Play className="size-5" />}

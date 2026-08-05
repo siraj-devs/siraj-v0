@@ -4,6 +4,7 @@ import {
   getCourseById,
   getCourseContents,
   getEnrollment,
+  getMyCourseRating,
 } from "@/lib/courses";
 import {
   getMemberForSession,
@@ -42,6 +43,10 @@ export default async function CourseLearnPage({
 
   const contents = await getCourseContents(id);
   const completed = await getCompletedContentIds(enrollment.id);
+  const myRating = await getMyCourseRating(member.id, id);
+
+  const resumeTarget =
+    contents.find((item) => !completed.has(item.id)) ?? contents[0];
 
   return (
     <div className="py-10 pb-16 md:py-14">
@@ -51,18 +56,19 @@ export default async function CourseLearnPage({
         contents={contents}
         completedIds={[...completed]}
         activeContentId={null}
+        myRating={myRating}
       >
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/80 px-6 py-16 text-center">
           <p className="font-kufam text-xl text-foreground">اختر درساً للبدء</p>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             استخدم القائمة الجانبية للتنقل بين محتوى الدورة.
           </p>
-          {contents[0] && (
+          {resumeTarget && (
             <Link
-              href={`/courses/${id}/learn/${contents[0].id}`}
-              className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+              href={`/courses/${id}/learn/${resumeTarget.id}`}
+              className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition hover:brightness-110"
             >
-              ابدأ من الدرس الأول
+              متابعة التعلم
             </Link>
           )}
         </div>

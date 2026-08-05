@@ -35,6 +35,8 @@ export default async function CourseDetailPage({
     member ? getEnrollment(member.id, id) : Promise.resolve(null),
   ]);
 
+  if (enrollment) redirect(`/courses/${id}/learn`);
+
   return (
     <div className="py-10 pb-16 md:py-14">
       <CourseDetail

@@ -7,6 +7,7 @@ import {
   getCourseContents,
   getEnrollment,
   getExamQuestions,
+  getMyCourseRating,
   getPublishedCourses,
 } from "@/lib/courses";
 import type {
@@ -452,6 +453,40 @@ export async function enrollInCourse(
   }
 }
 
+export async function unenrollFromCourse(
+  courseId: number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, error: "غير مصرح" };
+
+    const member = await getMemberForSession(session);
+    if (!member) return { success: false, error: "يجب أن تكون عضواً في النادي" };
+
+    const enrollment = await getEnrollment(member.id, courseId);
+    if (!enrollment) {
+      return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("enrollments")
+      .delete()
+      .eq("id", enrollment.id)
+      .eq("member_id", member.id);
+
+    if (error) {
+      console.error("Error unenrolling from course:", error);
+      return { success: false, error: "تعذر إلغاء الالتحاق بالدورة" };
+    }
+
+    revalidateCoursePaths(courseId);
+    return { success: true };
+  } catch {
+    return { success: false, error: "حدث خطأ غير متوقع" };
+  }
+}
+
 async function recalculateProgress(enrollmentId: number, courseId: number) {
   const contents = await getCourseContents(courseId);
   const completed = await getCompletedContentIds(enrollmentId);
@@ -584,6 +619,11 @@ export async function rateCourse(
 
     const enrollment = await getEnrollment(member.id, courseId);
     if (!enrollment) return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+
+    const existing = await getMyCourseRating(member.id, courseId);
+    if (existing !== null) {
+      return { success: false, error: "لقد قيّمت هذه الدورة مسبقاً" };
+    }
 
     const supabase = await createClient();
     const { error } = await supabase.from("course_ratings").upsert(

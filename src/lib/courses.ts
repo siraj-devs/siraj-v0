@@ -223,6 +223,43 @@ export async function getEnrollment(
   };
 }
 
+export async function getEnrolledCourseIds(
+  memberId: number,
+): Promise<number[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select("course_id")
+    .eq("member_id", memberId);
+
+  if (error) {
+    console.error("Error fetching enrollments:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => row.course_id as number);
+}
+
+export async function getMyCourseRating(
+  memberId: number,
+  courseId: number,
+): Promise<number | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("course_ratings")
+    .select("rating")
+    .eq("member_id", memberId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching course rating:", error);
+    return null;
+  }
+
+  return data ? Number(data.rating) || null : null;
+}
+
 export async function getCompletedContentIds(
   enrollmentId: number,
 ): Promise<Set<number>> {

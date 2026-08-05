@@ -246,42 +246,29 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                   openMenuId === course.id ? "z-50" : "z-0"
                 } ${!course.is_published ? "opacity-75" : ""}`}
               >
-                <div
-                  className={`h-16 bg-linear-to-l ${
-                    course.is_published
-                      ? "from-primary/20 to-transparent"
-                      : "from-muted to-transparent"
-                  }`}
-                  aria-hidden
-                />
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                  {course.thumbnail_url ? (
+                    <Image
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      fill
+                      sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`flex size-full items-center justify-center bg-linear-to-l text-muted-foreground ${
+                        course.is_published
+                          ? "from-primary/20 to-transparent"
+                          : "from-muted to-transparent"
+                      }`}
+                    >
+                      <BookOpen className="size-8 opacity-50" />
+                    </div>
+                  )}
+                </div>
 
-                <div className="relative flex flex-1 flex-col items-center px-5 pt-0 pb-6">
-                  <div className="-mt-10 mb-4">
-                    {course.thumbnail_url ? (
-                      <Image
-                        src={course.thumbnail_url}
-                        alt={course.title}
-                        width={80}
-                        height={80}
-                        className={`size-20 rounded-full object-cover ring-4 ring-background ${
-                          course.is_published
-                            ? "ring-primary/35"
-                            : "ring-border"
-                        }`}
-                      />
-                    ) : (
-                      <div
-                        className={`flex size-20 items-center justify-center rounded-full bg-muted text-muted-foreground ring-4 ring-background ${
-                          course.is_published
-                            ? "ring-primary/35"
-                            : "ring-border"
-                        }`}
-                      >
-                        <BookOpen className="size-7 opacity-60" />
-                      </div>
-                    )}
-                  </div>
-
+                <div className="flex flex-1 flex-col items-center px-5 pt-5 pb-6">
                   <div className="absolute top-3 left-3">
                     <button
                       type="button"
@@ -377,14 +364,14 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                 } ${!course.is_published ? "opacity-75" : ""}`}
               >
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-primary/20">
+                  <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted">
                     {course.thumbnail_url ? (
                       <Image
                         src={course.thumbnail_url}
                         alt=""
                         fill
-                        className="rounded-full object-cover"
-                        sizes="64px"
+                        className="object-cover"
+                        sizes="96px"
                       />
                     ) : (
                       <div className="flex size-full items-center justify-center text-muted-foreground">

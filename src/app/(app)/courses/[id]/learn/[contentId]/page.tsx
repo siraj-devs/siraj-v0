@@ -10,6 +10,7 @@ import {
   getCourseContents,
   getEnrollment,
   getExamQuestionsForLearner,
+  getMyCourseRating,
 } from "@/lib/courses";
 import {
   getMemberForSession,
@@ -48,10 +49,22 @@ export default async function CourseContentPage({
   const content = await getCourseContentById(contentId);
   if (!content || content.course_id !== courseId) notFound();
 
-  const [contents, completed] = await Promise.all([
+  const [contents, completed, myRating] = await Promise.all([
     getCourseContents(courseId),
     getCompletedContentIds(enrollment.id),
+    getMyCourseRating(member.id, courseId),
   ]);
+
+  // Lessons unlock in order: every earlier lesson must be completed first.
+  const activeIndex = contents.findIndex((item) => item.id === contentId);
+  const locked = contents
+    .slice(0, Math.max(0, activeIndex))
+    .some((item) => !completed.has(item.id));
+  if (locked) {
+    const resumeTarget =
+      contents.find((item) => !completed.has(item.id)) ?? contents[0];
+    redirect(`/courses/${courseId}/learn/${resumeTarget.id}`);
+  }
 
   let viewer: React.ReactNode = null;
   if (content.type === "watching" && content.content_url) {
@@ -86,6 +99,7 @@ export default async function CourseContentPage({
         contents={contents}
         completedIds={[...completed]}
         activeContentId={contentId}
+        myRating={myRating}
       >
         {viewer}
       </CourseLearnShell>
