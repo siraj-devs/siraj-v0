@@ -39,10 +39,12 @@ export default function LoginButton({
   varient = "default",
   size = "default",
   provider = "42",
+  next = "/",
 }: {
   varient?: "default" | "secondary";
   size?: "default" | "sm" | "lg";
   provider?: "42" | "discord";
+  next?: string;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -50,7 +52,10 @@ export default function LoginButton({
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      router.push(provider === "discord" ? "/api/auth/discord" : "/api/auth/42");
+      const state = encodeURIComponent(next.startsWith("/") ? next : "/");
+      const base =
+        provider === "discord" ? "/api/auth/discord" : "/api/auth/42";
+      router.push(`${base}?state=${state}`);
     } catch (error) {
       console.error("Login error:", error);
       toast.error("حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.");

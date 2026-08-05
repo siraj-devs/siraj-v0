@@ -7,9 +7,10 @@ import Link from "next/link";
 import { Logo } from "./logo";
 
 export async function Footer() {
-  const [session, joinDisabled, socials] = await Promise.all([
+  const [session, joinDisabled, coursesDisabled, socials] = await Promise.all([
     getSession(),
     isPublicPathDisabled("/join"),
+    isPublicPathDisabled("/courses"),
     getSocialLinks(),
   ]);
 
@@ -29,6 +30,14 @@ export async function Footer() {
           >
             الرئيسية
           </Link>
+          {!coursesDisabled && (
+            <Link
+              href="/courses"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              الدورات
+            </Link>
+          )}
           {!joinDisabled && (
             <Link
               href="/join"

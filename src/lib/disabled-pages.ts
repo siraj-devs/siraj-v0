@@ -23,6 +23,7 @@ export function isProtectedFromDisable(path: string) {
   return (
     normalized === "/" ||
     normalized === "/login" ||
+    normalized === "/profile" ||
     normalized.startsWith("/dashboard") ||
     normalized.startsWith("/api") ||
     normalized.startsWith("/_next") ||
@@ -83,7 +84,8 @@ export async function getPublicPageStatuses(): Promise<PublicPageStatus[]> {
   const routes = pageFiles
     .map(routeFromPageFile)
     .map(normalizePublicPath)
-    .filter((routePath) => !isProtectedFromDisable(routePath));
+    .filter((routePath) => !isProtectedFromDisable(routePath))
+    .filter((routePath) => !routePath.includes("[") && !routePath.includes("]"));
 
   const uniqueRoutes = Array.from(new Set(routes)).sort((a, b) =>
     a.localeCompare(b),

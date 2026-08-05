@@ -24,12 +24,26 @@ export function memberRoleRank(role: MemberRole) {
 export type AppMember = {
   id: number;
   name: string;
+  email: string | null;
+  phone: string | null;
   ft_connection: number | null;
   dc_connection: string | null;
   role: MemberRole;
 };
 
-const MEMBER_COLUMNS = "id, name, ft_connection, dc_connection, role";
+const MEMBER_COLUMNS =
+  "id, name, email, phone, ft_connection, dc_connection, role";
+
+export function isMemberProfileComplete(
+  member: Pick<AppMember, "name" | "email" | "phone"> | null | undefined,
+): boolean {
+  if (!member) return false;
+  return (
+    member.name.trim().length > 0 &&
+    Boolean(member.email?.trim()) &&
+    Boolean(member.phone && member.phone.trim().length >= 8)
+  );
+}
 
 export async function getMemberByFtConnectionId(
   ftConnectionId: string | number,
