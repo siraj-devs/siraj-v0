@@ -12,6 +12,7 @@ import {
   type SubmissionRow,
 } from "@/lib/submissions";
 import { createClient } from "@/lib/supabase/server";
+import env from "@/env";
 import nodemailer from "nodemailer";
 
 async function requireOwner() {
@@ -83,11 +84,11 @@ export async function submitJoinForm(formData: JoinFormData) {
       throw new Error("Failed to store form submission in database");
     }
 
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const adminEmail = env.ADMIN_EMAIL;
+    const smtpHost = env.SMTP_HOST;
+    const smtpPort = env.SMTP_PORT;
+    const smtpUser = env.SMTP_USER;
+    const smtpPass = env.SMTP_PASS;
 
     if (!adminEmail || !smtpHost || !smtpPort || !smtpUser || !smtpPass) {
       console.warn(
@@ -243,7 +244,7 @@ ${formData.notes ? `ملاحظات إضافية:\n${formData.notes}` : "لا ت�
     try {
       const transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: parseInt(smtpPort),
+        port: smtpPort,
         secure: false,
         auth: {
           user: smtpUser,

@@ -1,3 +1,4 @@
+import env from "@/env";
 import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
     response.cookies.set("42-session", JSON.stringify(sessionData), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: expires_in,
     });

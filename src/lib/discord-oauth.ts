@@ -1,7 +1,9 @@
+import env from "@/env";
+
 export const DISCORD_OAUTH_CONFIG = {
-  clientId: process.env.DISCORD_CLIENT_ID!,
-  clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-  redirectUri: `${process.env.NEXTAUTH_URL}/api/auth/callback/discord`,
+  clientId: env.DISCORD_CLIENT_ID,
+  clientSecret: env.DISCORD_CLIENT_SECRET,
+  redirectUri: `${env.APP_URL}/api/auth/callback/discord`,
   authorizationUrl: "https://discord.com/api/oauth2/authorize",
   tokenUrl: "https://discord.com/api/oauth2/token",
   userInfoUrl: "https://discord.com/api/users/@me",

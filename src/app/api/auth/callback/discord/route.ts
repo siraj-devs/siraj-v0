@@ -1,3 +1,4 @@
+import env from "@/env";
 import {
   exchangeDiscordCodeForToken,
   getDiscordAvatarUrl,
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL(redirectUrl, request.url));
     response.cookies.set("dc-session", JSON.stringify(sessionData), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: expires_in,
     });

@@ -1,8 +1,10 @@
+import env from "@/env";
+
 // Simple 42 OAuth implementation without NextAuth
 export const FT_OAUTH_CONFIG = {
-  clientId: process.env.FT_CLIENT_ID!,
-  clientSecret: process.env.FT_CLIENT_SECRET!,
-  redirectUri: `${process.env.NEXTAUTH_URL}/api/auth/callback/42`,
+  clientId: env.FT_CLIENT_ID,
+  clientSecret: env.FT_CLIENT_SECRET,
+  redirectUri: `${env.APP_URL}/api/auth/callback/42`,
   authorizationUrl: "https://api.intra.42.fr/oauth/authorize",
   tokenUrl: "https://api.intra.42.fr/oauth/token",
   userInfoUrl: "https://api.intra.42.fr/v2/me",
