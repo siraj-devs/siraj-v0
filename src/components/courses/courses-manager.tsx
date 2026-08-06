@@ -10,15 +10,23 @@ import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StarRating } from "@/components/courses/course-ui";
 import type { CourseWithMeta } from "@/lib/course-types";
 import { ENROLLMENT_STATUS_LABELS } from "@/lib/course-types";
 import {
   BookOpen,
+  CircleHelp,
+  Eye,
+  EyeOff,
+  ListVideo,
+  Lock,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Trash2,
+  Unlock,
+  Users,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -28,6 +36,152 @@ import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 type CourseFilter = "all" | "published" | "hidden" | "open";
+
+function CourseStatusBadges({
+  course,
+  size = "md",
+}: {
+  course: CourseWithMeta;
+  size?: "sm" | "md";
+}) {
+  const pad = size === "sm" ? "px-2.5 py-0.5" : "px-3 py-1";
+  const icon = size === "sm" ? "size-3" : "size-3.5";
+  return (
+    <>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${
+          course.is_published
+            ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+            : "bg-amber-50 text-amber-800 ring-amber-200"
+        }`}
+      >
+        {course.is_published ? (
+          <Eye className={icon} />
+        ) : (
+          <EyeOff className={icon} />
+        )}
+        {course.is_published ? "منشور" : "مخفي"}
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${
+          course.enrollment_status === "open"
+            ? "bg-sky-50 text-sky-800 ring-sky-200"
+            : "bg-rose-50 text-rose-800 ring-rose-200"
+        }`}
+      >
+        {course.enrollment_status === "open" ? (
+          <Unlock className={icon} />
+        ) : (
+          <Lock className={icon} />
+        )}
+        {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
+      </span>
+    </>
+  );
+}
+
+function CourseCardMeta({
+  course,
+  className,
+}: {
+  course: CourseWithMeta;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground ${className ?? ""}`}
+    >
+      <span className="inline-flex items-center gap-1">
+        <BookOpen className="size-3.5" />
+        {course.lesson_count} دروس
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <CircleHelp className="size-3.5" />
+        {course.exam_count} اختبارات
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Users className="size-3.5" />
+        {course.enrollment_count} ملتحق
+      </span>
+    </div>
+  );
+}
+
+function CourseActionsMenu({
+  course,
+  open,
+  onToggle,
+  onClose,
+  onEdit,
+  onDelete,
+  pending,
+  buttonClassName,
+  placement = "down",
+}: {
+  course: CourseWithMeta;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  pending?: boolean;
+  buttonClassName?: string;
+  placement?: "up" | "down";
+}) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={
+          buttonClassName ??
+          "rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        }
+        aria-label="خيارات الدورة"
+      >
+        <MoreHorizontal className="size-5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40 size-screen" onClick={onClose} />
+          <div
+            className={`absolute left-0 z-50 w-40 overflow-hidden rounded-xl border border-border bg-background shadow-lg ${
+              placement === "up"
+                ? "bottom-full mb-1"
+                : "top-full mt-1"
+            }`}
+          >
+            <Link
+              href={`/dashboard/courses/${course.id}`}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
+              onClick={onClose}
+            >
+              <ListVideo className="size-3.5" />
+              المحتوى
+            </Link>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
+            >
+              <Pencil className="size-3.5" />
+              تعديل
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onDelete}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-40"
+            >
+              <Trash2 className="size-3.5" />
+              حذف
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
   const router = useRouter();
@@ -242,114 +396,73 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
             {filtered.map((course) => (
               <article
                 key={course.id}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-background/70 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_50px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] ${
+                className={`group relative flex flex-col rounded-3xl border border-border/80 bg-background/70 p-3 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_50px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] ${
                   openMenuId === course.id ? "z-50" : "z-0"
                 } ${!course.is_published ? "opacity-75" : ""}`}
               >
-                <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-                  {course.thumbnail_url ? (
-                    <Image
-                      src={course.thumbnail_url}
-                      alt={course.title}
-                      fill
-                      sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div
-                      className={`flex size-full items-center justify-center bg-linear-to-l text-muted-foreground ${
-                        course.is_published
-                          ? "from-primary/20 to-transparent"
-                          : "from-muted to-transparent"
-                      }`}
-                    >
-                      <BookOpen className="size-8 opacity-50" />
-                    </div>
-                  )}
-                </div>
+                <div className="relative">
+                  <div className="relative aspect-video overflow-hidden rounded-2xl bg-muted/12">
+                    {course.thumbnail_url ? (
+                      <Image
+                        src={course.thumbnail_url}
+                        alt={course.title}
+                        fill
+                        sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-muted-foreground">
+                        <BookOpen className="size-8 opacity-50" />
+                      </div>
+                    )}
+                  </div>
 
-                <div className="flex flex-1 flex-col items-center px-5 pt-5 pb-6">
-                  <div className="absolute top-3 left-3">
-                    <button
-                      type="button"
-                      onClick={() =>
+                  <div className="absolute top-2 left-2 z-20">
+                    <CourseActionsMenu
+                      course={course}
+                      open={openMenuId === course.id}
+                      onToggle={() =>
                         setOpenMenuId(
                           openMenuId === course.id ? null : course.id,
                         )
                       }
-                      className="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-                      aria-label="خيارات الدورة"
-                    >
-                      <MoreHorizontal className="size-5" />
-                    </button>
-                    {openMenuId === course.id && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setOpenMenuId(null)}
-                        />
-                        <div className="absolute top-9 left-0 z-20 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                          <Link
-                            href={`/dashboard/courses/${course.id}`}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                            onClick={() => setOpenMenuId(null)}
-                          >
-                            <Pencil className="size-3.5" />
-                            المحتوى
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(course)}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                          >
-                            <Pencil className="size-3.5" />
-                            تعديل
-                          </button>
-                          <button
-                            type="button"
-                            disabled={pending}
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setDeleting(course);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-40"
-                          >
-                            <Trash2 className="size-3.5" />
-                            حذف
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      onClose={() => setOpenMenuId(null)}
+                      onEdit={() => openEdit(course)}
+                      onDelete={() => {
+                        setOpenMenuId(null);
+                        setDeleting(course);
+                      }}
+                      pending={pending}
+                      buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative flex flex-1 flex-col items-center px-2 pb-2 pt-4">
+                  <h3 className="mb-2 text-center font-kufam text-xl font-medium text-foreground">
+                    {course.title}
+                  </h3>
+
+                  <div className="mb-2 flex flex-wrap justify-center gap-1.5">
+                    <CourseStatusBadges course={course} />
                   </div>
 
-                  <Link
-                    href={`/dashboard/courses/${course.id}`}
-                    className="mb-2 text-center font-kufam text-xl font-medium text-foreground transition hover:text-primary"
-                  >
-                    {course.title}
-                  </Link>
-
-                  <div className="mb-3 flex flex-wrap justify-center gap-1.5">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
-                        course.is_published
-                          ? "bg-primary/15 text-[#7a5a08] ring-primary/25"
-                          : "bg-muted text-muted-foreground ring-border"
-                      }`}
-                    >
-                      {course.is_published ? "منشور" : "مخفي"}
-                    </span>
-                    <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground ring-1 ring-inset ring-border">
-                      {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
-                    </span>
+                  <div className="mb-3">
+                    <StarRating
+                      value={course.rating_avg}
+                      count={course.rating_count}
+                    />
                   </div>
 
                   <p className="line-clamp-2 text-center text-sm text-foreground/65">
                     {course.description}
                   </p>
-                  <p className="mt-auto pt-4 text-xs text-muted-foreground">
-                    {course.lesson_count} دروس
-                  </p>
+                  <div className="mt-auto pt-4">
+                    <CourseCardMeta
+                      course={course}
+                      className="justify-center"
+                    />
+                  </div>
                 </div>
               </article>
             ))}
@@ -379,83 +492,44 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/dashboard/courses/${course.id}`}
-                        className="truncate font-kufam text-lg text-foreground hover:text-primary"
-                      >
+                      <h3 className="truncate font-kufam text-lg text-foreground">
                         {course.title}
-                      </Link>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs ${
-                          course.is_published
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {course.is_published ? "منشور" : "مخفي"}
-                      </span>
-                      <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-                        {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
-                      </span>
+                      </h3>
+                      <CourseStatusBadges course={course} size="sm" />
                     </div>
                     <p className="line-clamp-1 text-sm text-foreground/65">
-                      {course.lesson_count} دروس · {course.description}
+                      {course.description}
                     </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <StarRating
+                        value={course.rating_avg}
+                        count={course.rating_count}
+                      />
+                      <CourseCardMeta course={course} />
+                    </div>
                   </div>
                 </div>
 
                 <div className="relative shrink-0 self-end sm:self-center">
-                  <button
-                    type="button"
-                    onClick={() =>
+                  <CourseActionsMenu
+                    course={course}
+                    open={openMenuId === course.id}
+                    onToggle={() =>
                       setOpenMenuId(
                         openMenuId === course.id ? null : course.id,
                       )
                     }
-                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label="خيارات"
-                  >
-                    <MoreHorizontal className="size-5" />
-                  </button>
-                  {openMenuId === course.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setOpenMenuId(null)}
-                      />
-                      <div className="absolute top-full left-0 z-50 mt-1 w-40 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                        <Link
-                          href={`/dashboard/courses/${course.id}`}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                          onClick={() => setOpenMenuId(null)}
-                        >
-                          <Pencil className="size-3.5" />
-                          المحتوى
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(course)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                        >
-                          <Pencil className="size-3.5" />
-                          تعديل
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            setDeleting(course);
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="size-3.5" />
-                          حذف
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    onClose={() => setOpenMenuId(null)}
+                    onEdit={() => openEdit(course)}
+                    onDelete={() => {
+                      setOpenMenuId(null);
+                      setDeleting(course);
+                    }}
+                    pending={pending}
+                    placement="up"
+                  />
                 </div>
               </li>
             ))}

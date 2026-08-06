@@ -1,6 +1,6 @@
 "use client";
 
-import { Headphones, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { ExternalLink, Headphones, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export function AudioViewer({ title, url }: { title: string; url: string }) {
@@ -43,9 +43,20 @@ export function AudioViewer({ title, url }: { title: string; url: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <Headphones className="size-5 shrink-0 text-primary" />
-        <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Headphones className="size-5 shrink-0 text-primary" />
+          <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs text-foreground/70 transition hover:border-primary/40 hover:text-primary"
+        >
+          <ExternalLink className="size-3.5" />
+          فتح المصدر
+        </a>
       </div>
       <audio ref={audioRef} src={url} preload="metadata" />
       <div className="space-y-4 rounded-3xl border border-border/70 bg-linear-to-b from-primary/6 to-transparent p-6">

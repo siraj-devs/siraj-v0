@@ -32,6 +32,8 @@ export type Course = {
 
 export type CourseWithMeta = Course & {
   lesson_count: number;
+  exam_count: number;
+  enrollment_count: number;
 };
 
 export type CourseContent = {
@@ -67,6 +69,15 @@ export type Enrollment = {
   status: EnrollmentStatus;
   created_at: string;
   updated_at: string;
+};
+
+export type CourseEnrollmentWithMember = Enrollment & {
+  member: {
+    id: number;
+    name: string;
+    email: string | null;
+    role: string;
+  };
 };
 
 export type ContentCompletion = {

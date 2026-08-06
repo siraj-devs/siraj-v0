@@ -2,6 +2,7 @@ import type {
   Course,
   CourseContent,
   CourseContentMetadata,
+  CourseEnrollmentWithMember,
   CourseWithMeta,
   Enrollment,
   ExamQuestion,
@@ -52,28 +53,45 @@ function mapQuestion(row: {
 const COURSE_COLUMNS =
   "id, title, description, thumbnail_url, is_published, enrollment_status, owner_id, rating_avg, rating_count, created_at, updated_at";
 
-async function attachLessonCounts(
-  courses: Course[],
-): Promise<CourseWithMeta[]> {
+async function attachCourseMeta(courses: Course[]): Promise<CourseWithMeta[]> {
   if (courses.length === 0) return [];
 
   const supabase = await createClient();
   const ids = courses.map((c) => c.id);
-  const { data: contents } = await supabase
-    .from("course_contents")
-    .select("course_id")
-    .in("course_id", ids);
 
-  const counts = new Map<number, number>();
+  const [{ data: contents }, { data: enrollments }] = await Promise.all([
+    supabase.from("course_contents").select("course_id, type").in("course_id", ids),
+    supabase.from("enrollments").select("course_id").in("course_id", ids),
+  ]);
+
+  const lessonCounts = new Map<number, number>();
+  const examCounts = new Map<number, number>();
   for (const row of contents ?? []) {
-    counts.set(row.course_id, (counts.get(row.course_id) ?? 0) + 1);
+    if (row.type === "exam") {
+      examCounts.set(row.course_id, (examCounts.get(row.course_id) ?? 0) + 1);
+    } else {
+      lessonCounts.set(
+        row.course_id,
+        (lessonCounts.get(row.course_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  const enrollmentCounts = new Map<number, number>();
+  for (const row of enrollments ?? []) {
+    enrollmentCounts.set(
+      row.course_id,
+      (enrollmentCounts.get(row.course_id) ?? 0) + 1,
+    );
   }
 
   return courses.map((course) => ({
     ...course,
     rating_avg: Number(course.rating_avg) || 0,
     rating_count: Number(course.rating_count) || 0,
-    lesson_count: counts.get(course.id) ?? 0,
+    lesson_count: lessonCounts.get(course.id) ?? 0,
+    exam_count: examCounts.get(course.id) ?? 0,
+    enrollment_count: enrollmentCounts.get(course.id) ?? 0,
   }));
 }
 
@@ -90,7 +108,7 @@ export async function getPublishedCourses(): Promise<CourseWithMeta[]> {
     return [];
   }
 
-  return attachLessonCounts((data ?? []) as Course[]);
+  return attachCourseMeta((data ?? []) as Course[]);
 }
 
 export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
@@ -105,7 +123,7 @@ export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
     return [];
   }
 
-  return attachLessonCounts((data ?? []) as Course[]);
+  return attachCourseMeta((data ?? []) as Course[]);
 }
 
 export async function getCourseById(
@@ -123,7 +141,7 @@ export async function getCourseById(
     return null;
   }
 
-  const [withMeta] = await attachLessonCounts([data as Course]);
+  const [withMeta] = await attachCourseMeta([data as Course]);
   return withMeta ?? null;
 }
 
@@ -258,6 +276,69 @@ export async function getMyCourseRating(
   }
 
   return data ? Number(data.rating) || null : null;
+}
+
+export async function getCourseEnrollments(
+  courseId: number,
+): Promise<CourseEnrollmentWithMember[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select(
+      "id, member_id, course_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, role )",
+    )
+    .eq("course_id", courseId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching course enrollments:", error);
+    return [];
+  }
+
+  return (data ?? []).flatMap((row) => {
+    const memberRaw = row.members;
+    const member = Array.isArray(memberRaw) ? memberRaw[0] : memberRaw;
+    if (!member) return [];
+
+    return [
+      {
+        id: row.id as number,
+        member_id: row.member_id as number,
+        course_id: row.course_id as number,
+        progress_percentage: Number(row.progress_percentage) || 0,
+        status: row.status as CourseEnrollmentWithMember["status"],
+        created_at: row.created_at as string,
+        updated_at: row.updated_at as string,
+        member: {
+          id: member.id as number,
+          name: member.name as string,
+          email: (member.email as string | null) ?? null,
+          role: member.role as string,
+        },
+      },
+    ];
+  });
+}
+
+export async function getCourseRatingsByMember(
+  courseId: number,
+): Promise<Record<number, number>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("course_ratings")
+    .select("member_id, rating")
+    .eq("course_id", courseId);
+
+  if (error) {
+    console.error("Error fetching course ratings:", error);
+    return {};
+  }
+
+  const map: Record<number, number> = {};
+  for (const row of data ?? []) {
+    map[row.member_id as number] = Number(row.rating) || 0;
+  }
+  return map;
 }
 
 export async function getCompletedContentIds(

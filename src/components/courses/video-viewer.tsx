@@ -2,7 +2,7 @@
 
 import type { VideoTimestamp } from "@/lib/course-types";
 import { youtubeEmbedUrl } from "@/lib/course-types";
-import { ChevronDown, PlayCircle } from "lucide-react";
+import { ChevronDown, ExternalLink, PlayCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export function VideoViewer({
@@ -24,9 +24,20 @@ export function VideoViewer({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <PlayCircle className="size-5 shrink-0 text-primary" />
-        <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <PlayCircle className="size-5 shrink-0 text-primary" />
+          <h2 className="font-kufam text-xl text-foreground">{title}</h2>
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3 py-1.5 text-xs text-foreground/70 transition hover:border-primary/40 hover:text-primary"
+        >
+          <ExternalLink className="size-3.5" />
+          فتح المصدر
+        </a>
       </div>
 
       {src ? (
