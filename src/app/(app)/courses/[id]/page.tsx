@@ -1,5 +1,7 @@
 import { CourseDetail } from "@/components/courses/course-detail";
 import {
+  canAccessCourse,
+  getCourseAcl,
   getCourseById,
   getCourseContents,
   getEnrollment,
@@ -30,10 +32,15 @@ export default async function CourseDetailPage({
   if (!course || !course.is_published) notFound();
 
   const member = await getMemberForSession(session);
-  const [contents, enrollment] = await Promise.all([
+  const [contents, enrollment, acl] = await Promise.all([
     getCourseContents(id),
     member ? getEnrollment(member.id, id) : Promise.resolve(null),
+    getCourseAcl(id),
   ]);
+
+  if (!enrollment && !canAccessCourse(course, member, acl)) {
+    notFound();
+  }
 
   if (enrollment) redirect(`/courses/${id}/learn`);
 

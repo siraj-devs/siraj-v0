@@ -1,4 +1,5 @@
 import { listCoursesForDashboard } from "@/app/actions/courses";
+import { getClubMembers } from "@/app/actions/members";
 import { CoursesManager } from "@/components/courses/courses-manager";
 import {
   canManageMembers,
@@ -14,11 +15,21 @@ export default async function DashboardCoursesPage() {
   const member = await getMemberForSession(session);
   if (!canManageMembers(member?.role)) redirect("/dashboard/members");
 
-  const courses = await listCoursesForDashboard();
+  const [courses, clubMembers] = await Promise.all([
+    listCoursesForDashboard(),
+    getClubMembers(),
+  ]);
 
   return (
     <div className="py-6 md:py-10">
-      <CoursesManager courses={courses} />
+      <CoursesManager
+        courses={courses}
+        members={clubMembers.map((m) => ({
+          id: m.id,
+          name: m.name,
+          role: m.role,
+        }))}
+      />
     </div>
   );
 }

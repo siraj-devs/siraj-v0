@@ -12,7 +12,14 @@ import { Rosette } from "@/components/islamic-motif";
 import { Button } from "@/components/ui/button";
 import type { CourseWithMeta, Enrollment } from "@/lib/course-types";
 import { type CourseContent } from "@/lib/course-types";
-import { BookOpen, GraduationCap, HelpCircle, Lock, Play } from "lucide-react";
+import {
+  BookOpen,
+  HelpCircle,
+  Lock,
+  LockOpen,
+  Play,
+  Shield,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,9 +63,14 @@ export function CourseDetail({
       if (!result.success) {
         if (
           result.code === "incomplete_profile" ||
-          result.code === "not_member"
+          result.code === "not_member" ||
+          result.code === "forbidden"
         ) {
           toast.error(result.error);
+          if (result.code === "forbidden") {
+            router.push("/courses");
+            return;
+          }
           router.push(`/profile?next=/courses/${course.id}`);
           return;
         }
@@ -78,11 +90,11 @@ export function CourseDetail({
   return (
     <div className="flex w-full flex-col gap-10 md:gap-12">
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
-        <Rosette className="pointer-events-none absolute -bottom-10 -start-10 size-40 text-primary/5" />
+        <Rosette className="pointer-events-none absolute -start-10 -bottom-10 size-40 text-primary/5" />
 
         <div className="relative flex flex-col items-center gap-7 text-center lg:flex-row lg:items-start lg:gap-10 lg:text-start">
           <div className="flex w-full shrink-0 flex-col items-center gap-4 sm:w-80 lg:w-96">
-            <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-[0_18px_50px_-30px_color-mix(in_oklch,var(--foreground)_45%,transparent)]">
+            <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-primary/25 shadow-[0_18px_50px_-30px_color-mix(in_oklch,var(--foreground)_45%,transparent)]">
               {course.thumbnail_url ? (
                 <Image
                   src={course.thumbnail_url}
@@ -93,8 +105,8 @@ export function CourseDetail({
                   className="object-cover"
                 />
               ) : (
-                <div className="flex size-full items-center justify-center text-muted-foreground">
-                  <BookOpen className="size-12 opacity-40" />
+                <div className="flex size-full items-center justify-center text-primary/35">
+                  <Rosette className="size-16" />
                 </div>
               )}
             </div>
@@ -123,44 +135,65 @@ export function CourseDetail({
               </Button>
             )}
 
-            {isLoggedIn && (!isMember || !hasCompleteProfile) && !enrollment && (
-              <p className="text-center text-xs leading-6 text-muted-foreground">
-                يجب{" "}
-                <Link
-                  href={`/profile?next=/courses/${course.id}`}
-                  className="text-primary underline"
-                >
-                  إكمال الملف الشخصي
-                </Link>{" "}
-                وانتظار موافقة المالك.
-              </p>
-            )}
+            {isLoggedIn &&
+              (!isMember || !hasCompleteProfile) &&
+              !enrollment && (
+                <p className="text-center text-xs leading-6 text-muted-foreground">
+                  يجب{" "}
+                  <Link
+                    href={`/profile?next=/courses/${course.id}`}
+                    className="text-primary underline"
+                  >
+                    إكمال الملف الشخصي
+                  </Link>{" "}
+                  وانتظار موافقة المالك.
+                </p>
+              )}
           </div>
 
           <div className="min-w-0 flex-1 space-y-4">
-            <p className="font-kufam text-sm text-primary/80">دورة تعليمية</p>
-            <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              {course.title}
-            </h1>
-
             <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-              <StarRating
-                value={course.rating_avg}
-                count={course.rating_count}
-                className="rounded-full border border-border/70 bg-background/70 px-3 py-1"
-              />
-              <MetaChip icon={BookOpen}>الدروس {lessonCount}</MetaChip>
-              {examCount > 0 && (
-                <MetaChip icon={HelpCircle}>الاختبارات {examCount}</MetaChip>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                  closed
+                    ? "bg-rose-50 text-rose-800 ring-rose-200"
+                    : "bg-sky-50 text-sky-800 ring-sky-200"
+                }`}
+              >
+                {closed ? (
+                  <Lock className="size-3.5" />
+                ) : (
+                  <LockOpen className="size-3.5" />
+                )}
+                {closed ? "مغلق" : "مفتوح"}
+              </span>
+              {course.visibility === "private" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800 ring-1 ring-violet-200 ring-inset">
+                  <Shield className="size-3.5" />
+                  خاص
+                </span>
               )}
-              <MetaChip icon={closed ? Lock : GraduationCap}>
-                التسجيل {closed ? "مغلق" : "مفتوح"}
-              </MetaChip>
             </div>
-
-            <p className="mx-auto max-w-2xl text-base leading-8 text-foreground/65 lg:mx-0">
-              {course.description}
-            </p>
+            <div className="space-y-2">
+              <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+                {course.title}
+              </h1>
+              <p className="mx-auto max-w-2xl text-base leading-8 text-foreground/65 lg:mx-0">
+                {course.description}
+              </p>
+            </div>
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/2.5 px-3 py-1 text-xs font-medium text-foreground ring-1 ring-primary/20 ring-inset">
+                <StarRating
+                  value={course.rating_avg}
+                  count={course.rating_count}
+                />
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+              <MetaChip icon={BookOpen}>الدروس: {lessonCount}</MetaChip>
+              <MetaChip icon={HelpCircle}>الاختبارات: {examCount}</MetaChip>
+            </div>
           </div>
         </div>
       </header>

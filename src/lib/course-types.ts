@@ -1,4 +1,5 @@
 export type CourseEnrollmentStatus = "open" | "closed";
+export type CourseVisibility = "public" | "private";
 export type CourseContentType =
   | "watching"
   | "listening"
@@ -23,6 +24,7 @@ export type Course = {
   thumbnail_url: string | null;
   is_published: boolean;
   enrollment_status: CourseEnrollmentStatus;
+  visibility: CourseVisibility;
   owner_id: number | null;
   rating_avg: number;
   rating_count: number;
@@ -30,10 +32,17 @@ export type Course = {
   updated_at: string;
 };
 
+export type CourseAcl = {
+  roles: import("@/lib/member-role").MemberRole[];
+  memberIds: number[];
+};
+
 export type CourseWithMeta = Course & {
   lesson_count: number;
   exam_count: number;
   enrollment_count: number;
+  allowed_roles?: import("@/lib/member-role").MemberRole[];
+  allowed_member_ids?: number[];
 };
 
 export type CourseContent = {
@@ -102,6 +111,11 @@ export const ENROLLMENT_STATUS_LABELS: Record<
 > = {
   open: "مفتوح",
   closed: "مغلق",
+};
+
+export const VISIBILITY_LABELS: Record<CourseVisibility, string> = {
+  public: "عام",
+  private: "خاص",
 };
 
 export function youtubeEmbedUrl(url: string): string | null {

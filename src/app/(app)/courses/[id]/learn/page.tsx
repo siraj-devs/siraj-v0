@@ -39,6 +39,7 @@ export default async function CourseLearnPage({
 
   const enrollment = await getEnrollment(member.id, id);
   if (!enrollment) redirect(`/courses/${id}`);
+  // Enrolled learners keep learn access even if ACL changes later.
 
   const contents = await getCourseContents(id);
   const completed = await getCompletedContentIds(enrollment.id);

@@ -12,6 +12,7 @@ import {
   ProgressRing,
   RatingInput,
 } from "@/components/courses/course-ui";
+import { Rosette } from "@/components/islamic-motif";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type {
   CourseContent,
@@ -22,7 +23,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ListVideo,
   Lock,
   MoreHorizontal,
   Trash2,
@@ -214,8 +214,8 @@ export function CourseLearnShell({
                 priority
               />
             ) : (
-              <div className="flex size-full items-center justify-center text-muted-foreground">
-                <ListVideo className="size-8 opacity-50" />
+              <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
+                <Rosette className="size-12" />
               </div>
             )}
           </div>

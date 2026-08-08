@@ -11,19 +11,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StarRating } from "@/components/courses/course-ui";
-import type { CourseWithMeta } from "@/lib/course-types";
-import { ENROLLMENT_STATUS_LABELS } from "@/lib/course-types";
+import type { CourseVisibility, CourseWithMeta } from "@/lib/course-types";
+import {
+  ENROLLMENT_STATUS_LABELS,
+  VISIBILITY_LABELS,
+} from "@/lib/course-types";
+import {
+  MEMBER_ROLE_LABELS,
+  MEMBER_ROLE_ORDER,
+  type MemberRole,
+} from "@/lib/member-role";
 import {
   BookOpen,
   CircleHelp,
   Eye,
   EyeOff,
+  Globe,
   ListVideo,
   Lock,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
+  Shield,
   Trash2,
   Unlock,
   Users,
@@ -34,8 +44,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Rosette } from "@/components/islamic-motif";
 
-type CourseFilter = "all" | "published" | "hidden" | "open";
+export type CourseAclMemberOption = {
+  id: number;
+  name: string;
+  role: MemberRole;
+};
+
+type CourseFilter = "all" | "published" | "hidden" | "open" | "private";
 
 function CourseStatusBadges({
   course,
@@ -61,6 +78,20 @@ function CourseStatusBadges({
           <EyeOff className={icon} />
         )}
         {course.is_published ? "منشور" : "مخفي"}
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${
+          course.visibility === "private"
+            ? "bg-violet-50 text-violet-800 ring-violet-200"
+            : "bg-slate-50 text-slate-700 ring-slate-200"
+        }`}
+      >
+        {course.visibility === "private" ? (
+          <Shield className={icon} />
+        ) : (
+          <Globe className={icon} />
+        )}
+        {VISIBILITY_LABELS[course.visibility ?? "public"]}
       </span>
       <span
         className={`inline-flex items-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${
@@ -183,7 +214,13 @@ function CourseActionsMenu({
   );
 }
 
-export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
+export function CoursesManager({
+  courses,
+  members = [],
+}: {
+  courses: CourseWithMeta[];
+  members?: CourseAclMemberOption[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -196,6 +233,9 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     "closed",
   );
   const [isPublished, setIsPublished] = useState(false);
+  const [visibility, setVisibility] = useState<CourseVisibility>("public");
+  const [allowedRoles, setAllowedRoles] = useState<MemberRole[]>([]);
+  const [allowedMemberIds, setAllowedMemberIds] = useState<number[]>([]);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CourseFilter>("all");
@@ -207,6 +247,7 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
       published: courses.filter((c) => c.is_published).length,
       hidden: courses.filter((c) => !c.is_published).length,
       open: courses.filter((c) => c.enrollment_status === "open").length,
+      private: courses.filter((c) => c.visibility === "private").length,
     }),
     [courses],
   );
@@ -217,6 +258,7 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
       if (filter === "published" && !course.is_published) return false;
       if (filter === "hidden" && course.is_published) return false;
       if (filter === "open" && course.enrollment_status !== "open") return false;
+      if (filter === "private" && course.visibility !== "private") return false;
       if (!q) return true;
       return (
         course.title.toLowerCase().includes(q) ||
@@ -242,6 +284,9 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     setDescription("");
     setEnrollmentStatus("closed");
     setIsPublished(false);
+    setVisibility("public");
+    setAllowedRoles([]);
+    setAllowedMemberIds([]);
     setThumbnail(null);
     setModal("create");
   }
@@ -252,6 +297,9 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     setDescription(course.description);
     setEnrollmentStatus(course.enrollment_status);
     setIsPublished(course.is_published);
+    setVisibility(course.visibility ?? "public");
+    setAllowedRoles(course.allowed_roles ?? []);
+    setAllowedMemberIds(course.allowed_member_ids ?? []);
     setThumbnail(null);
     setOpenMenuId(null);
     setModal("edit");
@@ -262,6 +310,18 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     setEditing(null);
   }
 
+  function toggleRole(role: MemberRole) {
+    setAllowedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
+    );
+  }
+
+  function toggleMember(id: number) {
+    setAllowedMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
+    );
+  }
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const formData = new FormData();
@@ -269,6 +329,11 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     formData.set("description", description);
     formData.set("enrollment_status", enrollmentStatus);
     formData.set("is_published", isPublished ? "true" : "false");
+    formData.set("visibility", visibility);
+    for (const role of allowedRoles) formData.append("allowed_roles", role);
+    for (const id of allowedMemberIds) {
+      formData.append("allowed_member_ids", String(id));
+    }
     if (thumbnail) formData.set("thumbnail", thumbnail);
     if (editing) formData.set("id", String(editing.id));
 
@@ -309,6 +374,7 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
     { key: "published", label: "منشور" },
     { key: "hidden", label: "مخفي" },
     { key: "open", label: "تسجيل مفتوح" },
+    { key: "private", label: "خاص" },
   ];
 
   return (
@@ -333,13 +399,14 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
           </Button>
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {(
             [
               ["all", "الإجمالي", counts.all],
               ["published", "منشور", counts.published],
               ["hidden", "مخفي", counts.hidden],
               ["open", "تسجيل مفتوح", counts.open],
+              ["private", "خاص", counts.private],
             ] as const
           ).map(([key, label, value]) => (
             <button
@@ -411,8 +478,8 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-muted-foreground">
-                        <BookOpen className="size-8 opacity-50" />
+                      <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
+                        <Rosette className="size-14" />
                       </div>
                     )}
                   </div>
@@ -487,8 +554,8 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                         sizes="96px"
                       />
                     ) : (
-                      <div className="flex size-full items-center justify-center text-muted-foreground">
-                        <BookOpen className="size-6 opacity-50" />
+                      <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
+                        <Rosette className="size-8" />
                       </div>
                     )}
                   </div>
@@ -582,7 +649,7 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                   {modal === "create" ? "دورة جديدة" : "تعديل الدورة"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  العنوان، الوصف، التسجيل، والظهور.
+                  العنوان، الوصف، الخصوصية، التسجيل، والظهور.
                 </p>
               </div>
               <button
@@ -616,6 +683,97 @@ export function CoursesManager({ courses }: { courses: CourseWithMeta[] }) {
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                 />
               </div>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">الخصوصية</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["public", "private"] as const).map((value) => (
+                    <label
+                      key={value}
+                      className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                        visibility === value
+                          ? "border-primary/40 bg-primary/10"
+                          : "border-border"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="visibility"
+                        checked={visibility === value}
+                        onChange={() => setVisibility(value)}
+                      />
+                      {VISIBILITY_LABELS[value]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              {visibility === "private" && (
+                <>
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">
+                      الأدوار المسموحة
+                    </legend>
+                    <p className="text-xs text-muted-foreground">
+                      من لديه أحد هذه الأدوار يمكنه رؤية الدورة (أو الأعضاء
+                      المحددين أدناه).
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {MEMBER_ROLE_ORDER.map((role) => (
+                        <label
+                          key={role}
+                          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
+                            allowedRoles.includes(role)
+                              ? "border-violet-400 bg-violet-50 text-violet-900"
+                              : "border-border text-foreground/70"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={allowedRoles.includes(role)}
+                            onChange={() => toggleRole(role)}
+                          />
+                          {MEMBER_ROLE_LABELS[role]}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">
+                      أعضاء محددون
+                    </legend>
+                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                      {members.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-muted-foreground">
+                          لا أعضاء متاحون للاختيار.
+                        </p>
+                      ) : (
+                        members.map((m) => (
+                          <label
+                            key={m.id}
+                            className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted ${
+                              allowedMemberIds.includes(m.id)
+                                ? "bg-violet-50"
+                                : ""
+                            }`}
+                          >
+                            <span className="truncate">
+                              {m.name}
+                              <span className="ms-2 text-xs text-muted-foreground">
+                                {MEMBER_ROLE_LABELS[m.role]}
+                              </span>
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={allowedMemberIds.includes(m.id)}
+                              onChange={() => toggleMember(m.id)}
+                            />
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </fieldset>
+                </>
+              )}
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium">التسجيل</legend>
                 <div className="grid grid-cols-2 gap-2">

@@ -73,10 +73,7 @@ export function RatingInput({
   const shown = hovered ?? value ?? 0;
 
   return (
-    <div
-      className="flex gap-1"
-      onMouseLeave={() => setHovered(null)}
-    >
+    <div className="flex gap-1" onMouseLeave={() => setHovered(null)}>
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -163,7 +160,7 @@ export function MetaChip({
   children: React.ReactNode;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-foreground/70">
+    <span className="inline-flex items-center gap-1.5 rounded-full text-xs text-foreground/70">
       {Icon && <Icon className="size-3.5 text-primary/70" />}
       {children}
     </span>

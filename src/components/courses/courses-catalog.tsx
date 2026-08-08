@@ -3,7 +3,7 @@
 import { MetaChip, StarRating } from "@/components/courses/course-ui";
 import { Rosette } from "@/components/islamic-motif";
 import type { CourseWithMeta } from "@/lib/course-types";
-import { BookOpen, GraduationCap, Lock } from "lucide-react";
+import { BookOpen, GraduationCap, HelpCircle, Lock, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -59,9 +59,19 @@ export function CoursesCatalog({
                 )}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-background/35 to-transparent" />
                 {closed && (
-                  <span className="absolute end-3 top-3 inline-flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground/70 backdrop-blur">
+                  <span className="absolute end-3 top-3 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 ring-1 ring-inset ring-rose-200 backdrop-blur">
                     <Lock className="size-3" />
-                    التسجيل مغلق
+                   مغلق
+                  </span>
+                )}
+                {course.visibility === "private" && (
+                  <span
+                    className={`absolute top-3 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-800 ring-1 ring-inset ring-violet-200 backdrop-blur ${
+                      closed ? "start-3" : "end-3"
+                    }`}
+                  >
+                    <Shield className="size-3" />
+                    خاص
                   </span>
                 )}
               </div>
@@ -82,11 +92,11 @@ export function CoursesCatalog({
 
                 <div className="mt-auto flex flex-wrap gap-2 pt-1">
                   <MetaChip icon={BookOpen}>
-                    عدد الدروس {course.lesson_count}
+                    الدروس: {course.lesson_count}
                   </MetaChip>
-                  {!closed && (
-                    <MetaChip icon={GraduationCap}>التسجيل مفتوح</MetaChip>
-                  )}
+                  <MetaChip icon={HelpCircle}>
+                    الاختبارات: {course.exam_count}
+                  </MetaChip>
                 </div>
 
                 <span className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-all group-hover:brightness-110">

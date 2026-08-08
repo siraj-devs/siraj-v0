@@ -1,18 +1,22 @@
 "use server";
 
 import {
+  canAccessCourse,
   getAllCoursesForDashboard,
   getCompletedContentIds,
+  getCourseAcl,
   getCourseById,
   getCourseContents,
   getEnrollment,
   getExamQuestions,
   getMyCourseRating,
   getPublishedCourses,
+  replaceCourseAcl,
 } from "@/lib/courses";
 import type {
   CourseContentType,
   CourseEnrollmentStatus,
+  CourseVisibility,
   CourseWithMeta,
   Enrollment,
   ExamOption,
@@ -24,6 +28,8 @@ import {
   getMemberForSession,
   isMemberProfileComplete,
 } from "@/lib/members";
+import type { MemberRole } from "@/lib/member-role";
+import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -44,6 +50,24 @@ function revalidateCoursePaths(courseId?: number) {
     revalidatePath(`/courses/${courseId}/learn`);
     revalidatePath(`/dashboard/courses/${courseId}`);
   }
+}
+
+function parseVisibility(value: FormDataEntryValue | null): CourseVisibility {
+  return value === "private" ? "private" : "public";
+}
+
+function parseAclFromForm(formData: FormData) {
+  const roles = formData
+    .getAll("allowed_roles")
+    .map((v) => String(v))
+    .filter((role): role is MemberRole =>
+      (MEMBER_ROLE_ORDER as readonly string[]).includes(role),
+    );
+  const memberIds = formData
+    .getAll("allowed_member_ids")
+    .map((v) => Number(v))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  return { roles, memberIds };
 }
 
 async function uploadCourseFile(
@@ -92,6 +116,8 @@ export async function createCourse(formData: FormData): Promise<
       formData.get("enrollment_status") ?? "closed",
     ) || "closed") as CourseEnrollmentStatus;
     const is_published = formData.get("is_published") !== "false";
+    const visibility = parseVisibility(formData.get("visibility"));
+    const acl = parseAclFromForm(formData);
     const imageFile = formData.get("thumbnail");
 
     if (!title) return { success: false, error: "العنوان مطلوب" };
@@ -110,6 +136,7 @@ export async function createCourse(formData: FormData): Promise<
         description,
         enrollment_status,
         is_published,
+        visibility,
         owner_id: member.id,
         thumbnail_url,
       })
@@ -119,6 +146,11 @@ export async function createCourse(formData: FormData): Promise<
     if (error || !data) {
       console.error("Error creating course:", error);
       return { success: false, error: "تعذر إنشاء الدورة" };
+    }
+
+    if (visibility === "private") {
+      const aclResult = await replaceCourseAcl(data.id, acl);
+      if (!aclResult.success) return aclResult;
     }
 
     revalidateCoursePaths(data.id);
@@ -144,6 +176,8 @@ export async function updateCourse(formData: FormData): Promise<
       formData.get("enrollment_status") ?? "closed",
     ) as CourseEnrollmentStatus;
     const is_published = formData.get("is_published") !== "false";
+    const visibility = parseVisibility(formData.get("visibility"));
+    const acl = parseAclFromForm(formData);
     const imageFile = formData.get("thumbnail");
 
     if (!id || !Number.isFinite(id))
@@ -156,6 +190,7 @@ export async function updateCourse(formData: FormData): Promise<
       description,
       enrollment_status,
       is_published,
+      visibility,
       updated_at: new Date().toISOString(),
     };
 
@@ -170,6 +205,12 @@ export async function updateCourse(formData: FormData): Promise<
       console.error("Error updating course:", error);
       return { success: false, error: "تعذر تحديث الدورة" };
     }
+
+    const aclResult = await replaceCourseAcl(
+      id,
+      visibility === "private" ? acl : { roles: [], memberIds: [] },
+    );
+    if (!aclResult.success) return aclResult;
 
     revalidateCoursePaths(id);
     return { success: true };
@@ -371,7 +412,8 @@ export async function enrollInCourse(
         | "not_member"
         | "incomplete_profile"
         | "closed"
-        | "unpublished";
+        | "unpublished"
+        | "forbidden";
     }
 > {
   try {
@@ -408,6 +450,16 @@ export async function enrollInCourse(
         code: "unpublished",
       };
     }
+
+    const acl = await getCourseAcl(courseId);
+    if (!canAccessCourse(course, member, acl)) {
+      return {
+        success: false,
+        error: "ليست لديك صلاحية للالتحاق بهذه الدورة",
+        code: "forbidden",
+      };
+    }
+
     if (course.enrollment_status !== "open") {
       return {
         success: false,

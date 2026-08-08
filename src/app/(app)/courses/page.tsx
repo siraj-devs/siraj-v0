@@ -5,13 +5,12 @@ import { getMemberForSession } from "@/lib/members";
 import { getSession } from "@/lib/session";
 
 export default async function CoursesPage() {
-  const [courses, session] = await Promise.all([
-    getPublishedCourses(),
-    getSession(),
-  ]);
-
+  const session = await getSession();
   const member = session ? await getMemberForSession(session) : null;
-  const enrolledCourseIds = member ? await getEnrolledCourseIds(member.id) : [];
+  const [courses, enrolledCourseIds] = await Promise.all([
+    getPublishedCourses(member),
+    member ? getEnrolledCourseIds(member.id) : Promise.resolve([] as number[]),
+  ]);
 
   return (
     <div className="flex flex-col gap-10 py-10 pb-16 md:gap-14 md:py-14">

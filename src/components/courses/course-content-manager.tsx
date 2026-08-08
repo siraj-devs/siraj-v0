@@ -8,9 +8,14 @@ import {
 } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { AudioViewer } from "@/components/courses/audio-viewer";
-import { CONTENT_TYPE_ICON, StarRating } from "@/components/courses/course-ui";
+import {
+  CONTENT_TYPE_ICON,
+  MetaChip,
+  StarRating,
+} from "@/components/courses/course-ui";
 import { ReadingViewer } from "@/components/courses/reading-viewer";
 import { VideoViewer } from "@/components/courses/video-viewer";
+import { Rosette } from "@/components/islamic-motif";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,19 +32,21 @@ import type {
 import {
   CONTENT_TYPE_LABELS,
   ENROLLMENT_STATUS_LABELS,
+  VISIBILITY_LABELS,
 } from "@/lib/course-types";
 import {
-  Book,
   BookOpen,
   CheckCircle2,
   CircleHelp,
   Eye,
   EyeOff,
+  Globe,
   Lock,
+  Book,
   MoreHorizontal,
   Pencil,
   Plus,
-  Star,
+  Shield,
   Trash2,
   Unlock,
   Users,
@@ -266,7 +273,7 @@ export function CourseContentManager({
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
         <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start">
-          <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-muted sm:w-64 md:w-80 lg:w-88">
+          <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl border border-primary/25 sm:w-64 md:w-80 lg:w-88">
             {course.thumbnail_url ? (
               <Image
                 src={course.thumbnail_url}
@@ -277,58 +284,92 @@ export function CourseContentManager({
                 priority
               />
             ) : (
-              <div className="flex size-full items-center justify-center text-muted-foreground">
-                <BookOpen className="size-10 opacity-40" />
+              <div className="flex size-full items-center justify-center text-primary/35">
+                <Rosette className="size-16" />
               </div>
             )}
           </div>
 
           <div className="min-w-0 space-y-3">
-            <Link
-              href="/dashboard/courses"
-              className="text-sm text-primary transition hover:opacity-80"
-            >
-              ← العودة للدورات
-            </Link>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                  course.is_published
+                    ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+                    : "bg-amber-50 text-amber-800 ring-amber-200"
+                }`}
+              >
+                {course.is_published ? (
+                  <Eye className="size-3.5" />
+                ) : (
+                  <EyeOff className="size-3.5" />
+                )}
+                {course.is_published ? "منشور" : "مخفي"}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                  course.visibility === "private"
+                    ? "bg-violet-50 text-violet-800 ring-violet-200"
+                    : "bg-slate-50 text-slate-700 ring-slate-200"
+                }`}
+              >
+                {course.visibility === "private" ? (
+                  <Shield className="size-3.5" />
+                ) : (
+                  <Globe className="size-3.5" />
+                )}
+                {VISIBILITY_LABELS[course.visibility ?? "public"]}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
+                  course.enrollment_status === "open"
+                    ? "bg-sky-50 text-sky-800 ring-sky-200"
+                    : "bg-rose-50 text-rose-800 ring-rose-200"
+                }`}
+              >
+                {course.enrollment_status === "open" ? (
+                  <Unlock className="size-3.5" />
+                ) : (
+                  <Lock className="size-3.5" />
+                )}
+                {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
+              </span>
+            </div>
             <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               {course.title}
             </h1>
             <p className="max-w-xl text-base leading-8 text-foreground/65">
               {course.description}
             </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/2.5 px-3 py-1 text-xs font-medium text-foreground ring-1 ring-primary/20 ring-inset">
+                <StarRating
+                  value={course.rating_avg}
+                  count={course.rating_count}
+                />
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Book className="size-3.5" />
               الدروس
             </p>
             <p className="mt-1 font-kufam text-lg text-foreground">
-              {contents.length}
+              {contents.filter((c) => c.type !== "exam").length}
             </p>
           </div>
           <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <CircleHelp className="size-3.5" />
-              اختبارات
+              الاختبارات
             </p>
             <p className="mt-1 font-kufam text-lg text-foreground">
               {contents.filter((c) => c.type === "exam").length}
             </p>
-          </div>
-          <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Star className="size-3.5" />
-              التقييم
-            </p>
-            <div className="mt-1.5">
-              <StarRating
-                value={course.rating_avg}
-                count={course.rating_count}
-              />
-            </div>
           </div>
           <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -346,44 +387,6 @@ export function CourseContentManager({
             </p>
             <p className="mt-1 font-kufam text-lg text-foreground">
               {completedCount}
-            </p>
-          </div>
-          <div
-            className={`rounded-2xl bg-background/50 px-4 py-3 border ${
-              course.is_published
-                ? "border-emerald-500/35"
-                : "border-amber-500/35"
-            }`}
-          >
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {course.is_published ? (
-                <Eye className="size-3.5" />
-              ) : (
-                <EyeOff className="size-3.5" />
-              )}
-              الظهور
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {course.is_published ? "منشور" : "مخفي"}
-            </p>
-          </div>
-          <div
-            className={`rounded-2xl bg-background/50 px-4 py-3 border ${
-              course.enrollment_status === "open"
-                ? "border-sky-500/35"
-                : "border-rose-500/35"
-            }`}
-          >
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              {course.enrollment_status === "open" ? (
-                <Unlock className="size-3.5" />
-              ) : (
-                <Lock className="size-3.5" />
-              )}
-              التسجيل
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
             </p>
           </div>
         </div>

@@ -1,13 +1,17 @@
 import type {
   Course,
+  CourseAcl,
   CourseContent,
   CourseContentMetadata,
   CourseEnrollmentWithMember,
+  CourseVisibility,
   CourseWithMeta,
   Enrollment,
   ExamQuestion,
   ExamOption,
 } from "@/lib/course-types";
+import type { AppMember } from "@/lib/members";
+import type { MemberRole } from "@/lib/member-role";
 import { createClient } from "@/lib/supabase/server";
 
 function mapContent(row: {
@@ -50,18 +54,151 @@ function mapQuestion(row: {
   };
 }
 
-const COURSE_COLUMNS =
-  "id, title, description, thumbnail_url, is_published, enrollment_status, owner_id, rating_avg, rating_count, created_at, updated_at";
+function mapCourse(row: Record<string, unknown>): Course {
+  return {
+    id: row.id as number,
+    title: row.title as string,
+    description: row.description as string,
+    thumbnail_url: (row.thumbnail_url as string | null) ?? null,
+    is_published: Boolean(row.is_published),
+    enrollment_status: row.enrollment_status as Course["enrollment_status"],
+    visibility: (row.visibility as CourseVisibility) ?? "public",
+    owner_id: (row.owner_id as number | null) ?? null,
+    rating_avg: Number(row.rating_avg) || 0,
+    rating_count: Number(row.rating_count) || 0,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  };
+}
 
-async function attachCourseMeta(courses: Course[]): Promise<CourseWithMeta[]> {
+const COURSE_COLUMNS =
+  "id, title, description, thumbnail_url, is_published, enrollment_status, visibility, owner_id, rating_avg, rating_count, created_at, updated_at";
+
+export function canAccessCourse(
+  course: Pick<Course, "visibility">,
+  member: Pick<AppMember, "id" | "role"> | null | undefined,
+  acl: CourseAcl,
+): boolean {
+  if (course.visibility !== "private") return true;
+  if (!member) return false;
+  if (acl.memberIds.includes(member.id)) return true;
+  if (acl.roles.includes(member.role)) return true;
+  return false;
+}
+
+export async function getCourseAcl(courseId: number): Promise<CourseAcl> {
+  const supabase = await createClient();
+  const [{ data: roles }, { data: members }] = await Promise.all([
+    supabase
+      .from("course_allowed_roles")
+      .select("role")
+      .eq("course_id", courseId),
+    supabase
+      .from("course_allowed_members")
+      .select("member_id")
+      .eq("course_id", courseId),
+  ]);
+
+  return {
+    roles: (roles ?? []).map((r) => r.role as MemberRole),
+    memberIds: (members ?? []).map((m) => m.member_id as number),
+  };
+}
+
+async function getCourseAclsForIds(
+  courseIds: number[],
+): Promise<Map<number, CourseAcl>> {
+  const map = new Map<number, CourseAcl>();
+  for (const id of courseIds) {
+    map.set(id, { roles: [], memberIds: [] });
+  }
+  if (courseIds.length === 0) return map;
+
+  const supabase = await createClient();
+  const [{ data: roles }, { data: members }] = await Promise.all([
+    supabase
+      .from("course_allowed_roles")
+      .select("course_id, role")
+      .in("course_id", courseIds),
+    supabase
+      .from("course_allowed_members")
+      .select("course_id, member_id")
+      .in("course_id", courseIds),
+  ]);
+
+  for (const row of roles ?? []) {
+    const acl = map.get(row.course_id as number);
+    if (acl) acl.roles.push(row.role as MemberRole);
+  }
+  for (const row of members ?? []) {
+    const acl = map.get(row.course_id as number);
+    if (acl) acl.memberIds.push(row.member_id as number);
+  }
+  return map;
+}
+
+export async function replaceCourseAcl(
+  courseId: number,
+  acl: CourseAcl,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient();
+
+  const { error: delRolesError } = await supabase
+    .from("course_allowed_roles")
+    .delete()
+    .eq("course_id", courseId);
+  if (delRolesError) {
+    console.error("Error clearing course roles:", delRolesError);
+    return { success: false, error: "تعذر تحديث صلاحيات الأدوار" };
+  }
+
+  const { error: delMembersError } = await supabase
+    .from("course_allowed_members")
+    .delete()
+    .eq("course_id", courseId);
+  if (delMembersError) {
+    console.error("Error clearing course members:", delMembersError);
+    return { success: false, error: "تعذر تحديث صلاحيات الأعضاء" };
+  }
+
+  if (acl.roles.length > 0) {
+    const { error } = await supabase.from("course_allowed_roles").insert(
+      acl.roles.map((role) => ({ course_id: courseId, role })),
+    );
+    if (error) {
+      console.error("Error inserting course roles:", error);
+      return { success: false, error: "تعذر حفظ الأدوار المسموحة" };
+    }
+  }
+
+  if (acl.memberIds.length > 0) {
+    const { error } = await supabase.from("course_allowed_members").insert(
+      acl.memberIds.map((member_id) => ({ course_id: courseId, member_id })),
+    );
+    if (error) {
+      console.error("Error inserting course members:", error);
+      return { success: false, error: "تعذر حفظ الأعضاء المسموح لهم" };
+    }
+  }
+
+  return { success: true };
+}
+
+async function attachCourseMeta(
+  courses: Course[],
+  options?: { includeAcl?: boolean },
+): Promise<CourseWithMeta[]> {
   if (courses.length === 0) return [];
 
   const supabase = await createClient();
   const ids = courses.map((c) => c.id);
 
-  const [{ data: contents }, { data: enrollments }] = await Promise.all([
+  const [{ data: contents }, { data: enrollments }, acls] = await Promise.all([
     supabase.from("course_contents").select("course_id, type").in("course_id", ids),
     supabase.from("enrollments").select("course_id").in("course_id", ids),
+    options?.includeAcl
+      ? getCourseAclsForIds(ids)
+      : Promise.resolve(null as Map<number, CourseAcl> | null),
   ]);
 
   const lessonCounts = new Map<number, number>();
@@ -85,17 +222,28 @@ async function attachCourseMeta(courses: Course[]): Promise<CourseWithMeta[]> {
     );
   }
 
-  return courses.map((course) => ({
-    ...course,
-    rating_avg: Number(course.rating_avg) || 0,
-    rating_count: Number(course.rating_count) || 0,
-    lesson_count: lessonCounts.get(course.id) ?? 0,
-    exam_count: examCounts.get(course.id) ?? 0,
-    enrollment_count: enrollmentCounts.get(course.id) ?? 0,
-  }));
+  return courses.map((course) => {
+    const acl = acls?.get(course.id);
+    return {
+      ...course,
+      rating_avg: Number(course.rating_avg) || 0,
+      rating_count: Number(course.rating_count) || 0,
+      lesson_count: lessonCounts.get(course.id) ?? 0,
+      exam_count: examCounts.get(course.id) ?? 0,
+      enrollment_count: enrollmentCounts.get(course.id) ?? 0,
+      ...(acl
+        ? {
+            allowed_roles: acl.roles,
+            allowed_member_ids: acl.memberIds,
+          }
+        : {}),
+    };
+  });
 }
 
-export async function getPublishedCourses(): Promise<CourseWithMeta[]> {
+export async function getPublishedCourses(
+  member?: Pick<AppMember, "id" | "role"> | null,
+): Promise<CourseWithMeta[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("courses")
@@ -108,7 +256,22 @@ export async function getPublishedCourses(): Promise<CourseWithMeta[]> {
     return [];
   }
 
-  return attachCourseMeta((data ?? []) as Course[]);
+  const courses = (data ?? []).map((row) => mapCourse(row));
+  const privateIds = courses
+    .filter((c) => c.visibility === "private")
+    .map((c) => c.id);
+  const acls = await getCourseAclsForIds(privateIds);
+
+  const visible = courses.filter((course) => {
+    if (course.visibility !== "private") return true;
+    return canAccessCourse(
+      course,
+      member,
+      acls.get(course.id) ?? { roles: [], memberIds: [] },
+    );
+  });
+
+  return attachCourseMeta(visible);
 }
 
 export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
@@ -123,11 +286,15 @@ export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
     return [];
   }
 
-  return attachCourseMeta((data ?? []) as Course[]);
+  return attachCourseMeta(
+    (data ?? []).map((row) => mapCourse(row)),
+    { includeAcl: true },
+  );
 }
 
 export async function getCourseById(
   id: number,
+  options?: { includeAcl?: boolean },
 ): Promise<CourseWithMeta | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -141,7 +308,9 @@ export async function getCourseById(
     return null;
   }
 
-  const [withMeta] = await attachCourseMeta([data as Course]);
+  const [withMeta] = await attachCourseMeta([mapCourse(data)], {
+    includeAcl: options?.includeAcl,
+  });
   return withMeta ?? null;
 }
 
