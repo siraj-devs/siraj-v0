@@ -46,12 +46,7 @@ export function CourseDetail({
       router.push(`/login?next=/courses/${course.id}`);
       return;
     }
-    if (!isMember) {
-      toast.error("يجب أن تكون عضواً في النادي للالتحاق");
-      router.push("/join");
-      return;
-    }
-    if (!hasCompleteProfile) {
+    if (!isMember || !hasCompleteProfile) {
       router.push(`/profile?next=/courses/${course.id}`);
       return;
     }
@@ -59,14 +54,12 @@ export function CourseDetail({
     startTransition(async () => {
       const result = await enrollInCourse(course.id);
       if (!result.success) {
-        if (result.code === "incomplete_profile") {
+        if (
+          result.code === "incomplete_profile" ||
+          result.code === "not_member"
+        ) {
           toast.error(result.error);
           router.push(`/profile?next=/courses/${course.id}`);
-          return;
-        }
-        if (result.code === "not_member") {
-          toast.error(result.error);
-          router.push("/join");
           return;
         }
         if (result.code === "unauthenticated") {
@@ -122,26 +115,15 @@ export function CourseDetail({
               >
                 {!isLoggedIn
                   ? "سجّل الدخول للالتحاق"
-                  : !isMember
-                    ? "انضم للنادي أولاً"
-                    : !hasCompleteProfile
-                      ? "أكمل ملفك ثم التحق"
-                      : pending
-                        ? "جاري الالتحاق…"
-                        : "الإلتحاق الآن"}
+                  : !isMember || !hasCompleteProfile
+                    ? "أكمل ملفك ثم التحق"
+                    : pending
+                      ? "جاري الالتحاق…"
+                      : "الإلتحاق الآن"}
               </Button>
             )}
 
-            {isLoggedIn && !isMember && !enrollment && (
-              <p className="text-center text-xs leading-6 text-muted-foreground">
-                الدورات متاحة للأعضاء فقط.{" "}
-                <Link href="/join" className="text-primary underline">
-                  قدّم طلب الانضمام
-                </Link>
-              </p>
-            )}
-
-            {isMember && !hasCompleteProfile && !enrollment && (
+            {isLoggedIn && (!isMember || !hasCompleteProfile) && !enrollment && (
               <p className="text-center text-xs leading-6 text-muted-foreground">
                 يجب{" "}
                 <Link

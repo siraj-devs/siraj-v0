@@ -388,8 +388,8 @@ export async function enrollInCourse(
     if (!member) {
       return {
         success: false,
-        error: "يجب أن تكون عضواً في النادي للالتحاق بالدورات",
-        code: "not_member",
+        error: "أكمل ملفك الشخصي (بانتظار موافقة المالك) قبل الالتحاق",
+        code: "incomplete_profile",
       };
     }
     if (!isMemberProfileComplete(member)) {

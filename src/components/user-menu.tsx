@@ -1,7 +1,10 @@
 "use client";
 
 import { logout } from "@/app/actions";
-import type { MemberRole } from "@/lib/members";
+import {
+  MEMBER_ROLE_LABELS,
+  type MemberRole,
+} from "@/lib/member-role";
 import {
   CalendarDays,
   ClipboardList,
@@ -99,6 +102,11 @@ export function UserMenu({
               {user?.login && (
                 <p className="truncate text-xs text-muted-foreground">
                   @{user.login}
+                </p>
+              )}
+              {user?.role && (
+                <p className="mt-1 text-xs text-primary">
+                  {MEMBER_ROLE_LABELS[user.role]}
                 </p>
               )}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { encodeOAuthState } from "@/lib/oauth-state";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -52,7 +53,7 @@ export default function LoginButton({
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      const state = encodeURIComponent(next.startsWith("/") ? next : "/");
+      const state = encodeOAuthState({ redirect: next });
       const base =
         provider === "discord" ? "/api/auth/discord" : "/api/auth/42";
       router.push(`${base}?state=${state}`);

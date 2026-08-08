@@ -30,8 +30,7 @@ export default async function CourseLearnPage({
   if (!Number.isFinite(id)) notFound();
 
   const member = await getMemberForSession(session);
-  if (!member) redirect(`/courses/${id}`);
-  if (!isMemberProfileComplete(member)) {
+  if (!member || !isMemberProfileComplete(member)) {
     redirect(`/profile?next=/courses/${id}/learn`);
   }
 

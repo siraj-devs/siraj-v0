@@ -3,6 +3,7 @@
 import { reviewProfileChangeRequest } from "@/app/actions/profiles";
 import { Button } from "@/components/ui/button";
 import type { ProfileChangeRequest } from "@/lib/profile-requests";
+import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -80,7 +81,10 @@ export function ProfileRequestsManager({
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-kufam text-lg text-foreground">
-                      {request.member_name ?? `عضو #${request.member_id}`}
+                      {request.member_name ??
+                        (request.member_id
+                          ? `عضو #${request.member_id}`
+                          : "طلب انضمام جديد")}
                     </p>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs ${STATUS_STYLE[request.status]}`}
@@ -111,15 +115,18 @@ export function ProfileRequestsManager({
                       size="sm"
                       disabled={pending}
                       onClick={() => onReview(request.id, "approved")}
+                      className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600/40"
                     >
+                      <Check className="size-4" />
                       قبول
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
                       disabled={pending}
                       onClick={() => onReview(request.id, "rejected")}
+                      className="gap-1.5 border border-rose-600 bg-rose-600-transparent text-rose-600 hover:bg-rose-50 focus-visible:ring-rose-600/40"
                     >
+                      <X className="size-4" />
                       رفض
                     </Button>
                   </div>

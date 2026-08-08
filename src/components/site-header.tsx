@@ -3,7 +3,7 @@
 import { Logo } from "@/components/logo";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
-import type { MemberRole } from "@/lib/members";
+import type { MemberRole } from "@/lib/member-role";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";

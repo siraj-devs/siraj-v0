@@ -1,5 +1,12 @@
 import env from "@/env";
+import { linkConnectionToSessionMember } from "@/lib/link-connection";
 import { exchangeCodeForToken, getUserInfo } from "@/lib/oauth";
+import {
+  parseOAuthState,
+  profileLinkErrorUrl,
+  profileLinkedUrl,
+} from "@/lib/oauth-state";
+import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -61,14 +68,19 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
+    const { link, redirect } = parseOAuthState(state);
 
     if (error)
       return NextResponse.redirect(
-        new URL("/login?error=oauth_error", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "oauth_error", redirect)
+          : new URL("/login?error=oauth_error", request.url),
       );
     if (!code)
       return NextResponse.redirect(
-        new URL("/login?error=no_code", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "no_code", redirect)
+          : new URL("/login?error=no_code", request.url),
       );
 
     const { access_token, expires_in } = await exchangeCodeForToken(code);
@@ -76,14 +88,34 @@ export async function GET(request: NextRequest) {
     const userInfo = await getUserInfo(access_token);
     if (!userInfo)
       return NextResponse.redirect(
-        new URL("/login?error=user_info_error", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "user_info_error", redirect)
+          : new URL("/login?error=user_info_error", request.url),
       );
 
     const ftError = await ft_connection(userInfo);
     if (ftError)
       return NextResponse.redirect(
-        new URL(`/login?error=${ftError}`, request.url),
+        link
+          ? profileLinkErrorUrl(request.url, ftError, redirect)
+          : new URL(`/login?error=${ftError}`, request.url),
       );
+
+    if (link) {
+      const session = await getSession();
+      const result = await linkConnectionToSessionMember(session, {
+        provider: "42",
+        id: userInfo.id,
+      });
+      if (!result.success) {
+        return NextResponse.redirect(
+          profileLinkErrorUrl(request.url, result.code, redirect),
+        );
+      }
+      return NextResponse.redirect(
+        profileLinkedUrl(request.url, "42", redirect),
+      );
+    }
 
     const sessionData = {
       user: {
@@ -96,9 +128,7 @@ export async function GET(request: NextRequest) {
       provider: "42" as const,
     };
 
-    const redirectUrl = state ? decodeURIComponent(state) : "/";
-
-    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+    const response = NextResponse.redirect(new URL(redirect, request.url));
     response.cookies.set("42-session", JSON.stringify(sessionData), {
       httpOnly: true,
       secure: env.NODE_ENV === "production",

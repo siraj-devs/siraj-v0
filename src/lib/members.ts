@@ -1,25 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MemberRole } from "@/lib/member-role";
 
-export type MemberRole =
-  | "owner"
-  | "admin"
-  | "participant"
-  | "veteran"
-  | "newcomer";
-
-/** Highest privilege first — used for members list ordering. */
-export const MEMBER_ROLE_ORDER: readonly MemberRole[] = [
-  "owner",
-  "admin",
-  "participant",
-  "veteran",
-  "newcomer",
-] as const;
-
-export function memberRoleRank(role: MemberRole) {
-  const index = MEMBER_ROLE_ORDER.indexOf(role);
-  return index === -1 ? MEMBER_ROLE_ORDER.length : index;
-}
+export type { MemberRole } from "@/lib/member-role";
+export {
+  MEMBER_ROLE_LABELS,
+  MEMBER_ROLE_ORDER,
+  memberRoleRank,
+} from "@/lib/member-role";
 
 export type AppMember = {
   id: number;
