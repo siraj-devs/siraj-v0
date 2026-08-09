@@ -13,6 +13,9 @@ function supabaseHostname() {
 const supabaseHost = supabaseHostname();
 
 const nextConfig: NextConfig = {
+  experimental: {
+    optimizePackageImports: ["@phosphor-icons/react"],
+  },
   images: {
     remotePatterns: [
       {
