@@ -7,6 +7,7 @@ import {
 } from "@/lib/member-role";
 import {
   CalendarDays,
+  Clapperboard,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -37,6 +38,7 @@ const OWNER_LINKS: {
     label: "طلبات الملف",
     icon: UserRoundCheck,
   },
+  { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
 ];
 
 const VIEWER_LINKS: {

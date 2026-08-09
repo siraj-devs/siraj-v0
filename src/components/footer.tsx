@@ -7,12 +7,14 @@ import Link from "next/link";
 import { Logo } from "./logo";
 
 export async function Footer() {
-  const [session, joinDisabled, coursesDisabled, socials] = await Promise.all([
-    getSession(),
-    isPublicPathDisabled("/join"),
-    isPublicPathDisabled("/courses"),
-    getSocialLinks(),
-  ]);
+  const [session, joinDisabled, coursesDisabled, sessionsDisabled, socials] =
+    await Promise.all([
+      getSession(),
+      isPublicPathDisabled("/join"),
+      isPublicPathDisabled("/courses"),
+      isPublicPathDisabled("/sessions"),
+      getSocialLinks(),
+    ]);
 
   return (
     <footer className="mt-auto border-t border-border bg-background py-12">
@@ -36,6 +38,14 @@ export async function Footer() {
               className="text-foreground transition-colors hover:text-primary"
             >
               الدورات
+            </Link>
+          )}
+          {!sessionsDisabled && (
+            <Link
+              href="/sessions"
+              className="text-foreground transition-colors hover:text-primary"
+            >
+              الأمسيات
             </Link>
           )}
           {!joinDisabled && (

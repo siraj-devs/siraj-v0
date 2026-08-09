@@ -1,16 +1,24 @@
 import type { NextConfig } from "next";
 
-function supabaseHostname() {
+function supabaseImagePattern() {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!url) return null;
-    return new URL(url).hostname;
+    const parsed = new URL(url);
+    return {
+      protocol: (parsed.protocol === "http:" ? "http" : "https") as
+        | "http"
+        | "https",
+      hostname: parsed.hostname,
+      port: parsed.port || undefined,
+      pathname: "/storage/v1/object/public/**" as const,
+    };
   } catch {
     return null;
   }
 }
 
-const supabaseHost = supabaseHostname();
+const supabasePattern = supabaseImagePattern();
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -33,15 +41,7 @@ const nextConfig: NextConfig = {
         hostname: "cdn.discordapp.com",
         pathname: "/embed/avatars/**",
       },
-      ...(supabaseHost
-        ? [
-            {
-              protocol: "https" as const,
-              hostname: supabaseHost,
-              pathname: "/storage/v1/object/public/**",
-            },
-          ]
-        : []),
+      ...(supabasePattern ? [supabasePattern] : []),
     ],
     dangerouslyAllowLocalIP: true,
   },

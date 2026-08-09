@@ -8,6 +8,7 @@ import {
   isProtectedFromDisable,
   normalizePublicPath,
 } from "@/lib/disabled-pages";
+import { check42ConnectionAccess } from "@/lib/sessions-access";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -62,6 +63,14 @@ export async function proxy(request: NextRequest) {
 
     if (data) {
       return NextResponse.rewrite(new URL("/force-not-found", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/sessions/")) {
+    const session = readSessionCookie(request);
+    const member = session ? await getMemberForSession(session) : null;
+    if (!check42ConnectionAccess(session, member)) {
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 

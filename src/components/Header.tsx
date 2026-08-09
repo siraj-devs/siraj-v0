@@ -8,12 +8,14 @@ import {
 import { getSession } from "@/lib/session";
 
 export async function Header() {
-  const [formStatus, session, joinDisabled, coursesDisabled] = await Promise.all([
-    checkFormCompletionStatus(),
-    getSession(),
-    isPublicPathDisabled("/join"),
-    isPublicPathDisabled("/courses"),
-  ]);
+  const [formStatus, session, joinDisabled, coursesDisabled, sessionsDisabled] =
+    await Promise.all([
+      checkFormCompletionStatus(),
+      getSession(),
+      isPublicPathDisabled("/join"),
+      isPublicPathDisabled("/courses"),
+      isPublicPathDisabled("/sessions"),
+    ]);
 
   const member = session ? await getMemberForSession(session) : null;
 
@@ -23,6 +25,7 @@ export async function Header() {
       showLogin
       showJoin={!joinDisabled}
       showCourses={!coursesDisabled}
+      showSessions={!sessionsDisabled}
       user={
         session
           ? {

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 const allLinks = [
   { href: "/", label: "الرئيسية" },
   { href: "/courses", label: "الدورات" },
+  { href: "/sessions", label: "الأمسيات" },
   { href: "/join", label: "إنضم إلينا" },
 ] as const;
 
@@ -19,6 +20,7 @@ type SiteHeaderProps = {
   showLogin?: boolean;
   showJoin?: boolean;
   showCourses?: boolean;
+  showSessions?: boolean;
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
@@ -30,12 +32,14 @@ export function SiteHeader({
   showLogin = true,
   showJoin = true,
   showCourses = true,
+  showSessions = true,
   user,
 }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
   const links = allLinks.filter((link) => {
     if (link.href === "/join") return showJoin;
     if (link.href === "/courses") return showCourses;
+    if (link.href === "/sessions") return showSessions;
     return true;
   });
 
