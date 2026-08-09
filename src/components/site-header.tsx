@@ -3,13 +3,14 @@
 import { Logo } from "@/components/logo";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
-import type { MemberRole } from "@/lib/members";
+import type { MemberRole } from "@/lib/member-role";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const allLinks = [
   { href: "/", label: "الرئيسية" },
+  { href: "/courses", label: "الدورات" },
   { href: "/join", label: "إنضم إلينا" },
 ] as const;
 
@@ -17,6 +18,7 @@ type SiteHeaderProps = {
   isLoggedIn: boolean;
   showLogin?: boolean;
   showJoin?: boolean;
+  showCourses?: boolean;
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
@@ -27,12 +29,15 @@ export function SiteHeader({
   isLoggedIn,
   showLogin = true,
   showJoin = true,
+  showCourses = true,
   user,
 }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
-  const links = allLinks.filter(
-    (link) => link.href !== "/join" || showJoin,
-  );
+  const links = allLinks.filter((link) => {
+    if (link.href === "/join") return showJoin;
+    if (link.href === "/courses") return showCourses;
+    return true;
+  });
 
   useEffect(() => {
     if (!open) return;

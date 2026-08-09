@@ -1,35 +1,36 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MemberRole } from "@/lib/member-role";
 
-export type MemberRole =
-  | "owner"
-  | "admin"
-  | "participant"
-  | "veteran"
-  | "newcomer";
-
-/** Highest privilege first — used for members list ordering. */
-export const MEMBER_ROLE_ORDER: readonly MemberRole[] = [
-  "owner",
-  "admin",
-  "participant",
-  "veteran",
-  "newcomer",
-] as const;
-
-export function memberRoleRank(role: MemberRole) {
-  const index = MEMBER_ROLE_ORDER.indexOf(role);
-  return index === -1 ? MEMBER_ROLE_ORDER.length : index;
-}
+export type { MemberRole } from "@/lib/member-role";
+export {
+  MEMBER_ROLE_LABELS,
+  MEMBER_ROLE_ORDER,
+  memberRoleRank,
+} from "@/lib/member-role";
 
 export type AppMember = {
   id: number;
   name: string;
+  email: string | null;
+  phone: string | null;
   ft_connection: number | null;
   dc_connection: string | null;
   role: MemberRole;
 };
 
-const MEMBER_COLUMNS = "id, name, ft_connection, dc_connection, role";
+const MEMBER_COLUMNS =
+  "id, name, email, phone, ft_connection, dc_connection, role";
+
+export function isMemberProfileComplete(
+  member: Pick<AppMember, "name" | "email" | "phone"> | null | undefined,
+): boolean {
+  if (!member) return false;
+  return (
+    member.name.trim().length > 0 &&
+    Boolean(member.email?.trim()) &&
+    Boolean(member.phone && member.phone.trim().length >= 8)
+  );
+}
 
 export async function getMemberByFtConnectionId(
   ftConnectionId: string | number,

@@ -1,15 +1,21 @@
 "use client";
 
 import { logout } from "@/app/actions";
-import type { MemberRole } from "@/lib/members";
+import {
+  MEMBER_ROLE_LABELS,
+  type MemberRole,
+} from "@/lib/member-role";
 import {
   CalendarDays,
   ClipboardList,
   FileText,
+  GraduationCap,
   Handshake,
   Link2,
   LogOut,
   type LucideIcon,
+  UserRound,
+  UserRoundCheck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -25,6 +31,12 @@ const OWNER_LINKS: {
   { href: "/dashboard/submissions", label: "التقديمات", icon: ClipboardList },
   { href: "/dashboard/connections", label: "الاتصالات", icon: Link2 },
   { href: "/dashboard/content", label: "المحتوى", icon: FileText },
+  { href: "/dashboard/courses", label: "الدورات", icon: GraduationCap },
+  {
+    href: "/dashboard/profile-requests",
+    label: "طلبات الملف",
+    icon: UserRoundCheck,
+  },
 ];
 
 const VIEWER_LINKS: {
@@ -92,6 +104,11 @@ export function UserMenu({
                   @{user.login}
                 </p>
               )}
+              {user?.role && (
+                <p className="mt-1 text-xs text-primary">
+                  {MEMBER_ROLE_LABELS[user.role]}
+                </p>
+              )}
             </div>
             {isAdmin && (
               <>
@@ -126,6 +143,14 @@ export function UserMenu({
               </>
             )}
 
+            <Link
+              href="/profile"
+              className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
+              onClick={() => setIsOpen(false)}
+            >
+              <UserRound className="size-4 shrink-0 text-muted-foreground" />
+              الملف الشخصي
+            </Link>
             <button
               onClick={() => logout()}
               className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-start text-sm text-red-500 transition-colors hover:bg-red-50"

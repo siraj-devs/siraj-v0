@@ -1,9 +1,17 @@
+import env from "@/env";
 import {
   exchangeDiscordCodeForToken,
   getDiscordAvatarUrl,
   getDiscordUserInfo,
   type DiscordUser,
 } from "@/lib/discord-oauth";
+import { linkConnectionToSessionMember } from "@/lib/link-connection";
+import {
+  parseOAuthState,
+  profileLinkErrorUrl,
+  profileLinkedUrl,
+} from "@/lib/oauth-state";
+import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -59,14 +67,19 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
+    const { link, redirect } = parseOAuthState(state);
 
     if (error)
       return NextResponse.redirect(
-        new URL("/login?error=oauth_error", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "oauth_error", redirect)
+          : new URL("/login?error=oauth_error", request.url),
       );
     if (!code)
       return NextResponse.redirect(
-        new URL("/login?error=no_code", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "no_code", redirect)
+          : new URL("/login?error=no_code", request.url),
       );
 
     const { access_token, expires_in } =
@@ -75,14 +88,34 @@ export async function GET(request: NextRequest) {
     const userInfo = await getDiscordUserInfo(access_token);
     if (!userInfo)
       return NextResponse.redirect(
-        new URL("/login?error=user_info_error", request.url),
+        link
+          ? profileLinkErrorUrl(request.url, "user_info_error", redirect)
+          : new URL("/login?error=user_info_error", request.url),
       );
 
     const dcError = await dc_connection(userInfo);
     if (dcError)
       return NextResponse.redirect(
-        new URL(`/login?error=${dcError}`, request.url),
+        link
+          ? profileLinkErrorUrl(request.url, dcError, redirect)
+          : new URL(`/login?error=${dcError}`, request.url),
       );
+
+    if (link) {
+      const session = await getSession();
+      const result = await linkConnectionToSessionMember(session, {
+        provider: "discord",
+        id: userInfo.id,
+      });
+      if (!result.success) {
+        return NextResponse.redirect(
+          profileLinkErrorUrl(request.url, result.code, redirect),
+        );
+      }
+      return NextResponse.redirect(
+        profileLinkedUrl(request.url, "discord", redirect),
+      );
+    }
 
     const avatar = getDiscordAvatarUrl(userInfo.id, userInfo.avatar);
 
@@ -98,12 +131,10 @@ export async function GET(request: NextRequest) {
       provider: "discord" as const,
     };
 
-    const redirectUrl = state ? decodeURIComponent(state) : "/";
-
-    const response = NextResponse.redirect(new URL(redirectUrl, request.url));
+    const response = NextResponse.redirect(new URL(redirect, request.url));
     response.cookies.set("dc-session", JSON.stringify(sessionData), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: expires_in,
     });

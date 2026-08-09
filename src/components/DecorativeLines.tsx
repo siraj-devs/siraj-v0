@@ -1,14 +1,15 @@
 import { Rosette } from "@/components/islamic-motif";
-import { toArabicIndic } from "@/lib/utils";
 
 export default function DecorativeLines({
   title,
   index,
   eyebrow,
+  description,
 }: {
   title: string;
   index?: number;
   eyebrow?: string;
+  description?: string;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center">
@@ -26,6 +27,11 @@ export default function DecorativeLines({
       <h2 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
         {title}
       </h2>
+      {description && (
+        <p className="mx-auto max-w-2xl text-center text-base leading-8 text-foreground/65 md:text-lg">
+          {description}
+        </p>
+      )}
     </div>
   );
 }

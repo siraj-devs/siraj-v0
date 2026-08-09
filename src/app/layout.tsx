@@ -1,30 +1,8 @@
 import { ToastProvider } from "@/components";
 import { Analytics } from "@vercel/analytics/react";
 import type { Metadata } from "next";
-import { Amiri, Kufam, Tajawal } from "next/font/google";
 import type React from "react";
 import "./globals.css";
-
-const amiri = Amiri({
-  weight: ["400", "700"],
-  subsets: ["arabic"],
-  variable: "--font-amiri",
-  display: "swap",
-});
-
-const kufam = Kufam({
-  weight: ["400", "600", "500", "700", "800", "900"],
-  subsets: ["arabic"],
-  variable: "--font-kufam",
-  display: "swap",
-});
-
-const tajawal = Tajawal({
-  weight: ["200", "300", "400", "500", "700"],
-  subsets: ["arabic"],
-  variable: "--font-tajawal",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "سراج",
@@ -38,9 +16,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body
-        className={`font-tajawal ${kufam.variable} ${amiri.variable} ${tajawal.variable}`}
-      >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Kufam:wght@400;500;600;700;800;900&family=Tajawal:wght@200;300;400;500;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-tajawal">
         {children}
         <ToastProvider />
         <Analytics />

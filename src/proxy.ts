@@ -1,3 +1,4 @@
+import env from "@/env";
 import {
   canAccessDashboard,
   canAccessDashboardPath,
@@ -35,7 +36,7 @@ function readSessionCookie(request: NextRequest): SessionData | null {
 export async function proxy(request: NextRequest) {
   const pathname = normalizePublicPath(request.nextUrl.pathname);
 
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     const supabase = await createClient();
     const { data } = await supabase.from("base").select("maintenance").single();
 

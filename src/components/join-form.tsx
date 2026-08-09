@@ -107,7 +107,7 @@ export function JoinForm({ userData }: { userData?: UserData }) {
       {/* Header */}
       <div className="mb-20 text-center">
         <h1 className="mb-6 font-kufam text-3xl font-bold text-foreground md:text-4xl lg:text-5xl">
-          هل ترغب في أن تكون جزءًا من نادي سراج؟
+          هل ترغب في أن تكون جزءًا من سراج؟
         </h1>
         <p className="mb-2 text-base leading-relaxed text-muted-foreground md:text-lg lg:text-xl">
           يسعدنا اهتمامك! يرجى ملء النموذج التالي حتى نتعرف عليك أكثر ونوجهك إلى
@@ -301,7 +301,7 @@ export function JoinForm({ userData }: { userData?: UserData }) {
               <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
             </div>
             <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              الوقت الذي يمكنك تخصيصه للنادي أسبوعيًا؟
+              الوقت الذي يمكنك تخصيصه أسبوعيًا؟
             </h2>
             <div className="relative flex-1">
               <div className="h-px bg-border" />
@@ -370,7 +370,7 @@ export function JoinForm({ userData }: { userData?: UserData }) {
           {/* Privacy Notice */}
           <p className="mb-6 text-center text-sm leading-relaxed text-muted-foreground">
             جميع المعلومات التي تقدمها سرية، وتُستخدم فقط لأغراض تقييم الانضمام
-            للنادي، ولن تتم مشاركتها مع أي طرف ثالث.
+            ، ولن تتم مشاركتها مع أي طرف ثالث.
           </p>
 
           {/* Submit Button */}
