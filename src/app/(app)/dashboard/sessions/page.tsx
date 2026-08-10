@@ -2,7 +2,7 @@ import {
   getSessionsForDashboard,
   listSeries,
 } from "@/app/actions/sessions";
-import { SessionsManager } from "@/components/sessions-manager";
+import { SessionsManager } from "@/components/sessions/sessions-manager";
 import {
   canManageMembers,
   getMemberForSession,

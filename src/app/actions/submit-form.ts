@@ -1,9 +1,5 @@
 "use server";
 
-import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
 import { getSession } from "@/lib/session";
 import {
   getSubmissionAvailabilityLabel,
@@ -11,17 +7,10 @@ import {
   getSubmissions,
   type SubmissionRow,
 } from "@/lib/submissions";
+import { requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import env from "@/env";
 import nodemailer from "nodemailer";
-
-async function requireOwner() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
-  return { session, member };
-}
 
 export async function getSubmissionsForDashboard(): Promise<SubmissionRow[]> {
   await requireOwner();

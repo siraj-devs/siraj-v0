@@ -1,26 +1,14 @@
 "use server";
 
 import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import {
   getPublicPageStatuses,
   isProtectedFromDisable,
   normalizePublicPath,
   type PublicPageStatus,
 } from "@/lib/disabled-pages";
-import { getSession } from "@/lib/session";
+import { requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-async function requireOwner() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
-  return { session, member };
-}
 
 function revalidateDisabledPages(path?: string) {
   revalidatePath("/dashboard/content");

@@ -1,11 +1,6 @@
 "use server";
 
-import {
-  canAccessDashboard,
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
+import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -18,22 +13,6 @@ export type ClubTransaction = {
   type: TransactionType;
   note: string;
 };
-
-async function requireDashboardMember() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-
-  const member = await getMemberForSession(session);
-  if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
-
-  return { session, member };
-}
-
-async function requireOwner() {
-  const ctx = await requireDashboardMember();
-  if (!canManageMembers(ctx.member?.role)) throw new Error("غير مصرح");
-  return ctx;
-}
 
 export async function getTransactions(): Promise<ClubTransaction[]> {
   await requireDashboardMember();

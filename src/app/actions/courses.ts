@@ -23,24 +23,13 @@ import type {
   ExamQuestionType,
   VideoTimestamp,
 } from "@/lib/course-types";
-import {
-  canManageMembers,
-  getMemberForSession,
-  isMemberProfileComplete,
-} from "@/lib/members";
+import { getMemberForSession, isMemberProfileComplete } from "@/lib/members";
 import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
+import { requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-async function requireOwner() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
-  return { session, member: member! };
-}
 
 function revalidateCoursePaths(courseId?: number) {
   revalidatePath("/courses");

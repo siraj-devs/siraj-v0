@@ -1,25 +1,13 @@
 "use server";
 
 import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
-import {
   getSocialLinksForDashboard,
   isKnownSocialLabel,
   type SocialLink,
 } from "@/lib/socials";
+import { requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-
-async function requireOwner() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
-  return { session, member };
-}
 
 function revalidateSocials() {
   revalidatePath("/dashboard/content");

@@ -1,7 +1,6 @@
 "use server";
 
 import {
-  canManageMembers,
   getMemberForSession,
   isMemberProfileComplete,
   type AppMember,
@@ -12,6 +11,7 @@ import {
   type ProfileChangeRequest,
 } from "@/lib/profile-requests";
 import { getSession } from "@/lib/session";
+import { requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { unlinkMemberConnection } from "@/lib/link-connection";
 import { revalidatePath } from "next/cache";
@@ -21,14 +21,6 @@ function revalidateProfilePaths() {
   revalidatePath("/courses");
   revalidatePath("/dashboard/profile-requests");
   revalidatePath("/dashboard/members");
-}
-
-async function requireOwner() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) throw new Error("غير مصرح");
-  return { session, member: member! };
 }
 
 export type MemberFtConnection = {

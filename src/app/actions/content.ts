@@ -1,11 +1,6 @@
 "use server";
 
-import {
-  canAccessDashboard,
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
+import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -66,20 +61,6 @@ function mapRow(row: {
     links: normalizeLinks(row.links ?? {}),
     is_published: row.is_published !== false,
   };
-}
-
-async function requireDashboardMember() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-  const member = await getMemberForSession(session);
-  if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
-  return { session, member };
-}
-
-async function requireOwner() {
-  const ctx = await requireDashboardMember();
-  if (!canManageMembers(ctx.member?.role)) throw new Error("غير مصرح");
-  return ctx;
 }
 
 function revalidateContent() {

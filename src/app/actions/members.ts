@@ -1,14 +1,11 @@
 "use server";
 
 import {
-  canAccessDashboard,
-  canManageMembers,
-  getMemberForSession,
   memberRoleRank,
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
-import { getSession } from "@/lib/session";
+import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -41,28 +38,12 @@ const ROLE_VALUES: MemberRole[] = [
   "newcomer",
 ];
 
-async function requireDashboardAccess() {
-  const session = await getSession();
-  if (!session) throw new Error("غير مصرح");
-
-  const member = await getMemberForSession(session);
-  if (!canAccessDashboard(member?.role)) throw new Error("غير مصرح");
-
-  return { session, member };
-}
-
-async function requireOwner() {
-  const ctx = await requireDashboardAccess();
-  if (!canManageMembers(ctx.member?.role)) throw new Error("غير مصرح");
-  return ctx;
-}
-
 function revalidateMembers() {
   revalidatePath("/dashboard/members");
 }
 
 export async function getClubMembers(): Promise<MemberProfile[]> {
-  await requireDashboardAccess();
+  await requireDashboardMember();
   const supabase = await createClient();
 
   const { data, error } = await supabase

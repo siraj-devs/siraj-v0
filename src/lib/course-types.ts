@@ -1,5 +1,14 @@
+import type { MemberRole } from "@/lib/member-role";
+
 export type CourseEnrollmentStatus = "open" | "closed";
 export type CourseVisibility = "public" | "private";
+
+/** Member option shown in the course ACL picker (dashboard course form). */
+export type CourseAclMemberOption = {
+  id: number;
+  name: string;
+  role: MemberRole;
+};
 export type CourseContentType =
   | "watching"
   | "listening"
