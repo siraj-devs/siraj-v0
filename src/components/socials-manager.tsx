@@ -5,6 +5,7 @@ import {
   upsertSocialLink,
 } from "@/app/actions/socials";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
   type SocialLabel,
   type SocialLink,
 } from "@/lib/social-platforms";
-import { MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
@@ -313,129 +314,87 @@ export function SocialsManager({
       />
 
       {canManage && modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              if (!pending) closeModal();
-            }}
-            aria-hidden
-          />
-          <form
-            onSubmit={onSubmit}
-            className="relative z-10 w-full max-w-md animate-[fade-up_0.25s_ease-out] space-y-5 rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-kufam text-2xl font-semibold text-foreground">
-                  {modal === "create" ? "رابط جديد" : "تعديل الرابط"}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  اختر المنصة وأدخل الرابط الكامل.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={pending}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-40"
-                aria-label="إغلاق"
+        <FormDialog
+          title={modal === "create" ? "رابط جديد" : "تعديل الرابط"}
+          description="اختر المنصة وأدخل الرابط الكامل."
+          onClose={closeModal}
+          onSubmit={onSubmit}
+          pending={pending}
+          submitLabel="حفظ"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="social-label">المنصة</Label>
+            <select
+              id="social-label"
+              value={label}
+              disabled={modal === "edit"}
+              onChange={(e) => setLabel(e.target.value as SocialLabel)}
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              required
+            >
+              {(modal === "edit"
+                ? SOCIAL_PLATFORM_OPTIONS.filter((o) => o.label === label)
+                : availableLabels
+              ).map((option) => (
+                <option key={option.label} value={option.label}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="social-link">الرابط</Label>
+            <Input
+              id="social-link"
+              dir="ltr"
+              type="url"
+              placeholder="https://"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium leading-none">
+              الظهور في الموقع
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                  isPublished
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
               >
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="social-label">المنصة</Label>
-                <select
-                  id="social-label"
-                  value={label}
-                  disabled={modal === "edit"}
-                  onChange={(e) => setLabel(e.target.value as SocialLabel)}
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  required
-                >
-                  {(modal === "edit"
-                    ? SOCIAL_PLATFORM_OPTIONS.filter((o) => o.label === label)
-                    : availableLabels
-                  ).map((option) => (
-                    <option key={option.label} value={option.label}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="social-link">الرابط</Label>
-                <Input
-                  id="social-link"
-                  dir="ltr"
-                  type="url"
-                  placeholder="https://"
-                  value={link}
-                  onChange={(e) => setLink(e.target.value)}
-                  required
-                  autoFocus
+                <input
+                  type="radio"
+                  name="social-form-publish"
+                  className="accent-primary"
+                  checked={isPublished}
+                  onChange={() => setIsPublished(true)}
                 />
-              </div>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium leading-none">
-                  الظهور في الموقع
-                </legend>
-                <div className="grid grid-cols-2 gap-2">
-                  <label
-                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                      isPublished
-                        ? "border-primary/40 bg-primary/10 text-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="social-form-publish"
-                      className="accent-primary"
-                      checked={isPublished}
-                      onChange={() => setIsPublished(true)}
-                    />
-                    منشور
-                  </label>
-                  <label
-                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                      !isPublished
-                        ? "border-border bg-muted text-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="social-form-publish"
-                      className="accent-primary"
-                      checked={!isPublished}
-                      onChange={() => setIsPublished(false)}
-                    />
-                    مخفي
-                  </label>
-                </div>
-              </fieldset>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeModal}
-                disabled={pending}
-                className="flex-1"
+                منشور
+              </label>
+              <label
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                  !isPublished
+                    ? "border-border bg-muted text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
               >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                {pending ? "جاري الحفظ…" : "حفظ"}
-              </Button>
+                <input
+                  type="radio"
+                  name="social-form-publish"
+                  className="accent-primary"
+                  checked={!isPublished}
+                  onChange={() => setIsPublished(false)}
+                />
+                مخفي
+              </label>
             </div>
-          </form>
-        </div>
+          </fieldset>
+        </FormDialog>
       )}
     </section>
   );

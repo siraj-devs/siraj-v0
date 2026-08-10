@@ -8,11 +8,13 @@ import {
   type FtConnectionOption,
   type MemberProfile,
 } from "@/app/actions/members";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { MemberRole } from "@/lib/members";
-import { MoreHorizontal, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -102,6 +104,7 @@ export function MembersManager({
   const [form, setForm] = useState<MemberFormState>(emptyForm);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [deleting, setDeleting] = useState<MemberProfile | null>(null);
 
   useEffect(() => {
     if (!openMenuId && !modal) return;
@@ -238,18 +241,16 @@ export function MembersManager({
     });
   }
 
-  function onDelete(id: number) {
-    if (!canManage) return;
-    if (!confirm("هل أنت متأكد من حذف هذا العضو؟")) return;
-
+  function onConfirmDelete() {
+    if (!canManage || !deleting) return;
     startTransition(async () => {
-      const result = await deleteMember(id);
+      const result = await deleteMember(deleting.id);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       toast.success("تم حذف العضو");
-      setOpenMenuId(null);
+      setDeleting(null);
       router.refresh();
     });
   }
@@ -413,7 +414,10 @@ export function MembersManager({
                               disabled={
                                 member.id === currentMemberId || pending
                               }
-                              onClick={() => onDelete(member.id)}
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setDeleting(member);
+                              }}
                               className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
                             >
                               <Trash2 className="size-3.5" />
@@ -486,137 +490,116 @@ export function MembersManager({
       )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="absolute inset-0" onClick={closeModal} aria-hidden />
-          <form
-            onSubmit={onSubmit}
-            className="relative z-10 w-full max-w-md animate-[fade-up_0.25s_ease-out] space-y-5 rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-kufam text-2xl font-semibold text-foreground">
-                  {modal === "create" ? "إضافة عضو" : "تعديل عضو"}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  حدّد الاسم والدور واربط حساب 42 و/أو ديسكورد.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label="إغلاق"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+        <FormDialog
+          title={modal === "create" ? "إضافة عضو" : "تعديل عضو"}
+          description="حدّد الاسم والدور واربط حساب 42 و/أو ديسكورد."
+          onClose={closeModal}
+          onSubmit={onSubmit}
+          pending={pending}
+          submitLabel="حفظ"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="member-name">الاسم</Label>
+            <Input
+              id="member-name"
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, name: e.target.value }))
+              }
+              placeholder="اسم العضو"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="member-name">الاسم</Label>
-              <Input
-                id="member-name"
-                required
-                autoFocus
-                value={form.name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="اسم العضو"
-              />
+          <div className="space-y-2">
+            <Label>الدور</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {(
+                [
+                  "newcomer",
+                  "participant",
+                  "veteran",
+                  "admin",
+                  "owner",
+                ] as MemberRole[]
+              ).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, role }))}
+                  className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                    form.role === role
+                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                      : "border-border text-muted-foreground hover:border-border hover:bg-muted/50"
+                  }`}
+                >
+                  {ROLE_LABELS[role]}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label>الدور</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                {(
-                  [
-                    "newcomer",
-                    "participant",
-                    "veteran",
-                    "admin",
-                    "owner",
-                  ] as MemberRole[]
-                ).map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, role }))}
-                      className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                        form.role === role
-                          ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                          : "border-border text-muted-foreground hover:border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      {ROLE_LABELS[role]}
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="member-ft">حساب 42</Label>
+            <select
+              id="member-ft"
+              value={form.ft_connection}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  ft_connection: e.target.value,
+                }))
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <option value="">بدون ربط</option>
+              {ftOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.login}
+                  {c.name ? ` — ${c.name}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="member-ft">حساب 42</Label>
-              <select
-                id="member-ft"
-                value={form.ft_connection}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    ft_connection: e.target.value,
-                  }))
-                }
-                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <option value="">بدون ربط</option>
-                {ftOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.login}
-                    {c.name ? ` — ${c.name}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="member-dc">حساب ديسكورد</Label>
-              <select
-                id="member-dc"
-                value={form.dc_connection}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    dc_connection: e.target.value,
-                  }))
-                }
-                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <option value="">بدون ربط</option>
-                {dcOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.username}
-                    {c.email ? ` — ${c.email}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeModal}
-                disabled={pending}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                {pending ? "جاري الحفظ…" : "حفظ"}
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="member-dc">حساب ديسكورد</Label>
+            <select
+              id="member-dc"
+              value={form.dc_connection}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  dc_connection: e.target.value,
+                }))
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <option value="">بدون ربط</option>
+              {dcOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.username}
+                  {c.email ? ` — ${c.email}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </FormDialog>
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="حذف العضو"
+        description={
+          deleting ? `هل تريد حذف «${deleting.name}» من النادي؟` : ""
+        }
+        pending={pending}
+        onCancel={() => {
+          if (!pending) setDeleting(null);
+        }}
+        onConfirm={onConfirmDelete}
+      />
     </div>
   );
 }

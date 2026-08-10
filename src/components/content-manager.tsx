@@ -8,6 +8,7 @@ import {
   type ProposedProgram,
 } from "@/app/actions/content";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,6 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -483,193 +483,157 @@ export function ContentManager({
       />
 
       {canManage && modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="absolute inset-0" onClick={closeModal} aria-hidden />
-          <form
-            onSubmit={onSubmit}
-            className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:rounded-3xl"
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-border p-6 sm:p-8 sm:pb-5">
-              <div>
-                <h2 className="font-kufam text-2xl font-semibold text-foreground">
-                  {modal === "create" ? "برنامج جديد" : "تعديل البرنامج"}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  الاسم، الوصف، الصورة، الروابط والترتيب.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
-                aria-label="إغلاق"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+        <FormDialog
+          title={modal === "create" ? "برنامج جديد" : "تعديل البرنامج"}
+          description="الاسم، الوصف، الصورة، الروابط والترتيب."
+          onClose={closeModal}
+          onSubmit={onSubmit}
+          pending={pending}
+          submitLabel="حفظ"
+          maxWidthClassName="max-w-lg"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="program-name">الاسم</Label>
+            <Input
+              id="program-name"
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, name: e.target.value }))
+              }
+            />
+          </div>
 
-            <div className="space-y-4 overflow-y-auto p-6 sm:p-8 sm:pt-5">
-              <div className="space-y-2">
-                <Label htmlFor="program-name">الاسم</Label>
-                <Input
-                  id="program-name"
-                  required
-                  autoFocus
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, name: e.target.value }))
+          <div className="space-y-2">
+            <Label htmlFor="program-desc">الوصف</Label>
+            <textarea
+              id="program-desc"
+              required
+              rows={4}
+              value={form.description}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="program-order">الترتيب</Label>
+            <Input
+              id="program-order"
+              type="number"
+              required
+              value={form.order}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, order: e.target.value }))
+              }
+            />
+          </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium leading-none">
+              الظهور في الموقع
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                  form.is_published
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="program-form-publish"
+                  className="accent-primary"
+                  checked={form.is_published}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, is_published: true }))
                   }
                 />
-              </div>
+                منشور
+              </label>
+              <label
+                className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                  !form.is_published
+                    ? "border-border bg-muted text-foreground"
+                    : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="program-form-publish"
+                  className="accent-primary"
+                  checked={!form.is_published}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, is_published: false }))
+                  }
+                />
+                مخفي
+              </label>
+            </div>
+          </fieldset>
 
-              <div className="space-y-2">
-                <Label htmlFor="program-desc">الوصف</Label>
-                <textarea
-                  id="program-desc"
-                  required
-                  rows={4}
-                  value={form.description}
+          <div className="space-y-2">
+            <Label htmlFor="program-image">الصورة</Label>
+            {currentImage && (
+              <Image
+                src={currentImage}
+                alt=""
+                width={96}
+                height={96}
+                className="size-24 rounded-xl object-cover"
+              />
+            )}
+            <Input
+              id="program-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {LINK_FIELDS.map((field) => (
+              <div key={field.key} className="space-y-2">
+                <Label
+                  htmlFor={`link-${field.key}`}
+                  className="flex items-center gap-2"
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+                    {field.icon === "website" ? (
+                      <Globe className="size-4" aria-hidden />
+                    ) : (
+                      <SocialIcon
+                        label={field.icon}
+                        title={field.label}
+                        className="size-4"
+                      />
+                    )}
+                  </span>
+                  {field.label}
+                </Label>
+                <Input
+                  id={`link-${field.key}`}
+                  type="url"
+                  placeholder="https://"
+                  value={form[field.key]}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
-                      description: e.target.value,
+                      [field.key]: e.target.value,
                     }))
                   }
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="program-order">الترتيب</Label>
-                <Input
-                  id="program-order"
-                  type="number"
-                  required
-                  value={form.order}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, order: e.target.value }))
-                  }
-                />
-              </div>
-
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium leading-none">
-                  الظهور في الموقع
-                </legend>
-                <div className="grid grid-cols-2 gap-2">
-                  <label
-                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                      form.is_published
-                        ? "border-primary/40 bg-primary/10 text-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="program-form-publish"
-                      className="accent-primary"
-                      checked={form.is_published}
-                      onChange={() =>
-                        setForm((prev) => ({ ...prev, is_published: true }))
-                      }
-                    />
-                    منشور
-                  </label>
-                  <label
-                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${
-                      !form.is_published
-                        ? "border-border bg-muted text-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="program-form-publish"
-                      className="accent-primary"
-                      checked={!form.is_published}
-                      onChange={() =>
-                        setForm((prev) => ({ ...prev, is_published: false }))
-                      }
-                    />
-                    مخفي
-                  </label>
-                </div>
-              </fieldset>
-
-              <div className="space-y-2">
-                <Label htmlFor="program-image">الصورة</Label>
-                {currentImage && (
-                  <Image
-                    src={currentImage}
-                    alt=""
-                    width={96}
-                    height={96}
-                    className="size-24 rounded-xl object-cover"
-                  />
-                )}
-                <Input
-                  id="program-image"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-                  onChange={(e) =>
-                    setImageFile(e.target.files?.[0] ?? null)
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {LINK_FIELDS.map((field) => (
-                  <div key={field.key} className="space-y-2">
-                    <Label
-                      htmlFor={`link-${field.key}`}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
-                        {field.icon === "website" ? (
-                          <Globe className="size-4" aria-hidden />
-                        ) : (
-                          <SocialIcon
-                            label={field.icon}
-                            title={field.label}
-                            className="size-4"
-                          />
-                        )}
-                      </span>
-                      {field.label}
-                    </Label>
-                    <Input
-                      id={`link-${field.key}`}
-                      type="url"
-                      placeholder="https://"
-                      value={form[field.key]}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          [field.key]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3 border-t border-border p-6 sm:px-8">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeModal}
-                disabled={pending}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                {pending ? "جاري الحفظ…" : "حفظ"}
-              </Button>
-            </div>
-          </form>
-        </div>
+            ))}
+          </div>
+        </FormDialog>
       )}
     </section>
   );

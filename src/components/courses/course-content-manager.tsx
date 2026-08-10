@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { AudioViewer } from "@/components/courses/audio-viewer";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import {
   CONTENT_TYPE_ICON,
   MetaChip,
@@ -684,130 +685,91 @@ export function CourseContentManager({
       </section>
 
       {examContentId && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div
-            className="absolute inset-0"
-            onClick={() => !pending && setExamContentId(null)}
-            aria-hidden
-          />
-          <form
-            onSubmit={onAddQuestion}
-            className="relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="font-kufam text-2xl text-foreground">
-                  إضافة سؤال
-                </h2>
-                {examTitle && (
-                  <p className="mt-1 truncate text-sm text-muted-foreground">
-                    {examTitle}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => !pending && setExamContentId(null)}
-                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted"
-                aria-label="إغلاق"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-
-            {(questionsByContent[examContentId] ?? []).length > 0 && (
-              <ul className="mb-5 max-h-40 space-y-2 overflow-y-auto rounded-2xl border border-border/70 p-3">
-                {(questionsByContent[examContentId] ?? []).map((q, index) => (
-                  <li
-                    key={q.id}
-                    className="flex items-start justify-between gap-2 text-sm text-foreground/80"
-                  >
-                    <span>
-                      <span className="me-1.5 font-kufam text-xs text-muted-foreground">
-                        {index + 1}.
-                      </span>
-                      {q.question_text}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => onDeleteQuestion(q.id)}
-                      className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      حذف
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>نص السؤال</Label>
-                <Input
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>النوع</Label>
-                <select
-                  value={questionType}
-                  onChange={(e) => {
-                    const next = e.target.value as ExamQuestionType;
-                    setQuestionType(next);
-                    setOptionsText(
-                      next === "true_false"
-                        ? "صح\nخطأ"
-                        : "الخيار أ\nالخيار ب\nالخيار ج",
-                    );
-                    setCorrectIndex("0");
-                  }}
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+        <FormDialog
+          title="إضافة سؤال"
+          description={examTitle || undefined}
+          onClose={() => setExamContentId(null)}
+          onSubmit={onAddQuestion}
+          pending={pending}
+          submitLabel="إضافة السؤال"
+          cancelLabel="إغلاق"
+          maxWidthClassName="max-w-lg"
+        >
+          {(questionsByContent[examContentId] ?? []).length > 0 && (
+            <ul className="max-h-40 space-y-2 overflow-y-auto rounded-2xl border border-border/70 p-3">
+              {(questionsByContent[examContentId] ?? []).map((q, index) => (
+                <li
+                  key={q.id}
+                  className="flex items-start justify-between gap-2 text-sm text-foreground/80"
                 >
-                  <option value="multiple_choice">اختيار من متعدد</option>
-                  <option value="true_false">صح / خطأ</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>الخيارات (سطر لكل خيار)</Label>
-                <textarea
-                  rows={4}
-                  value={optionsText}
-                  onChange={(e) => setOptionsText(e.target.value)}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>رقم الإجابة الصحيحة (يبدأ من 0)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={correctIndex}
-                  onChange={(e) => setCorrectIndex(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+                  <span>
+                    <span className="me-1.5 font-kufam text-xs text-muted-foreground">
+                      {index + 1}.
+                    </span>
+                    {q.question_text}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => onDeleteQuestion(q.id)}
+                    className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                  >
+                    حذف
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-            <div className="mt-6 flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                disabled={pending}
-                onClick={() => setExamContentId(null)}
-              >
-                إغلاق
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                إضافة السؤال
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className="space-y-2">
+            <Label>نص السؤال</Label>
+            <Input
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>النوع</Label>
+            <select
+              value={questionType}
+              onChange={(e) => {
+                const next = e.target.value as ExamQuestionType;
+                setQuestionType(next);
+                setOptionsText(
+                  next === "true_false"
+                    ? "صح\nخطأ"
+                    : "الخيار أ\nالخيار ب\nالخيار ج",
+                );
+                setCorrectIndex("0");
+              }}
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            >
+              <option value="multiple_choice">اختيار من متعدد</option>
+              <option value="true_false">صح / خطأ</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>الخيارات (سطر لكل خيار)</Label>
+            <textarea
+              rows={4}
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>رقم الإجابة الصحيحة (يبدأ من 0)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={correctIndex}
+              onChange={(e) => setCorrectIndex(e.target.value)}
+              required
+            />
+          </div>
+        </FormDialog>
       )}
 
       <ConfirmDeleteModal
@@ -928,98 +890,78 @@ export function CourseContentManager({
       )}
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 sm:items-center sm:p-4">
-          <div
-            className="absolute inset-0"
-            onClick={() => !pending && setModal(false)}
-          />
-          <form
-            onSubmit={onSubmitContent}
-            className="relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-background p-6 sm:rounded-3xl sm:p-8"
-          >
-            <h2 className="mb-4 font-kufam text-2xl">
-              {editing ? "تعديل الدرس" : "درس جديد"}
-            </h2>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>النوع</Label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as CourseContentType)}
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                >
-                  {(
-                    Object.keys(CONTENT_TYPE_LABELS) as CourseContentType[]
-                  ).map((key) => (
-                    <option key={key} value={key}>
-                      {CONTENT_TYPE_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>العنوان</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                />
-              </div>
-              {type !== "exam" && (
-                <div className="space-y-2">
-                  <Label>
-                    {type === "watching"
-                      ? "رابط يوتيوب"
-                      : type === "listening"
-                        ? "رابط الصوت"
-                        : "رابط PDF / Drive"}
-                  </Label>
-                  <Input
-                    dir="ltr"
-                    value={contentUrl}
-                    onChange={(e) => setContentUrl(e.target.value)}
-                    required
-                    placeholder="https://"
-                  />
-                </div>
+        <FormDialog
+          title={editing ? "تعديل الدرس" : "درس جديد"}
+          onClose={() => setModal(false)}
+          onSubmit={onSubmitContent}
+          pending={pending}
+          submitLabel="حفظ"
+          maxWidthClassName="max-w-lg"
+        >
+          <div className="space-y-2">
+            <Label>النوع</Label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as CourseContentType)}
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            >
+              {(Object.keys(CONTENT_TYPE_LABELS) as CourseContentType[]).map(
+                (key) => (
+                  <option key={key} value={key}>
+                    {CONTENT_TYPE_LABELS[key]}
+                  </option>
+                ),
               )}
-              <div className="space-y-2">
-                <Label>الترتيب</Label>
-                <Input
-                  type="number"
-                  value={order}
-                  onChange={(e) => setOrder(e.target.value)}
-                />
-              </div>
-              {type === "watching" && (
-                <div className="space-y-2">
-                  <Label>طوابع زمنية (seconds|العنوان لكل سطر)</Label>
-                  <textarea
-                    rows={4}
-                    value={timestampsText}
-                    onChange={(e) => setTimestampsText(e.target.value)}
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
-                    placeholder={"0|المقدمة\n120|الفكرة الأولى"}
-                    dir="ltr"
-                  />
-                </div>
-              )}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>العنوان</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+          </div>
+          {type !== "exam" && (
+            <div className="space-y-2">
+              <Label>
+                {type === "watching"
+                  ? "رابط يوتيوب"
+                  : type === "listening"
+                    ? "رابط الصوت"
+                    : "رابط PDF / Drive"}
+              </Label>
+              <Input
+                dir="ltr"
+                value={contentUrl}
+                onChange={(e) => setContentUrl(e.target.value)}
+                required
+                placeholder="https://"
+              />
             </div>
-            <div className="mt-6 flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => setModal(false)}
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                حفظ
-              </Button>
+          )}
+          <div className="space-y-2">
+            <Label>الترتيب</Label>
+            <Input
+              type="number"
+              value={order}
+              onChange={(e) => setOrder(e.target.value)}
+            />
+          </div>
+          {type === "watching" && (
+            <div className="space-y-2">
+              <Label>طوابع زمنية (seconds|العنوان لكل سطر)</Label>
+              <textarea
+                rows={4}
+                value={timestampsText}
+                onChange={(e) => setTimestampsText(e.target.value)}
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
+                placeholder={"0|المقدمة\n120|الفكرة الأولى"}
+                dir="ltr"
+              />
             </div>
-          </form>
-        </div>
+          )}
+        </FormDialog>
       )}
     </div>
   );

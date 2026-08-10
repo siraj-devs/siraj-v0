@@ -11,6 +11,8 @@ import {
   type MeetingFtOption,
   type MeetingMemberOption,
 } from "@/app/actions/meetings";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,6 +104,7 @@ export function MeetingsManager({
   const [guestForm, setGuestForm] = useState<GuestFormState>(emptyGuestForm);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [attendeeTab, setAttendeeTab] = useState<"member" | "guest">("member");
+  const [deleting, setDeleting] = useState<ClubMeeting | null>(null);
 
   useEffect(() => {
     if (!openMenuId && !modal) return;
@@ -205,18 +208,16 @@ export function MeetingsManager({
     });
   }
 
-  function onDelete(id: number) {
-    if (!canManage) return;
-    if (!confirm("هل أنت متأكد من حذف هذا اللقاء؟")) return;
-
+  function onConfirmDelete() {
+    if (!canManage || !deleting) return;
     startTransition(async () => {
-      const result = await deleteMeeting(id);
+      const result = await deleteMeeting(deleting.id);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       toast.success("تم حذف اللقاء");
-      setOpenMenuId(null);
+      setDeleting(null);
       router.refresh();
     });
   }
@@ -408,7 +409,10 @@ export function MeetingsManager({
                             <button
                               type="button"
                               disabled={pending}
-                              onClick={() => onDelete(meeting.id)}
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setDeleting(meeting);
+                              }}
                               className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
                             >
                               <Trash2 className="size-3.5" />
@@ -477,120 +481,100 @@ export function MeetingsManager({
       )}
 
       {canManage && (modal === "create" || modal === "edit") && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="absolute inset-0" onClick={closeModal} aria-hidden />
-          <form
-            onSubmit={onSubmitMeeting}
-            className="relative z-10 w-full max-w-md animate-[fade-up_0.25s_ease-out] space-y-5 rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-kufam text-2xl font-semibold text-foreground">
-                  {modal === "create" ? "لقاء جديد" : "تعديل اللقاء"}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  حدّد الاسم والتاريخ ووقت البداية والنهاية.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label="إغلاق"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+        <FormDialog
+          title={modal === "create" ? "لقاء جديد" : "تعديل اللقاء"}
+          description="حدّد الاسم والتاريخ ووقت البداية والنهاية."
+          onClose={closeModal}
+          onSubmit={onSubmitMeeting}
+          pending={pending}
+          submitLabel="حفظ"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="meeting-name">الاسم</Label>
+            <Input
+              id="meeting-name"
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, name: e.target.value }))
+              }
+              placeholder="مثال: اجتماع الفريق الأسبوعي"
+            />
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="meeting-date">التاريخ</Label>
+            <Input
+              id="meeting-date"
+              type="date"
+              required
+              value={form.date}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, date: e.target.value }))
+              }
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="meeting-name">الاسم</Label>
+              <Label htmlFor="meeting-start">البداية</Label>
               <Input
-                id="meeting-name"
+                id="meeting-start"
+                type="time"
                 required
-                autoFocus
-                value={form.name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="مثال: اجتماع الفريق الأسبوعي"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="meeting-date">التاريخ</Label>
-              <Input
-                id="meeting-date"
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, date: e.target.value }))
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="meeting-start">البداية</Label>
-                <Input
-                  id="meeting-start"
-                  type="time"
-                  required
-                  value={form.start_time}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      start_time: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="meeting-end">النهاية</Label>
-                <Input
-                  id="meeting-end"
-                  type="time"
-                  required
-                  value={form.end_time}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, end_time: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="meeting-desc">الوصف (اختياري)</Label>
-              <Input
-                id="meeting-desc"
-                value={form.description}
+                value={form.start_time}
                 onChange={(e) =>
                   setForm((prev) => ({
                     ...prev,
-                    description: e.target.value,
+                    start_time: e.target.value,
                   }))
                 }
-                placeholder="موضوع اللقاء أو ملاحظات…"
               />
             </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeModal}
-                disabled={pending}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                {pending ? "جاري الحفظ…" : "حفظ"}
-              </Button>
+            <div className="space-y-2">
+              <Label htmlFor="meeting-end">النهاية</Label>
+              <Input
+                id="meeting-end"
+                type="time"
+                required
+                value={form.end_time}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, end_time: e.target.value }))
+                }
+              />
             </div>
-          </form>
-        </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="meeting-desc">الوصف (اختياري)</Label>
+            <Input
+              id="meeting-desc"
+              value={form.description}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
+              placeholder="موضوع اللقاء أو ملاحظات…"
+            />
+          </div>
+        </FormDialog>
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="حذف اللقاء"
+        description={
+          deleting ? `هل تريد حذف لقاء «${deleting.name}»؟` : ""
+        }
+        pending={pending}
+        onCancel={() => {
+          if (!pending) setDeleting(null);
+        }}
+        onConfirm={onConfirmDelete}
+      />
 
       {modal === "attendees" && activeMeeting && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">

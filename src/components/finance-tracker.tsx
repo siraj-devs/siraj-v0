@@ -6,10 +6,12 @@ import {
   type ClubTransaction,
   type TransactionType,
 } from "@/app/actions/transactions";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { FormDialog } from "@/components/dashboard/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -69,6 +71,7 @@ export function FinanceTracker({
   const [form, setForm] = useState<TransactionFormState>(emptyForm);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [deleting, setDeleting] = useState<ClubTransaction | null>(null);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -135,17 +138,16 @@ export function FinanceTracker({
     });
   }
 
-  function onDelete(id: number) {
-    if (!canManage) return;
-    if (!confirm("هل أنت متأكد من حذف هذه المعاملة؟")) return;
-
+  function onConfirmDelete() {
+    if (!canManage || !deleting) return;
     startTransition(async () => {
-      const result = await deleteTransaction(id);
+      const result = await deleteTransaction(deleting.id);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       toast.success("تم حذف المعاملة");
+      setDeleting(null);
       router.refresh();
     });
   }
@@ -300,7 +302,7 @@ export function FinanceTracker({
                   size="icon"
                   disabled={pending}
                   aria-label="حذف المعاملة"
-                  onClick={() => onDelete(tx.id)}
+                  onClick={() => setDeleting(tx)}
                   className="self-end text-destructive hover:bg-destructive/10 hover:text-destructive sm:self-center"
                 >
                   <Trash2 className="size-4" />
@@ -330,120 +332,100 @@ export function FinanceTracker({
       )}
 
       {canManage && modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="absolute inset-0" onClick={closeModal} aria-hidden />
-          <form
-            onSubmit={onSubmit}
-            className="relative z-10 w-full max-w-md animate-[fade-up_0.25s_ease-out] space-y-5 rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-8"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-kufam text-2xl font-semibold text-foreground">
-                  إضافة معاملة
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  سجّل دخلاً أو مصروفاً مع تاريخ الاستحقاق.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label="إغلاق"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+        <FormDialog
+          title="إضافة معاملة"
+          description="سجّل دخلاً أو مصروفاً مع تاريخ الاستحقاق."
+          onClose={closeModal}
+          onSubmit={onSubmit}
+          pending={pending}
+          submitLabel="حفظ"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="due_at">تاريخ الاستحقاق</Label>
+            <Input
+              id="due_at"
+              type="date"
+              required
+              autoFocus
+              value={form.due_at}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, due_at: e.target.value }))
+              }
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="due_at">تاريخ الاستحقاق</Label>
-              <Input
-                id="due_at"
-                type="date"
-                required
-                autoFocus
-                value={form.due_at}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, due_at: e.target.value }))
-                }
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">المبلغ (درهم)</Label>
+            <Input
+              id="amount"
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              required
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, amount: e.target.value }))
+              }
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">المبلغ (درهم)</Label>
-              <Input
-                id="amount"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                required
-                placeholder="0.00"
-                value={form.amount}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-              />
+          <div className="space-y-2">
+            <Label>نوع المعاملة</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["income", "دخل"],
+                  ["expense", "مصروف"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, type: value }))}
+                  className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                    form.type === value
+                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label>نوع المعاملة</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    ["income", "دخل"],
-                    ["expense", "مصروف"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setForm((prev) => ({ ...prev, type: value }))
-                    }
-                    className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                      form.type === value
-                        ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                        : "border-border text-muted-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="note">ملاحظة</Label>
-              <Input
-                id="note"
-                type="text"
-                maxLength={500}
-                placeholder="مثال: تبرع لفعالية، شراء مستلزمات…"
-                value={form.note}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, note: e.target.value }))
-                }
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeModal}
-                disabled={pending}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
-              <Button type="submit" disabled={pending} className="flex-1">
-                {pending ? "جاري الحفظ…" : "حفظ"}
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="note">ملاحظة</Label>
+            <Input
+              id="note"
+              type="text"
+              maxLength={500}
+              placeholder="مثال: تبرع لفعالية، شراء مستلزمات…"
+              value={form.note}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, note: e.target.value }))
+              }
+            />
+          </div>
+        </FormDialog>
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(deleting)}
+        title="حذف المعاملة"
+        description={
+          deleting
+            ? `هل تريد حذف معاملة «${deleting.note || formatAmount(deleting.amount)}»؟`
+            : ""
+        }
+        pending={pending}
+        onCancel={() => {
+          if (!pending) setDeleting(null);
+        }}
+        onConfirm={onConfirmDelete}
+      />
     </div>
   );
 }
