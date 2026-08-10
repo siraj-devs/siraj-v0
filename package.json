@@ -8,6 +8,7 @@
     "start": "next start",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
+    "db:push": "supabase db push",
     "lint": "eslint"
   },
   "dependencies": {
@@ -40,7 +41,7 @@
     "@types/nodemailer": "^7.0.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "baseline-browser-mapping": "^2.11.1",
+    "baseline-browser-mapping": "^2.11.13",
     "eslint": "^9.39.1",
     "eslint-config-next": "15.5.4",
     "prettier": "^3.7.4",

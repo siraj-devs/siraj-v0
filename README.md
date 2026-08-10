@@ -1,76 +1,127 @@
-# siraj
+# سراج (Siraj)
 
-## 42 0Auth API
+Club platform built with **Next.js**, **Supabase**, and **Bun**.
 
-### 1. Create 42 OAuth Application
+## Prerequisites
 
-1. Go to [42 Intranet](https://profile.intra.42.fr/)
-2. Navigate to **Settings** → **API** → **Applications**
-3. Click **"New application"**
-4. Fill in the details:
-   - **Name**: `Siraj Club`
-   - **Redirect URI**: `http://localhost:3000/api/auth/callback/42` (for development)
-   - **Redirect URI**: `https://siraj.club/api/auth/callback/42` (for production)
-5. Click **"Create application"**
-6. Copy the **Client ID** and **Client Secret**
+- [Bun](https://bun.sh/)
+- [Docker](https://docs.docker.com/get-docker/) (for local Supabase)
+- Accounts / apps for:
+  - [42 OAuth](https://profile.intra.42.fr/oauth/applications)
+  - [Discord OAuth](https://discord.com/developers/applications) (optional for Discord login)
+  - Gmail App Password (optional — join emails)
 
-### 2. Environment Variables
+## 1. Clone and install
 
-Add these to your `.env.local` file:
-
-```env
-# 42 OAuth Configuration
-FT_CLIENT_ID=your_42_client_id_here
-FT_CLIENT_SECRET=your_42_client_secret_here  
+```bash
+git clone <repo-url> siraj-v0
+cd siraj-v0
+bun install
 ```
 
-## Supabase Setup
+## 2. Environment
 
-### 1. Create a Supabase Project
-1. Go to [Supabase](https://supabase.com/) and log in.
-2. Click on **"New Project"**.
-3. Fill in the project details:
-   - **Project Name**: `siraj-club`
-   - **Organization**: Select your organization.
-   - **Database Password**: Set a strong password.
-4. Click **"Create new project"**.
-5. Wait for the project to be created.
-
-### 2. Get Supabase Credentials
-1. Once the project is ready, go to the **Settings** tab.
-2. Navigate to **API**.
-3. Copy the following:
-    - **URL**: This is your Supabase URL.
-    - **publishable key**: This is your Supabase Anon Key.
-    - **secret key**: This is your Supabase Service Role Key.
-
-### 3. Update Environment Variables
-
-Add these to your `.env.local` file:
-```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
-SUPABASE_SECRET_KEY=your_supabase_service_role_key
+```bash
+cp .env.example .env.local
 ```
 
-## Email Setup
+Fill `.env.local` as you complete the steps below. Required variables:
 
-### 1. Generate App Password for Gmail
-1. Go to [Google Account Security](https://myaccount.google.com/security)
-2. Enable **2-Step Verification** if not enabled
-3. Find **App Passwords** section
-4. Select app: **Mail** and device: **Other (Custom name)**
-5. Enter: `Siraj Club`
-6. Click **Generate**
-7. Save the 16-character code
+| Variable | Purpose |
+| --- | --- |
+| `APP_URL` | App origin (`http://localhost:3000` locally) |
+| `FT_CLIENT_ID` / `FT_CLIENT_SECRET` | 42 OAuth |
+| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | Discord OAuth |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase API URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable / anon key |
+| `SUPABASE_SECRET_KEY` | Supabase service-role / secret key |
 
-### 2. Update .env.local
-Open `.env.local` and update:
+Optional SMTP (`ADMIN_EMAIL`, `SMTP_*`): if unset, join emails are skipped.
+
+## 3. Database (local Supabase)
+
+Preferred for development:
+
+```bash
+bun run db:start
+```
+
+When it finishes, `supabase status` prints local URLs and keys. Put them in `.env.local`, for example:
+
 ```env
-# Email Configuration
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from status>
+SUPABASE_SECRET_KEY=<secret key from status>
+```
+
+Migrations under `supabase/migrations/` are applied on first start. If you add a new migration later:
+
+```bash
+bunx supabase db reset
+# or apply SQL / repair as needed for your local state
+```
+
+Studio (optional): `http://127.0.0.1:54323`
+
+Stop the stack:
+
+```bash
+bun run db:stop
+```
+
+### Remote Supabase (alternative)
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Copy **URL**, **publishable** key, and **secret** key into `.env.local`.
+3. Apply migrations to the remote project (CLI link + push, or run SQL from `supabase/migrations/` in the SQL editor).
+
+## 4. OAuth apps
+
+Redirect URIs must match `APP_URL`.
+
+### 42
+
+1. [Intranet → Settings → API → New application](https://profile.intra.42.fr/oauth/applications)
+2. Redirect URI: `http://localhost:3000/api/auth/callback/42`
+3. Copy **UID** → `FT_CLIENT_ID`, **Secret** → `FT_CLIENT_SECRET`
+
+Production redirect: `https://<your-domain>/api/auth/callback/42`
+
+### Discord
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) → New Application → OAuth2
+2. Redirect: `http://localhost:3000/api/auth/callback/discord`
+3. Copy **Client ID** / **Client Secret** into `.env.local`
+
+## 5. Email (optional)
+
+For Gmail:
+
+1. Enable 2-Step Verification → create an [App Password](https://myaccount.google.com/apppasswords)
+2. Set in `.env.local`:
+
+```env
+ADMIN_EMAIL=you@gmail.com
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
+SMTP_USER=you@gmail.com
 SMTP_PASS=your_16_char_app_password
+```
+
+## 6. Run the app
+
+With Docker/Supabase already running:
+
+```bash
+bun run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+Other scripts:
+
+```bash
+bun run build   # production build
+bun run start   # serve production build
+bun run lint    # eslint
 ```
