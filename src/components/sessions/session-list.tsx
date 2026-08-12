@@ -4,7 +4,11 @@ import type { ClubSession } from "@/app/actions/sessions";
 import { Rosette } from "@/components/islamic-motif";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
-import { KebabMenu } from "@/components/dashboard/kebab-menu";
+import {
+  KebabMenu,
+  type KebabMenuItem,
+} from "@/components/dashboard/kebab-menu";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { PublishBadge } from "@/components/dashboard/status-badge";
 import { formatSessionDueDate } from "@/lib/session-date";
 import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
@@ -84,47 +88,33 @@ export function SessionList({
     );
   }
 
-  function menuFor(session: ClubSession, placement: "up" | "down") {
-    if (!canManage) return null;
-    return (
-      <KebabMenu
-        items={[
-          {
-            key: "edit",
-            label: "تعديل",
-            icon: <Pencil className="size-3.5" />,
-            onClick: () => onEdit(session),
-          },
-          {
-            key: "toggle-publish",
-            label: session.is_published ? "إخفاء" : "نشر",
-            icon: session.is_published ? (
-              <EyeOff className="size-3.5" />
-            ) : (
-              <Eye className="size-3.5" />
-            ),
-            onClick: () => onTogglePublish(session),
-          },
-          {
-            key: "delete",
-            label: "حذف",
-            icon: <Trash2 className="size-3.5" />,
-            variant: "destructive",
-            onClick: () => onDelete(session),
-          },
-        ]}
-        open={openMenuId === session.id}
-        onToggle={() => onToggleMenu(session.id)}
-        onClose={onCloseMenu}
-        placement={placement}
-        ariaLabel="خيارات الأمسية"
-        buttonClassName={
-          placement === "down"
-            ? "rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-            : undefined
-        }
-      />
-    );
+  function itemsFor(session: ClubSession): KebabMenuItem[] {
+    if (!canManage) return [];
+    return [
+      {
+        key: "edit",
+        label: "تعديل",
+        icon: <Pencil className="size-3.5" />,
+        onClick: () => onEdit(session),
+      },
+      {
+        key: "toggle-publish",
+        label: session.is_published ? "إخفاء" : "نشر",
+        icon: session.is_published ? (
+          <EyeOff className="size-3.5" />
+        ) : (
+          <Eye className="size-3.5" />
+        ),
+        onClick: () => onTogglePublish(session),
+      },
+      {
+        key: "delete",
+        label: "حذف",
+        icon: <Trash2 className="size-3.5" />,
+        variant: "destructive",
+        onClick: () => onDelete(session),
+      },
+    ];
   }
 
   if (layout === "list") {
@@ -182,7 +172,14 @@ export function SessionList({
 
             {canManage && (
               <div className="relative shrink-0 self-end sm:self-center">
-                {menuFor(session, "up")}
+                <ListRowActions
+                  items={itemsFor(session)}
+                  open={openMenuId === session.id}
+                  onToggle={() => onToggleMenu(session.id)}
+                  onClose={onCloseMenu}
+                  menuPlacement="up"
+                  ariaLabel="خيارات الأمسية"
+                />
               </div>
             )}
           </li>
@@ -204,7 +201,15 @@ export function SessionList({
             <SessionThumb session={session} />
             {canManage && (
               <div className="absolute top-2 left-2 z-20">
-                {menuFor(session, "down")}
+                <KebabMenu
+                  items={itemsFor(session)}
+                  open={openMenuId === session.id}
+                  onToggle={() => onToggleMenu(session.id)}
+                  onClose={onCloseMenu}
+                  placement="down"
+                  ariaLabel="خيارات الأمسية"
+                  buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+                />
               </div>
             )}
           </div>

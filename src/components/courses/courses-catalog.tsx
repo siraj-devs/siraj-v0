@@ -57,7 +57,6 @@ export function CoursesCatalog({
                     <Rosette className="size-16" />
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-background/35 to-transparent" />
                 {closed && (
                   <span className="absolute end-3 top-3 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-800 ring-1 ring-inset ring-rose-200 backdrop-blur">
                     <Lock className="size-3" />

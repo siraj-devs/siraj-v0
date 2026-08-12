@@ -10,11 +10,12 @@ import {
 } from "@/app/actions/members";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { KebabMenu } from "@/components/dashboard/kebab-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { MemberRole } from "@/lib/members";
-import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -380,52 +381,36 @@ export function MembersManager({
                   </div>
 
                   {canManage && (
-                    <div className="absolute top-3 left-3">
-                      <button
-                        type="button"
-                        onClick={() =>
+                    <div className="absolute top-3 left-3 z-20">
+                      <KebabMenu
+                        items={[
+                          {
+                            key: "edit",
+                            label: "تعديل",
+                            icon: <Pencil className="size-3.5" />,
+                            onClick: () => openEdit(member),
+                          },
+                          {
+                            key: "delete",
+                            label: "حذف",
+                            icon: <Trash2 className="size-3.5" />,
+                            variant: "destructive",
+                            disabled:
+                              member.id === currentMemberId || pending,
+                            onClick: () => setDeleting(member),
+                          },
+                        ]}
+                        open={openMenuId === member.id}
+                        onToggle={() =>
                           setOpenMenuId(
                             openMenuId === member.id ? null : member.id,
                           )
                         }
-                        className="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-                        aria-label="خيارات العضو"
-                      >
-                        <MoreHorizontal className="size-5" />
-                      </button>
-
-                      {openMenuId === member.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-10"
-                            onClick={() => setOpenMenuId(null)}
-                          />
-                          <div className="absolute top-9 left-0 z-20 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(member)}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
-                            >
-                              <Pencil className="size-3.5" />
-                              تعديل
-                            </button>
-                            <button
-                              type="button"
-                              disabled={
-                                member.id === currentMemberId || pending
-                              }
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setDeleting(member);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                            >
-                              <Trash2 className="size-3.5" />
-                              حذف
-                            </button>
-                          </div>
-                        </>
-                      )}
+                        onClose={() => setOpenMenuId(null)}
+                        placement="down"
+                        ariaLabel="خيارات العضو"
+                        buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+                      />
                     </div>
                   )}
 

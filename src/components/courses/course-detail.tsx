@@ -134,21 +134,6 @@ export function CourseDetail({
                       : "الإلتحاق الآن"}
               </Button>
             )}
-
-            {isLoggedIn &&
-              (!isMember || !hasCompleteProfile) &&
-              !enrollment && (
-                <p className="text-center text-xs leading-6 text-muted-foreground">
-                  يجب{" "}
-                  <Link
-                    href={`/profile?next=/courses/${course.id}`}
-                    className="text-primary underline"
-                  >
-                    إكمال الملف الشخصي
-                  </Link>{" "}
-                  وانتظار موافقة المالك.
-                </p>
-              )}
           </div>
 
           <div className="min-w-0 flex-1 space-y-4">

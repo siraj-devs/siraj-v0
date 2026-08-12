@@ -9,6 +9,8 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { AudioViewer } from "@/components/courses/audio-viewer";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
+import type { KebabMenuItem } from "@/components/dashboard/kebab-menu";
 import {
   CONTENT_TYPE_ICON,
   MetaChip,
@@ -44,7 +46,6 @@ import {
   Globe,
   Lock,
   Book,
-  MoreHorizontal,
   Pencil,
   Plus,
   Shield,
@@ -444,125 +445,48 @@ export function CourseContentManager({
                       )}
                     </div>
 
-                    <div className="hidden shrink-0 items-center gap-1.5 xl:flex">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        aria-label="معاينة الدرس"
-                        title="معاينة"
-                        onClick={() => setPreviewing(content)}
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                      {content.type === "exam" && (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          aria-label="إدارة الأسئلة"
-                          title="أسئلة"
-                          onClick={() => openQuestions(content.id)}
-                        >
-                          <CircleHelp className="size-4" />
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        aria-label="تعديل الدرس"
-                        onClick={() => openEdit(content)}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        aria-label="حذف الدرس"
-                        onClick={() => setDeleting(content)}
-                        className="text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-
-                    <div className="relative shrink-0 xl:hidden">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        aria-label="خيارات الدرس"
-                        aria-expanded={openMenuId === content.id}
-                        onClick={() =>
-                          setOpenMenuId(
-                            openMenuId === content.id ? null : content.id,
-                          )
-                        }
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                      {openMenuId === content.id && (
-                        <>
-                          <button
-                            type="button"
-                            aria-label="إغلاق القائمة"
-                            className="fixed inset-0 z-10 cursor-default"
-                            onClick={() => setOpenMenuId(null)}
-                          />
-                          <div
-                            className={`absolute end-0 z-20 w-44 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg ${
-                              openUpward ? "bottom-11" : "top-11"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setPreviewing(content);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm hover:bg-muted"
-                            >
-                              <Eye className="size-3.5" />
-                              معاينة
-                            </button>
-                            {content.type === "exam" && (
-                              <button
-                                type="button"
-                                onClick={() => openQuestions(content.id)}
-                                className="flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm hover:bg-muted"
-                              >
-                                <CircleHelp className="size-3.5" />
-                                الأسئلة
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                openEdit(content);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm hover:bg-muted"
-                            >
-                              <Pencil className="size-3.5" />
-                              تعديل
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setDeleting(content);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="size-3.5" />
-                              حذف
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    <ListRowActions
+                      items={[
+                        {
+                          key: "preview",
+                          label: "معاينة",
+                          icon: <Eye className="size-3.5" />,
+                          onClick: () => setPreviewing(content),
+                        },
+                        ...(content.type === "exam"
+                          ? [
+                              {
+                                key: "questions",
+                                label: "الأسئلة",
+                                icon: <CircleHelp className="size-3.5" />,
+                                onClick: () => openQuestions(content.id),
+                              } satisfies KebabMenuItem,
+                            ]
+                          : []),
+                        {
+                          key: "edit",
+                          label: "تعديل",
+                          icon: <Pencil className="size-3.5" />,
+                          onClick: () => openEdit(content),
+                        },
+                        {
+                          key: "delete",
+                          label: "حذف",
+                          icon: <Trash2 className="size-3.5" />,
+                          variant: "destructive",
+                          onClick: () => setDeleting(content),
+                        },
+                      ]}
+                      open={openMenuId === content.id}
+                      onToggle={() =>
+                        setOpenMenuId(
+                          openMenuId === content.id ? null : content.id,
+                        )
+                      }
+                      onClose={() => setOpenMenuId(null)}
+                      menuPlacement={openUpward ? "up" : "down"}
+                      ariaLabel="خيارات الدرس"
+                    />
                   </div>
 
                   {content.type === "exam" && (

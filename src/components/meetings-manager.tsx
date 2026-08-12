@@ -13,11 +13,11 @@ import {
 } from "@/app/actions/meetings";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -367,62 +367,44 @@ export function MeetingsManager({
                   ) : null}
                 </div>
 
-                <div className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() =>
+                <div className="relative shrink-0 self-start">
+                  <ListRowActions
+                    items={[
+                      {
+                        key: "attendees",
+                        label: "الحضور",
+                        icon: <Users className="size-3.5" />,
+                        onClick: () => openAttendees(meeting),
+                      },
+                      ...(canManage
+                        ? [
+                            {
+                              key: "edit",
+                              label: "تعديل",
+                              icon: <Pencil className="size-3.5" />,
+                              onClick: () => openEdit(meeting),
+                            },
+                            {
+                              key: "delete",
+                              label: "حذف",
+                              icon: <Trash2 className="size-3.5" />,
+                              variant: "destructive" as const,
+                              disabled: pending,
+                              onClick: () => setDeleting(meeting),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    open={openMenuId === meeting.id}
+                    onToggle={() =>
                       setOpenMenuId(
                         openMenuId === meeting.id ? null : meeting.id,
                       )
                     }
-                    className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    aria-label="خيارات اللقاء"
-                  >
-                    <MoreHorizontal className="size-5" />
-                  </button>
-
-                  {openMenuId === meeting.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setOpenMenuId(null)}
-                      />
-                      <div className="absolute top-9 left-0 z-20 w-40 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                        <button
-                          type="button"
-                          onClick={() => openAttendees(meeting)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
-                        >
-                          <Users className="size-3.5" />
-                          الحضور
-                        </button>
-                        {canManage && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(meeting)}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
-                            >
-                              <Pencil className="size-3.5" />
-                              تعديل
-                            </button>
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setDeleting(meeting);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
-                            >
-                              <Trash2 className="size-3.5" />
-                              حذف
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
+                    onClose={() => setOpenMenuId(null)}
+                    menuPlacement="down"
+                    ariaLabel="خيارات اللقاء"
+                  />
                 </div>
               </div>
 

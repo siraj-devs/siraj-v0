@@ -1,6 +1,7 @@
 "use client";
 
 import { submitJoinForm } from "@/app/actions/submit-form";
+import DecorativeLines from "@/components/DecorativeLines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,37 @@ interface UserData {
   image?: string | null;
 }
 
+// Shared section-divider heading used for every form section
+function SectionHeading({
+  label,
+  required,
+}: {
+  label: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative min-w-0 flex-1">
+        <div className="h-px bg-border" />
+        <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
+      </div>
+      <h2
+        className={`px-2 font-kufam font-medium text-foreground/80 ${
+          required
+            ? "after:mr-1 after:text-base after:text-destructive after:content-['*']"
+            : ""
+        }`}
+      >
+        {label}
+      </h2>
+      <div className="relative min-w-0 flex-1">
+        <div className="h-px bg-border" />
+        <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
+      </div>
+    </div>
+  );
+}
+
 export function JoinForm({ userData }: { userData?: UserData }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -39,7 +71,6 @@ export function JoinForm({ userData }: { userData?: UserData }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleArabicNameChange = (value: string) => {
-    // Arabic letters, diacritics, tatweel, and spaces only
     if (
       /^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\s]*$/.test(
         value,
@@ -103,46 +134,32 @@ export function JoinForm({ userData }: { userData?: UserData }) {
   };
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-20">
-      {/* Header */}
-      <div className="mb-20 text-center">
-        <h1 className="mb-6 font-kufam text-3xl font-bold text-foreground md:text-4xl lg:text-5xl">
-          هل ترغب في أن تكون جزءًا من سراج؟
-        </h1>
-        <p className="mb-2 text-base leading-relaxed text-muted-foreground md:text-lg lg:text-xl">
-          يسعدنا اهتمامك! يرجى ملء النموذج التالي حتى نتعرف عليك أكثر ونوجهك إلى
-          الفريق الأنسب لمهاراتك واهتماماتك.
-        </p>
-        <p className="text-sm text-destructive">* خانات إلزامية</p>
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 pb-16 md:py-14">
+      {/* Page header — matches courses/sessions style */}
+      <div className="mb-16 flex flex-col gap-4">
+        <DecorativeLines
+          eyebrow="إنضم إلينا"
+          title="هل ترغب في أن تكون جزءًا من سراج؟"
+          description="يسعدنا اهتمامك! يرجى ملء النموذج التالي حتى نتعرف عليك أكثر ونوجهك إلى الفريق الأنسب لمهاراتك واهتماماتك."
+        />
+        <p className="text-center text-sm text-destructive">* خانات إلزامية</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-16">
-        {/* Personal Information Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="px-2 font-kufam font-medium whitespace-nowrap text-secondary-on-container after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              المعلومات الشخصية
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* Personal Information */}
+        <div className="space-y-6">
+          <SectionHeading label="المعلومات الشخصية" required />
 
-          <div className="space-y-6 rounded-lg bg-card/30 p-8">
+          <div className="space-y-6 rounded-2xl bg-card/30 p-6 sm:p-8">
             <div>
-              <Label htmlFor="name" className="mb-2 block text-right text-sm">
-                الاسم الكامل:
+              <Label htmlFor="name" className="mb-2 block text-sm">
+                الاسم الكامل
               </Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => handleArabicNameChange(e.target.value)}
-                className="bg-background py-5 text-right"
+                className="bg-background py-5"
                 placeholder="أحمد العلوي"
                 required
                 autoComplete="name"
@@ -153,8 +170,8 @@ export function JoinForm({ userData }: { userData?: UserData }) {
             </div>
 
             <div>
-              <Label htmlFor="tel" className="mb-2 block text-right text-sm">
-                رقم الهاتف:
+              <Label htmlFor="tel" className="mb-2 block text-sm">
+                رقم الهاتف
               </Label>
               <Input
                 id="tel"
@@ -164,48 +181,38 @@ export function JoinForm({ userData }: { userData?: UserData }) {
                 onChange={(e) => {
                   if (/^[0-9]*$/.test(e.target.value)) setTel(e.target.value);
                 }}
-                className="bg-background py-5 text-right"
+                className="bg-background py-5"
                 placeholder="06XX1XXX7X"
+                dir="ltr"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="email" className="mb-2 block text-right text-sm">
-                البريد الإلكتروني:
+              <Label htmlFor="email" className="mb-2 block text-sm">
+                البريد الإلكتروني
               </Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-background py-5 text-right"
+                className="bg-background py-5"
                 placeholder="ahmed@alaoui.ma"
+                dir="ltr"
                 required
               />
             </div>
           </div>
         </div>
 
-        {/* Team Selection Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              الفريق الذي ترغب في الانضمام إليه
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* Team Selection */}
+        <div className="space-y-6">
+          <SectionHeading label="الفريق الذي ترغب في الانضمام إليه" required />
 
-          <div className="rounded-lg bg-card/30 p-8">
+          <div className="rounded-2xl bg-card/30 p-6 sm:p-8">
             <Select value={team} onValueChange={setTeam} required>
-              <SelectTrigger className="w-full cursor-pointer flex-row-reverse bg-background py-5 text-right">
+              <SelectTrigger className="w-full cursor-pointer flex-row-reverse bg-background py-5">
                 <SelectValue placeholder="اختر الفريق" />
               </SelectTrigger>
               <SelectContent dir="rtl">
@@ -229,169 +236,108 @@ export function JoinForm({ userData }: { userData?: UserData }) {
           </div>
         </div>
 
-        {/* Skills Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              المهارات أو الأدوات التي تتقنها
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* Skills */}
+        <div className="space-y-6">
+          <SectionHeading label="المهارات أو الأدوات التي تتقنها" required />
 
-          <div className="rounded-lg bg-card/30 p-8">
-            <div className="relative">
-              <TagInput
-                tags={skills}
-                onTagsChange={setSkills}
-                placeholder="تصميم جرافيك، مونتاج فيديو..."
-                maxTags={10}
-                maxLength={30}
-              />
-            </div>
+          <div className="rounded-2xl bg-card/30 p-6 sm:p-8">
+            <TagInput
+              tags={skills}
+              onTagsChange={setSkills}
+              placeholder="تصميم جرافيك، مونتاج فيديو..."
+              maxTags={10}
+              maxLength={30}
+            />
           </div>
         </div>
 
-        {/* About Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              نبذة مختصرة عنك، شغفك، هواياتك؟
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* About */}
+        <div className="space-y-6">
+          <SectionHeading label="نبذة مختصرة عنك، شغفك، هواياتك؟" required />
 
-          <div className="rounded-lg bg-card/30 p-8">
-            <div className="relative">
-              <Textarea
-                value={about}
-                maxLength={250}
-                onChange={(e) => setAbout(e.target.value)}
-                className="min-h-[150px] resize-none bg-background text-right"
-                placeholder="أحب التصميم والإبداع، أتطلع مهاراتي في تجربة المستخدم..."
-              />
-              <p className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  شاركنا نبذة قصيرة عنك، ما يثير شغفك، وطموحاتك المستقبلية.
-                </span>
-                <span>250/{about.length}</span>
-              </p>
-            </div>
+          <div className="rounded-2xl bg-card/30 p-6 sm:p-8">
+            <Textarea
+              value={about}
+              maxLength={250}
+              onChange={(e) => setAbout(e.target.value)}
+              className="min-h-[150px] resize-none bg-background"
+              placeholder="أحب التصميم والإبداع، أتطلع إلى تطوير مهاراتي في تجربة المستخدم..."
+            />
+            <p className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span>شاركنا نبذة قصيرة عنك، ما يثير شغفك، وطموحاتك المستقبلية.</span>
+              <span>{about.length}/250</span>
+            </p>
           </div>
         </div>
 
-        {/* Time Availability Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap after:mr-1 after:text-base after:text-destructive after:content-['*']">
-              الوقت الذي يمكنك تخصيصه أسبوعيًا؟
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* Time Availability */}
+        <div className="space-y-6">
+          <SectionHeading label="الوقت الذي يمكنك تخصيصه أسبوعيًا؟" required />
 
-          <div className="rounded-lg bg-card/30 p-8">
+          <div className="rounded-2xl bg-card/30 p-6 sm:p-8">
             <RadioGroup value={availability} onValueChange={setavailability}>
-              <div className="flex cursor-pointer items-center justify-end gap-3 rounded-md p-3 transition-colors hover:bg-accent/50">
-                <Label htmlFor="less-3" className="cursor-pointer text-sm">
-                  أقل من 3 ساعات
-                </Label>
-                <RadioGroupItem value="less-3" id="less-3" />
-              </div>
-              <div className="flex cursor-pointer items-center justify-end gap-3 rounded-md p-3 transition-colors hover:bg-accent/50">
-                <Label htmlFor="3-5" className="cursor-pointer text-sm">
-                  من 3 إلى 5 ساعات
-                </Label>
-                <RadioGroupItem value="3-5" id="3-5" />
-              </div>
-              <div className="flex cursor-pointer items-center justify-end gap-3 rounded-md p-3 transition-colors hover:bg-accent/50">
-                <Label htmlFor="more-5" className="cursor-pointer text-sm">
-                  أكثر من 5 ساعات
-                </Label>
-                <RadioGroupItem value="more-5" id="more-5" />
-              </div>
+              {(
+                [
+                  { value: "less-3", label: "أقل من 3 ساعات" },
+                  { value: "3-5", label: "من 3 إلى 5 ساعات" },
+                  { value: "more-5", label: "أكثر من 5 ساعات" },
+                ] as const
+              ).map((option) => (
+                <label
+                  key={option.value}
+                  htmlFor={option.value}
+                  className="flex cursor-pointer items-center justify-end gap-3 rounded-xl p-3 transition-colors hover:bg-accent/50"
+                >
+                  <span className="text-sm text-foreground">{option.label}</span>
+                  <RadioGroupItem value={option.value} id={option.value} />
+                </label>
+              ))}
             </RadioGroup>
           </div>
         </div>
 
-        {/* Additional Notes Section */}
-        <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 left-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-            <h2 className="text--secondary px-2 font-kufam font-medium whitespace-nowrap">
-              ملاحظات إضافية أو اقتراحات :
-            </h2>
-            <div className="relative flex-1">
-              <div className="h-px bg-border" />
-              <div className="absolute top-1/2 right-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-border bg-background" />
-            </div>
-          </div>
+        {/* Additional Notes */}
+        <div className="space-y-6">
+          <SectionHeading label="ملاحظات إضافية أو اقتراحات" />
 
-          <div className="rounded-lg bg-card/30 p-8">
-            <div className="relative">
-              <Textarea
-                value={notes}
-                maxLength={250}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[150px] resize-none bg-background text-right"
-                placeholder="شاركنا ملاحظاتك أو أي أفكار قد تساعدنا في تحسينك..."
-              />
-              <p className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                <span>اختياري: يمكنك إضافة أي معلومات إضافية تراها مهمة</span>
-                <span>250/{notes.length}</span>
-              </p>
-            </div>
+          <div className="rounded-2xl bg-card/30 p-6 sm:p-8">
+            <Textarea
+              value={notes}
+              maxLength={250}
+              onChange={(e) => setNotes(e.target.value)}
+              className="min-h-[150px] resize-none bg-background"
+              placeholder="شاركنا ملاحظاتك أو أي أفكار قد تساعدنا في تحسين تجربتك..."
+            />
+            <p className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span>اختياري: يمكنك إضافة أي معلومات إضافية تراها مهمة</span>
+              <span>{notes.length}/250</span>
+            </p>
           </div>
         </div>
 
-        <div>
-          {/* Privacy Notice */}
-          <p className="mb-6 text-center text-sm leading-relaxed text-muted-foreground">
-            جميع المعلومات التي تقدمها سرية، وتُستخدم فقط لأغراض تقييم الانضمام
-            ، ولن تتم مشاركتها مع أي طرف ثالث.
+        {/* Footer */}
+        <div className="flex flex-col items-center gap-6">
+          <p className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
+            جميع المعلومات التي تقدمها سرية، وتُستخدم فقط لأغراض تقييم الانضمام،
+            ولن تتم مشاركتها مع أي طرف ثالث.
           </p>
-
-          {/* Submit Button */}
-          <div className="flex justify-center">
-            <Button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                !userData?.id ||
-                !availability ||
-                !tel ||
-                !name.trim() ||
-                !email ||
-                !team ||
-                skills.length === 0 ||
-                !about
-              }
-            >
-              {isSubmitting ? "جاري الإرسال..." : "إرسال"}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={
+              isSubmitting ||
+              !userData?.id ||
+              !availability ||
+              !tel ||
+              !name.trim() ||
+              !email ||
+              !team ||
+              skills.length === 0 ||
+              !about
+            }
+          >
+            {isSubmitting ? "جاري الإرسال..." : "إرسال الطلب"}
+          </Button>
         </div>
       </form>
     </div>

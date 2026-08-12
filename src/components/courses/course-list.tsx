@@ -3,7 +3,11 @@
 import { Rosette } from "@/components/islamic-motif";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
-import { KebabMenu } from "@/components/dashboard/kebab-menu";
+import {
+  KebabMenu,
+  type KebabMenuItem,
+} from "@/components/dashboard/kebab-menu";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { CourseWithMeta } from "@/lib/course-types";
 import { ENROLLMENT_STATUS_LABELS, VISIBILITY_LABELS } from "@/lib/course-types";
@@ -144,43 +148,29 @@ export function CourseList({
     );
   }
 
-  function menuFor(course: CourseWithMeta, placement: "up" | "down") {
-    return (
-      <KebabMenu
-        items={[
-          {
-            key: "content",
-            label: "المحتوى",
-            icon: <ListVideo className="size-3.5" />,
-            href: `/dashboard/courses/${course.id}`,
-          },
-          {
-            key: "edit",
-            label: "تعديل",
-            icon: <Pencil className="size-3.5" />,
-            onClick: () => onEdit(course),
-          },
-          {
-            key: "delete",
-            label: "حذف",
-            icon: <Trash2 className="size-3.5" />,
-            variant: "destructive",
-            disabled: pending,
-            onClick: () => onDelete(course),
-          },
-        ]}
-        open={openMenuId === course.id}
-        onToggle={() => onToggleMenu(course.id)}
-        onClose={onCloseMenu}
-        placement={placement}
-        ariaLabel="خيارات الدورة"
-        buttonClassName={
-          placement === "down"
-            ? "rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-            : undefined
-        }
-      />
-    );
+  function itemsFor(course: CourseWithMeta): KebabMenuItem[] {
+    return [
+      {
+        key: "content",
+        label: "المحتوى",
+        icon: <ListVideo className="size-3.5" />,
+        href: `/dashboard/courses/${course.id}`,
+      },
+      {
+        key: "edit",
+        label: "تعديل",
+        icon: <Pencil className="size-3.5" />,
+        onClick: () => onEdit(course),
+      },
+      {
+        key: "delete",
+        label: "حذف",
+        icon: <Trash2 className="size-3.5" />,
+        variant: "destructive",
+        disabled: pending,
+        onClick: () => onDelete(course),
+      },
+    ];
   }
 
   if (layout === "list") {
@@ -230,7 +220,14 @@ export function CourseList({
             </div>
 
             <div className="relative shrink-0 self-end sm:self-center">
-              {menuFor(course, "up")}
+              <ListRowActions
+                items={itemsFor(course)}
+                open={openMenuId === course.id}
+                onToggle={() => onToggleMenu(course.id)}
+                onClose={onCloseMenu}
+                menuPlacement="up"
+                ariaLabel="خيارات الدورة"
+              />
             </div>
           </li>
         ))}
@@ -265,7 +262,15 @@ export function CourseList({
             </div>
 
             <div className="absolute top-2 left-2 z-20">
-              {menuFor(course, "down")}
+              <KebabMenu
+                items={itemsFor(course)}
+                open={openMenuId === course.id}
+                onToggle={() => onToggleMenu(course.id)}
+                onClose={onCloseMenu}
+                placement="down"
+                ariaLabel="خيارات الدورة"
+                buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+              />
             </div>
           </div>
 

@@ -6,6 +6,11 @@ import {
 } from "@/app/actions/socials";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import {
+  KebabMenu,
+  type KebabMenuItem,
+} from "@/components/dashboard/kebab-menu";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
@@ -17,7 +22,7 @@ import {
   type SocialLabel,
   type SocialLink,
 } from "@/lib/social-platforms";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
@@ -235,48 +240,55 @@ export function SocialsManager({
                       : "relative shrink-0 self-end sm:self-center"
                   }
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenMenuLabel(
-                        openMenuLabel === social.label ? null : social.label,
-                      )
-                    }
-                    className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    aria-label="خيارات"
-                  >
-                    <MoreHorizontal className="size-5" />
-                  </button>
-                  {openMenuLabel === social.label && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setOpenMenuLabel(null)}
+                  {(() => {
+                    const items: KebabMenuItem[] = [
+                      {
+                        key: "edit",
+                        label: "تعديل",
+                        icon: <Pencil className="size-3.5" />,
+                        onClick: () => openEdit(social),
+                      },
+                      {
+                        key: "delete",
+                        label: "حذف",
+                        icon: <Trash2 className="size-3.5" />,
+                        variant: "destructive",
+                        disabled: pending,
+                        onClick: () => setDeleting(social),
+                      },
+                    ];
+                    return layout === "list" ? (
+                      <ListRowActions
+                        items={items}
+                        open={openMenuLabel === social.label}
+                        onToggle={() =>
+                          setOpenMenuLabel(
+                            openMenuLabel === social.label
+                              ? null
+                              : social.label,
+                          )
+                        }
+                        onClose={() => setOpenMenuLabel(null)}
+                        menuPlacement="up"
+                        ariaLabel="خيارات الرابط"
                       />
-                      <div className="absolute top-full left-0 z-50 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(social)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                        >
-                          <Pencil className="size-3.5" />
-                          تعديل
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => {
-                            setOpenMenuLabel(null);
-                            setDeleting(social);
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-40"
-                        >
-                          <Trash2 className="size-3.5" />
-                          حذف
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    ) : (
+                      <KebabMenu
+                        items={items}
+                        open={openMenuLabel === social.label}
+                        onToggle={() =>
+                          setOpenMenuLabel(
+                            openMenuLabel === social.label
+                              ? null
+                              : social.label,
+                          )
+                        }
+                        onClose={() => setOpenMenuLabel(null)}
+                        placement="down"
+                        ariaLabel="خيارات الرابط"
+                      />
+                    );
+                  })()}
                 </div>
               )}
             </li>

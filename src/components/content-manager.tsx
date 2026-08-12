@@ -9,19 +9,17 @@ import {
 } from "@/app/actions/content";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import {
+  KebabMenu,
+  type KebabMenuItem,
+} from "@/components/dashboard/kebab-menu";
+import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
 import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Globe,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { Globe, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -405,45 +403,51 @@ export function ContentManager({
                       : "relative shrink-0 self-end sm:self-center"
                   }
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenMenuId(
-                        openMenuId === program.id ? null : program.id,
-                      )
-                    }
-                    className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    aria-label="خيارات"
-                  >
-                    <MoreHorizontal className="size-5" />
-                  </button>
-                  {openMenuId === program.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setOpenMenuId(null)}
+                  {(() => {
+                    const items: KebabMenuItem[] = [
+                      {
+                        key: "edit",
+                        label: "تعديل",
+                        icon: <Pencil className="size-3.5" />,
+                        onClick: () => openEdit(program),
+                      },
+                      {
+                        key: "delete",
+                        label: "حذف",
+                        icon: <Trash2 className="size-3.5" />,
+                        variant: "destructive",
+                        disabled: pending,
+                        onClick: () => openDelete(program),
+                      },
+                    ];
+                    return layout === "list" ? (
+                      <ListRowActions
+                        items={items}
+                        open={openMenuId === program.id}
+                        onToggle={() =>
+                          setOpenMenuId(
+                            openMenuId === program.id ? null : program.id,
+                          )
+                        }
+                        onClose={() => setOpenMenuId(null)}
+                        menuPlacement="up"
+                        ariaLabel="خيارات البرنامج"
                       />
-                      <div className="absolute top-full left-0 z-50 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(program)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-muted"
-                        >
-                          <Pencil className="size-3.5" />
-                          تعديل
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => openDelete(program)}
-                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-40"
-                        >
-                          <Trash2 className="size-3.5" />
-                          حذف
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    ) : (
+                      <KebabMenu
+                        items={items}
+                        open={openMenuId === program.id}
+                        onToggle={() =>
+                          setOpenMenuId(
+                            openMenuId === program.id ? null : program.id,
+                          )
+                        }
+                        onClose={() => setOpenMenuId(null)}
+                        placement="down"
+                        ariaLabel="خيارات البرنامج"
+                      />
+                    );
+                  })()}
                 </div>
               )}
             </li>
