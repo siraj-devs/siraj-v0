@@ -5,6 +5,7 @@ import { FormDialog } from "@/components/dashboard/form-dialog";
 import { SegmentedChoiceField } from "@/components/dashboard/segmented-choice-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RANK_AR } from "@/lib/network-labels";
 import type { FormEvent } from "react";
 
 export type NetworkFormState = {
@@ -19,22 +20,22 @@ const RANK_OPTIONS: {
 }[] = [
   {
     value: "A",
-    label: "رتبة A",
+    label: `رتبة ${RANK_AR.A}`,
     activeClassName: "border-emerald-500 bg-emerald-50 text-emerald-800",
   },
   {
     value: "B",
-    label: "رتبة B",
+    label: `رتبة ${RANK_AR.B}`,
     activeClassName: "border-sky-500 bg-sky-50 text-sky-800",
   },
   {
     value: "C",
-    label: "رتبة C",
+    label: `رتبة ${RANK_AR.C}`,
     activeClassName: "border-amber-500 bg-amber-50 text-amber-800",
   },
   {
     value: "D",
-    label: "رتبة D",
+    label: `رتبة ${RANK_AR.D}`,
     activeClassName: "border-slate-500 bg-slate-50 text-slate-700",
   },
 ];
@@ -99,7 +100,7 @@ export function NetworkFormDialog({
           ...opt,
           icon: (
             <span className="flex size-5 items-center justify-center rounded-md bg-current/10 text-xs font-semibold">
-              {opt.value}
+              {RANK_AR[opt.value]}
             </span>
           ),
         }))}

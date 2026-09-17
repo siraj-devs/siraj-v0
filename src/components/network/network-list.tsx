@@ -1,30 +1,64 @@
 "use client";
 
-import type { NetworkProfile, NetworkRank } from "@/app/actions/network";
+import type {
+  NetworkKind,
+  NetworkProfile,
+  NetworkRank,
+} from "@/app/actions/network";
 import {
   KebabMenu,
   type KebabMenuItem,
 } from "@/components/dashboard/kebab-menu";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
-import { StatusBadge, type BadgeTone } from "@/components/dashboard/status-badge";
+import {
+  StatusBadge,
+  type BadgeTone,
+} from "@/components/dashboard/status-badge";
 import { Rosette } from "@/components/islamic-motif";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
+import { campusLabelAr, RANK_AR } from "@/lib/network-labels";
 import {
+  Calendar,
+  Crown,
+  GraduationCap,
   Link2,
+  MapPin,
+  Medal,
   Pencil,
   Plus,
+  RefreshCw,
+  Star,
   Trash2,
-  UserRound,
+  Trophy,
   UserRoundCheck,
+  Waves,
+  type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+
+function ftProfileUrl(login: string): string {
+  return `https://profile.intra.42.fr/users/${encodeURIComponent(login)}`;
+}
 
 const RANK_TONE: Record<NetworkRank, BadgeTone> = {
   A: "emerald",
   B: "sky",
   C: "amber",
   D: "slate",
+};
+
+const RANK_ICON: Record<NetworkRank, LucideIcon> = {
+  A: Crown,
+  B: Trophy,
+  C: Medal,
+  D: Star,
+};
+
+const KIND_LABEL: Record<NetworkKind, string> = {
+  student: "طالب",
+  pooler: "سباح",
 };
 
 function RankBadge({
@@ -34,14 +68,40 @@ function RankBadge({
   rank: NetworkRank;
   size?: "sm" | "md";
 }) {
+  const Icon = RANK_ICON[rank];
+  const iconSize = size === "sm" ? "size-3" : "size-3.5";
   return (
     <StatusBadge
       tone={RANK_TONE[rank]}
-      icon={
-        <span className="text-[10px] font-bold leading-none">{rank}</span>
-      }
-      label={`رتبة ${rank}`}
+      icon={<Icon className={iconSize} />}
+      label={`رتبة ${RANK_AR[rank]}`}
       size={size}
+      iconOnly
+    />
+  );
+}
+
+function KindBadge({
+  kind,
+  size = "md",
+}: {
+  kind: NetworkKind;
+  size?: "sm" | "md";
+}) {
+  const iconSize = size === "sm" ? "size-3" : "size-3.5";
+  return (
+    <StatusBadge
+      tone={kind === "student" ? "rose" : "amber"}
+      icon={
+        kind === "student" ? (
+          <GraduationCap className={iconSize} />
+        ) : (
+          <Waves className={iconSize} />
+        )
+      }
+      label={KIND_LABEL[kind]}
+      size={size}
+      iconOnly
     />
   );
 }
@@ -62,24 +122,78 @@ function ConnectionChips({
           icon={<UserRoundCheck className={iconSize} />}
           label="عضو"
           size={size}
+          iconOnly
         />
-      ) : (
-        <StatusBadge
-          tone="slate"
-          icon={<UserRound className={iconSize} />}
-          label="غير عضو"
-          size={size}
-        />
-      )}
+      ) : null}
       {profile.has_connection ? (
         <StatusBadge
           tone="sky"
           icon={<Link2 className={iconSize} />}
           label="متصل"
           size={size}
+          iconOnly
         />
       ) : null}
     </>
+  );
+}
+
+function LoginLink({
+  login,
+  className,
+}: {
+  login: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={ftProfileUrl(login)}
+      target="_blank"
+      rel="noopener noreferrer"
+      dir="ltr"
+      onClick={(e) => e.stopPropagation()}
+      className={
+        className ??
+        "text-sm text-muted-foreground underline-offset-2 transition hover:text-primary hover:underline"
+      }
+    >
+      @{login}
+    </Link>
+  );
+}
+
+function MetaChips({
+  profile,
+  className,
+}: {
+  profile: NetworkProfile;
+  className?: string;
+}) {
+  const campus = campusLabelAr(profile.campus);
+  const year = profile.pool_year;
+
+  if (!campus && year == null) return null;
+
+  return (
+    <div
+      className={
+        className ??
+        "flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+      }
+    >
+      {campus && (
+        <span className="inline-flex items-center gap-1">
+          <MapPin className="size-3 shrink-0" />
+          <span className="truncate">{campus}</span>
+        </span>
+      )}
+      {year != null && (
+        <span className="inline-flex items-center gap-1">
+          <Calendar className="size-3 shrink-0" />
+          <span>{year}</span>
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -120,6 +234,7 @@ export function NetworkList({
   onToggleMenu,
   onCloseMenu,
   onEdit,
+  onRefresh,
   onDelete,
   onCreate,
 }: {
@@ -131,6 +246,7 @@ export function NetworkList({
   onToggleMenu: (id: string) => void;
   onCloseMenu: () => void;
   onEdit: (profile: NetworkProfile) => void;
+  onRefresh: (profile: NetworkProfile) => void;
   onDelete: (profile: NetworkProfile) => void;
   onCreate: () => void;
 }) {
@@ -164,6 +280,12 @@ export function NetworkList({
         onClick: () => onEdit(profile),
       },
       {
+        key: "refresh",
+        label: "تحديث من 42",
+        icon: <RefreshCw className="size-3.5" />,
+        onClick: () => onRefresh(profile),
+      },
+      {
         key: "delete",
         label: "حذف",
         icon: <Trash2 className="size-3.5" />,
@@ -191,11 +313,15 @@ export function NetworkList({
                     {profile.name}
                   </h3>
                   <RankBadge rank={profile.rank} size="sm" />
+                  <KindBadge kind={profile.kind} size="sm" />
                 </div>
-                <p className="truncate text-sm text-muted-foreground" dir="ltr">
-                  @{profile.login}
-                  {profile.pool_year != null ? ` · ${profile.pool_year}` : ""}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <LoginLink login={profile.login} />
+                  <MetaChips
+                    profile={profile}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+                  />
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   <ConnectionChips profile={profile} size="sm" />
                 </div>
@@ -243,26 +369,22 @@ export function NetworkList({
             </div>
           )}
 
-          <div className="flex flex-1 flex-col items-center px-2 pb-2 pt-4">
+          <div className="flex flex-1 flex-col items-center px-2 pt-4 pb-2">
             <Avatar profile={profile} className="mb-4 size-20" />
             <h3 className="mb-1 text-center font-kufam text-xl font-medium text-foreground">
               {profile.name}
             </h3>
-            <p
-              className="mb-3 text-center text-sm text-muted-foreground"
-              dir="ltr"
-            >
-              @{profile.login}
-            </p>
+            <LoginLink
+              login={profile.login}
+              className="mb-2 text-center text-sm text-muted-foreground underline-offset-2 transition hover:text-primary hover:underline"
+            />
+            <MetaChips
+              profile={profile}
+              className="mb-3 flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+            />
             <div className="mb-2 flex flex-wrap justify-center gap-1.5">
+              <KindBadge kind={profile.kind} />
               <RankBadge rank={profile.rank} />
-              {profile.pool_year != null && (
-                <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground ring-1 ring-inset ring-border/70">
-                  {profile.pool_year}
-                </span>
-              )}
-            </div>
-            <div className="mt-auto flex flex-wrap justify-center gap-1.5 pt-2">
               <ConnectionChips profile={profile} />
             </div>
           </div>

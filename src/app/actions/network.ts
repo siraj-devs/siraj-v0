@@ -1,11 +1,16 @@
 "use server";
 
 import { requireOwner } from "@/lib/auth-guards";
-import { fetchFtUserByLogin } from "@/lib/ft-api";
+import {
+  fetchFtUserByLogin,
+  type FtUserKind,
+  type FtUserLookup,
+} from "@/lib/ft-api";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export type NetworkRank = "A" | "B" | "C" | "D";
+export type NetworkKind = FtUserKind;
 
 export type NetworkProfile = {
   id: string;
@@ -14,6 +19,8 @@ export type NetworkProfile = {
   name: string;
   avatar: string | null;
   pool_year: number | null;
+  campus: string | null;
+  kind: NetworkKind;
   rank: NetworkRank;
   created_at?: string;
   updated_at?: string;
@@ -24,9 +31,15 @@ export type NetworkProfile = {
 };
 
 const RANKS: NetworkRank[] = ["A", "B", "C", "D"];
+const SELECT_COLS =
+  "id, ft_id, login, name, avatar, pool_year, campus, kind, rank, created_at, updated_at";
 
 function isRank(value: string): value is NetworkRank {
   return RANKS.includes(value as NetworkRank);
+}
+
+function isKind(value: string): value is NetworkKind {
+  return value === "student" || value === "pooler";
 }
 
 function revalidateNetwork() {
@@ -40,10 +53,49 @@ type NetworkRow = {
   name: string;
   avatar: string | null;
   pool_year: number | null;
+  campus: string | null;
+  kind: string;
   rank: string;
   created_at?: string;
   updated_at?: string;
 };
+
+function toProfile(
+  row: NetworkRow,
+  flags: { is_member: boolean; has_connection: boolean } = {
+    is_member: false,
+    has_connection: false,
+  },
+): NetworkProfile {
+  return {
+    id: row.id,
+    ft_id: row.ft_id,
+    login: row.login,
+    name: row.name,
+    avatar: row.avatar,
+    pool_year: row.pool_year,
+    campus: row.campus,
+    kind: isKind(row.kind) ? row.kind : "pooler",
+    rank: isRank(row.rank) ? row.rank : "D",
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    is_member: flags.is_member,
+    has_connection: flags.has_connection,
+  };
+}
+
+function ftSnapshot(ftUser: FtUserLookup) {
+  return {
+    ft_id: ftUser.id,
+    login: ftUser.login,
+    name: ftUser.name,
+    avatar: ftUser.avatar,
+    pool_year: ftUser.pool_year,
+    campus: ftUser.campus,
+    kind: ftUser.kind,
+    updated_at: new Date().toISOString(),
+  };
+}
 
 export async function listNetworkProfiles(): Promise<NetworkProfile[]> {
   await requireOwner();
@@ -51,9 +103,7 @@ export async function listNetworkProfiles(): Promise<NetworkProfile[]> {
 
   const { data, error } = await supabase
     .from("network_profiles")
-    .select(
-      "id, ft_id, login, name, avatar, pool_year, rank, created_at, updated_at",
-    )
+    .select(SELECT_COLS)
     .order("rank", { ascending: true })
     .order("name", { ascending: true });
 
@@ -121,19 +171,7 @@ export async function listNetworkProfiles(): Promise<NetworkProfile[]> {
           ? memberFtIds.has(row.ft_id)
           : false;
 
-    return {
-      id: row.id,
-      ft_id: row.ft_id,
-      login: row.login,
-      name: row.name,
-      avatar: row.avatar,
-      pool_year: row.pool_year,
-      rank: isRank(row.rank) ? row.rank : "D",
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      is_member,
-      has_connection,
-    };
+    return toProfile(row, { is_member, has_connection });
   });
 }
 
@@ -181,17 +219,10 @@ export async function addNetworkProfile(input: {
     const { data, error } = await supabase
       .from("network_profiles")
       .insert({
-        ft_id: ftUser.id,
-        login: ftUser.login,
-        name: ftUser.name,
-        avatar: ftUser.avatar,
-        pool_year: ftUser.pool_year,
+        ...ftSnapshot(ftUser),
         rank: input.rank,
-        updated_at: new Date().toISOString(),
       })
-      .select(
-        "id, ft_id, login, name, avatar, pool_year, rank, created_at, updated_at",
-      )
+      .select(SELECT_COLS)
       .single();
 
     if (error || !data) {
@@ -203,24 +234,7 @@ export async function addNetworkProfile(input: {
     }
 
     revalidateNetwork();
-
-    const row = data as NetworkRow;
-    return {
-      success: true,
-      profile: {
-        id: row.id,
-        ft_id: row.ft_id,
-        login: row.login,
-        name: row.name,
-        avatar: row.avatar,
-        pool_year: row.pool_year,
-        rank: isRank(row.rank) ? row.rank : "D",
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        is_member: false,
-        has_connection: false,
-      },
-    };
+    return { success: true, profile: toProfile(data as NetworkRow) };
   } catch (error) {
     return {
       success: false,
@@ -250,6 +264,61 @@ export async function updateNetworkProfile(input: {
     if (error) {
       console.error("Error updating network profile:", error);
       return { success: false, error: "تعذر تحديث الرتبة" };
+    }
+
+    revalidateNetwork();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "غير مصرح",
+    };
+  }
+}
+
+/** Re-fetch name/avatar/year/campus/kind from Intra and overwrite the snapshot. */
+export async function refreshNetworkProfile(
+  id: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requireOwner();
+    if (!id) return { success: false, error: "معرّف غير صالح" };
+
+    const supabase = await createClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("network_profiles")
+      .select("id, login")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !existing) {
+      return { success: false, error: "الملف غير موجود" };
+    }
+
+    let ftUser;
+    try {
+      ftUser = await fetchFtUserByLogin(existing.login);
+    } catch (error) {
+      console.error("42 refresh failed:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "تعذر جلب بيانات المستخدم",
+      };
+    }
+
+    if (!ftUser) {
+      return { success: false, error: "لم يُعثر على هذا الحساب في 42" };
+    }
+
+    const { error } = await supabase
+      .from("network_profiles")
+      .update(ftSnapshot(ftUser))
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error refreshing network profile:", error);
+      return { success: false, error: "تعذر تحديث بيانات 42" };
     }
 
     revalidateNetwork();

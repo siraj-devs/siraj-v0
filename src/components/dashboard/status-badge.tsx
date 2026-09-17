@@ -12,25 +12,40 @@ const TONE_CLASSES = {
 
 export type BadgeTone = keyof typeof TONE_CLASSES;
 
+export const BADGE_TONE_CLASSES = TONE_CLASSES;
+
 /** Generic pill badge (icon + label) used for course/session status chips. */
 export function StatusBadge({
   tone,
   icon,
   label,
   size = "md",
+  iconOnly = false,
 }: {
   tone: BadgeTone;
   icon: ReactNode;
+  /** Required for accessibility when `iconOnly` is true (used as title/aria-label). */
   label: string;
   size?: "sm" | "md";
+  /** Show only the icon; `label` is still used for title/aria-label. */
+  iconOnly?: boolean;
 }) {
-  const pad = size === "sm" ? "px-2.5 py-0.5" : "px-3 py-1";
+  const pad = iconOnly
+    ? size === "sm"
+      ? "p-1"
+      : "p-1.5"
+    : size === "sm"
+      ? "px-2.5 py-0.5"
+      : "px-3 py-1";
+
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${TONE_CLASSES[tone]}`}
+      title={label}
+      aria-label={label}
+      className={`inline-flex items-center justify-center gap-1 rounded-full text-xs font-medium ring-1 ring-inset ${pad} ${TONE_CLASSES[tone]}`}
     >
       {icon}
-      {label}
+      {!iconOnly && label}
     </span>
   );
 }
