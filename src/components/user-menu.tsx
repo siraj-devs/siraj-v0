@@ -15,6 +15,7 @@ import {
   Link2,
   LogOut,
   type LucideIcon,
+  Network,
   UserRound,
   UserRoundCheck,
   Users,
@@ -39,6 +40,7 @@ const OWNER_LINKS: {
     icon: UserRoundCheck,
   },
   { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
+  { href: "/dashboard/network", label: "الشبكة", icon: Network },
 ];
 
 const VIEWER_LINKS: {
