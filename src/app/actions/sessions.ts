@@ -372,6 +372,9 @@ export async function updateSession(formData: FormData): Promise<
       const uploaded = await uploadSessionThumbnail(fields.thumbnailFile);
       payload.thumbnail = uploaded;
       await deleteStorageThumbnail(existing?.thumbnail ?? null);
+    } else if (formData.get("remove_thumbnail") === "true") {
+      payload.thumbnail = null;
+      await deleteStorageThumbnail(existing?.thumbnail ?? null);
     }
 
     const { error } = await supabase

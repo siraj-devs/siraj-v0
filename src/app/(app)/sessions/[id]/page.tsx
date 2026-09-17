@@ -12,9 +12,12 @@ export default async function SessionDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await has42ConnectionAccess())) redirect("/login");
-
   const { id } = await params;
+
+  if (!(await has42ConnectionAccess())) {
+    redirect(`/login?next=/sessions/${id}`);
+  }
+
   const session = await getPublishedSessionById(id);
   if (!session) notFound();
 

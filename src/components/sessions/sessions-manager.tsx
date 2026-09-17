@@ -5,7 +5,6 @@ import {
   createSession,
   deleteSeries,
   deleteSession,
-  setSessionPublished,
   updateSession,
   type ClubSession,
   type SessionSeries,
@@ -51,6 +50,7 @@ export function SessionsManager({
   const [form, setForm] = useState<SessionFormState>(emptyForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [removeThumbnail, setRemoveThumbnail] = useState(false);
   const [seriesList, setSeriesList] = useState(series);
   const [newSeriesName, setNewSeriesName] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -110,6 +110,7 @@ export function SessionsManager({
     setForm(emptyForm());
     setEditingId(null);
     setImageFile(null);
+    setRemoveThumbnail(false);
     setNewSeriesName("");
     setModal("create");
     setOpenMenuId(null);
@@ -126,6 +127,7 @@ export function SessionsManager({
     });
     setEditingId(session.id);
     setImageFile(null);
+    setRemoveThumbnail(false);
     setNewSeriesName("");
     setModal("edit");
     setOpenMenuId(null);
@@ -136,7 +138,13 @@ export function SessionsManager({
     setEditingId(null);
     setForm(emptyForm());
     setImageFile(null);
+    setRemoveThumbnail(false);
     setNewSeriesName("");
+  }
+
+  function onImageChange(file: File | null) {
+    setImageFile(file);
+    setRemoveThumbnail(file === null);
   }
 
   function onCreateSeries() {
@@ -186,6 +194,7 @@ export function SessionsManager({
     formData.set("series_id", form.series_id);
     formData.set("is_published", form.is_published ? "true" : "false");
     if (imageFile) formData.set("thumbnail", imageFile);
+    if (removeThumbnail && !imageFile) formData.set("remove_thumbnail", "true");
     if (modal === "edit" && editingId) formData.set("id", editingId);
 
     startTransition(async () => {
@@ -205,24 +214,6 @@ export function SessionsManager({
     });
   }
 
-  function onTogglePublish(session: ClubSession) {
-    if (!canManage) return;
-    startTransition(async () => {
-      const result = await setSessionPublished(
-        session.id,
-        !session.is_published,
-      );
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        session.is_published ? "تم إخفاء الأمسية" : "تم نشر الأمسية",
-      );
-      router.refresh();
-    });
-  }
-
   function onConfirmDelete() {
     if (!canManage || !deleting) return;
     startTransition(async () => {
@@ -237,7 +228,8 @@ export function SessionsManager({
     });
   }
 
-  const currentImage = previewUrl ?? editing?.thumbnail ?? null;
+  const currentImage =
+    previewUrl ?? (removeThumbnail ? null : editing?.thumbnail) ?? null;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -286,7 +278,6 @@ export function SessionsManager({
         onToggleMenu={(id) => setOpenMenuId(openMenuId === id ? null : id)}
         onCloseMenu={() => setOpenMenuId(null)}
         onEdit={openEdit}
-        onTogglePublish={onTogglePublish}
         onDelete={setDeleting}
         onCreate={openCreate}
       />
@@ -302,7 +293,7 @@ export function SessionsManager({
           onCreateSeries={onCreateSeries}
           onDeleteSeries={onDeleteSeries}
           currentImage={currentImage}
-          onImageChange={setImageFile}
+          onImageChange={onImageChange}
           pending={pending}
           onClose={closeModal}
           onSubmit={onSubmit}

@@ -92,15 +92,15 @@ function CourseCardMeta({
     >
       <span className="inline-flex items-center gap-1">
         <BookOpen className="size-3.5" />
-        {course.lesson_count} دروس
+        {course.lesson_count}
       </span>
       <span className="inline-flex items-center gap-1">
         <CircleHelp className="size-3.5" />
-        {course.exam_count} اختبارات
+        {course.exam_count}
       </span>
       <span className="inline-flex items-center gap-1">
         <Users className="size-3.5" />
-        {course.enrollment_count} ملتحق
+        {course.enrollment_count}
       </span>
     </div>
   );

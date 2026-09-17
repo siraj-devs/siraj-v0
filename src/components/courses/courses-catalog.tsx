@@ -3,7 +3,7 @@
 import { MetaChip, StarRating } from "@/components/courses/course-ui";
 import { Rosette } from "@/components/islamic-motif";
 import type { CourseWithMeta } from "@/lib/course-types";
-import { BookOpen, GraduationCap, HelpCircle, Lock, Shield } from "lucide-react";
+import { BookOpen, HelpCircle, Lock, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -89,22 +89,30 @@ export function CoursesCatalog({
                   {course.description}
                 </p>
 
-                <div className="mt-auto flex flex-wrap gap-2 pt-1">
-                  <MetaChip icon={BookOpen}>
-                    الدروس: {course.lesson_count}
-                  </MetaChip>
-                  <MetaChip icon={HelpCircle}>
-                    الاختبارات: {course.exam_count}
-                  </MetaChip>
-                </div>
+                <div className="mt-auto space-y-2 pt-1">
+                  {(course.lesson_count > 0 || course.exam_count > 0) && (
+                    <div className="flex flex-wrap gap-2">
+                      {course.lesson_count > 0 && (
+                        <MetaChip icon={BookOpen}>
+                          الدروس: {course.lesson_count}
+                        </MetaChip>
+                      )}
+                      {course.exam_count > 0 && (
+                        <MetaChip icon={HelpCircle}>
+                          الاختبارات: {course.exam_count}
+                        </MetaChip>
+                      )}
+                    </div>
+                  )}
 
-                <span className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-all group-hover:brightness-110">
-                  {isEnrolled
-                    ? "متابعة التعلم"
-                    : closed
-                      ? "عرض الدورة"
-                      : "الإلتحاق الآن"}
-                </span>
+                  <span className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-all group-hover:brightness-110">
+                    {isEnrolled
+                      ? "متابعة التعلم"
+                      : closed
+                        ? "عرض الدورة"
+                        : "الإلتحاق الآن"}
+                  </span>
+                </div>
               </div>
             </Link>
           </li>

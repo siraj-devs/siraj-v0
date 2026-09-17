@@ -1,6 +1,9 @@
 "use client";
 
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PublishStatusField } from "@/components/dashboard/publish-status-field";
+import { SegmentedChoiceField } from "@/components/dashboard/segmented-choice-field";
+import { ThumbnailField } from "@/components/dashboard/thumbnail-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CourseAclMemberOption, CourseVisibility } from "@/lib/course-types";
@@ -10,6 +13,7 @@ import {
   MEMBER_ROLE_ORDER,
   type MemberRole,
 } from "@/lib/member-role";
+import { Globe, Lock, Shield, Unlock } from "lucide-react";
 import type { FormEvent } from "react";
 
 export type CourseFormState = {
@@ -29,6 +33,7 @@ export function CourseFormDialog({
   onToggleRole,
   onToggleMember,
   members,
+  thumbnailUrl,
   onThumbnailChange,
   pending,
   onClose,
@@ -43,6 +48,7 @@ export function CourseFormDialog({
   onToggleRole: (role: MemberRole) => void;
   onToggleMember: (id: number) => void;
   members: CourseAclMemberOption[];
+  thumbnailUrl: string | null;
   onThumbnailChange: (file: File | null) => void;
   pending: boolean;
   onClose: () => void;
@@ -79,29 +85,29 @@ export function CourseFormDialog({
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
         />
       </div>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">الخصوصية</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {(["public", "private"] as const).map((value) => (
-            <label
-              key={value}
-              className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm ${
-                form.visibility === value
-                  ? "border-primary/40 bg-primary/10"
-                  : "border-border"
-              }`}
-            >
-              <input
-                type="radio"
-                name="visibility"
-                checked={form.visibility === value}
-                onChange={() => onFieldChange("visibility", value)}
-              />
-              {VISIBILITY_LABELS[value]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+
+      <SegmentedChoiceField
+        legend="الخصوصية"
+        name="course-visibility"
+        value={form.visibility}
+        onChange={(visibility) => onFieldChange("visibility", visibility)}
+        options={[
+          {
+            value: "public",
+            label: VISIBILITY_LABELS.public,
+            icon: <Globe />,
+            activeClassName: "border-slate-400/50 bg-slate-50 text-slate-900",
+          },
+          {
+            value: "private",
+            label: VISIBILITY_LABELS.private,
+            icon: <Shield />,
+            activeClassName:
+              "border-violet-400/50 bg-violet-50 text-violet-900",
+          },
+        ]}
+      />
+
       {form.visibility === "private" && (
         <>
           <fieldset className="space-y-2">
@@ -164,67 +170,41 @@ export function CourseFormDialog({
           </fieldset>
         </>
       )}
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">التسجيل</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {(["open", "closed"] as const).map((status) => (
-            <label
-              key={status}
-              className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm ${
-                form.enrollmentStatus === status
-                  ? "border-primary/40 bg-primary/10"
-                  : "border-border"
-              }`}
-            >
-              <input
-                type="radio"
-                name="enrollment"
-                checked={form.enrollmentStatus === status}
-                onChange={() => onFieldChange("enrollmentStatus", status)}
-              />
-              {ENROLLMENT_STATUS_LABELS[status]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">الظهور</legend>
-        <div className="grid grid-cols-2 gap-2">
-          <label
-            className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm ${
-              form.isPublished ? "border-primary/40 bg-primary/10" : "border-border"
-            }`}
-          >
-            <input
-              type="radio"
-              checked={form.isPublished}
-              onChange={() => onFieldChange("isPublished", true)}
-            />
-            منشور
-          </label>
-          <label
-            className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm ${
-              !form.isPublished ? "border-border bg-muted" : "border-border"
-            }`}
-          >
-            <input
-              type="radio"
-              checked={!form.isPublished}
-              onChange={() => onFieldChange("isPublished", false)}
-            />
-            مخفي
-          </label>
-        </div>
-      </fieldset>
-      <div className="space-y-2">
-        <Label htmlFor="course-thumb">الصورة</Label>
-        <Input
-          id="course-thumb"
-          type="file"
-          accept="image/*"
-          onChange={(e) => onThumbnailChange(e.target.files?.[0] ?? null)}
-        />
-      </div>
+
+      <SegmentedChoiceField
+        legend="التسجيل"
+        name="course-enrollment"
+        value={form.enrollmentStatus}
+        onChange={(enrollmentStatus) =>
+          onFieldChange("enrollmentStatus", enrollmentStatus)
+        }
+        options={[
+          {
+            value: "open",
+            label: ENROLLMENT_STATUS_LABELS.open,
+            icon: <Unlock />,
+            activeClassName: "border-sky-400/50 bg-sky-50 text-sky-900",
+          },
+          {
+            value: "closed",
+            label: ENROLLMENT_STATUS_LABELS.closed,
+            icon: <Lock />,
+            activeClassName: "border-rose-400/50 bg-rose-50 text-rose-900",
+          },
+        ]}
+      />
+
+      <PublishStatusField
+        name="course-publish"
+        value={form.isPublished}
+        onChange={(isPublished) => onFieldChange("isPublished", isPublished)}
+      />
+      <ThumbnailField
+        label="الصورة"
+        imageUrl={thumbnailUrl}
+        onChange={onThumbnailChange}
+        accept="image/*"
+      />
     </FormDialog>
   );
 }

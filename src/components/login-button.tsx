@@ -37,12 +37,10 @@ function DiscordIcon({ className }: { className?: string }) {
 }
 
 export default function LoginButton({
-  varient = "default",
   size = "default",
   provider = "42",
   next = "/",
 }: {
-  varient?: "default" | "secondary";
   size?: "default" | "sm" | "lg";
   provider?: "42" | "discord";
   next?: string;
@@ -66,25 +64,25 @@ export default function LoginButton({
   };
 
   const label =
-    provider === "discord" ? "تسجيل الدخول عبر ديسكورد" : "تسجيل الدخول عبر 42";
+    provider === "discord" ? "المتابعة باستخدام ديسكورد" : "المتابعة باستخدام 42";
 
   return (
     <Button
       onClick={handleLogin}
       disabled={isLoading}
-      variant={varient}
+      variant="outline"
       size={size}
       aria-busy={isLoading}
-      className="gap-2"
+      className="h-12 w-full justify-center gap-3 text-base font-medium"
     >
       {isLoading ? (
         "جاري التحميل..."
       ) : (
         <>
           {provider === "discord" ? (
-            <DiscordIcon className="size-5" />
+            <DiscordIcon className="size-5 text-[#5865F2]" />
           ) : (
-            <FortyTwoIcon className="size-5" />
+            <FortyTwoIcon className="size-5 text-foreground" />
           )}
           {label}
         </>

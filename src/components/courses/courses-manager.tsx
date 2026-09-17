@@ -47,6 +47,7 @@ export function CoursesManager({
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [form, setForm] = useState<CourseFormState>(emptyForm);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CourseFilter>("all");
   const [layout, setLayout] = useState<"list" | "grid">("grid");
@@ -88,6 +89,16 @@ export function CoursesManager({
     return () => document.removeEventListener("keydown", onKey);
   }, [modal, openMenuId, pending]);
 
+  useEffect(() => {
+    if (!thumbnail) {
+      setThumbnailPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(thumbnail);
+    setThumbnailPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [thumbnail]);
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm());
@@ -114,6 +125,7 @@ export function CoursesManager({
   function closeModal() {
     setModal(null);
     setEditing(null);
+    setThumbnail(null);
   }
 
   function setFormField<K extends keyof CourseFormState>(
@@ -267,6 +279,7 @@ export function CoursesManager({
           onToggleRole={toggleRole}
           onToggleMember={toggleMember}
           members={members}
+          thumbnailUrl={thumbnailPreview ?? editing?.thumbnail_url ?? null}
           onThumbnailChange={setThumbnail}
           pending={pending}
           onClose={closeModal}

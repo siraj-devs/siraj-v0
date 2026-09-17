@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, type FormEvent, type ReactNode } from "react";
 
 /**
  * Shared shell for every "add/edit" dashboard modal: bottom-sheet on mobile,
@@ -34,6 +34,23 @@ export function FormDialog({
   maxWidthClassName?: string;
   children: ReactNode;
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
@@ -45,7 +62,7 @@ export function FormDialog({
         onSubmit={onSubmit}
         className={`relative z-10 flex max-h-[92vh] w-full ${maxWidthClassName} animate-[fade-up_0.25s_ease-out] flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:rounded-3xl`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6 sm:p-8 sm:pb-5">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-6 sm:p-8 sm:pb-5">
           <div>
             <h2 className="font-kufam text-2xl font-semibold text-foreground">
               {title}
@@ -67,11 +84,11 @@ export function FormDialog({
           </button>
         </div>
 
-        <div className="space-y-4 overflow-y-auto p-6 sm:p-8 sm:py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6 sm:p-8 sm:py-5">
           {children}
         </div>
 
-        <div className="flex gap-3 border-t border-border p-6 sm:px-8">
+        <div className="flex shrink-0 gap-3 border-t border-border p-6 sm:px-8">
           <Button
             type="button"
             variant="outline"

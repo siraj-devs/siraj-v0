@@ -1,17 +1,18 @@
 "use client";
 
 import type { ClubSession } from "@/app/actions/sessions";
-import { Rosette } from "@/components/islamic-motif";
-import type { ViewLayout } from "@/components/layout-toggle";
-import { Button } from "@/components/ui/button";
 import {
   KebabMenu,
   type KebabMenuItem,
 } from "@/components/dashboard/kebab-menu";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { PublishBadge } from "@/components/dashboard/status-badge";
+import { Rosette } from "@/components/islamic-motif";
+import type { ViewLayout } from "@/components/layout-toggle";
+import { Button } from "@/components/ui/button";
 import { formatSessionDueDate } from "@/lib/session-date";
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
+import { YoutubeLogoIcon } from "@phosphor-icons/react/dist/ssr";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -43,6 +44,31 @@ function SessionThumb({
   );
 }
 
+function YoutubeLink({
+  href,
+  className,
+}: {
+  href: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="فتح على يوتيوب"
+      title="يوتيوب"
+      onClick={(e) => e.stopPropagation()}
+      className={
+        className ??
+        "inline-flex items-center justify-center text-[#FF0000] transition"
+      }
+    >
+      <YoutubeLogoIcon weight="fill" size={24} />
+    </Link>
+  );
+}
+
 export function SessionList({
   sessions,
   allSessionsCount,
@@ -52,7 +78,6 @@ export function SessionList({
   onToggleMenu,
   onCloseMenu,
   onEdit,
-  onTogglePublish,
   onDelete,
   onCreate,
 }: {
@@ -64,7 +89,6 @@ export function SessionList({
   onToggleMenu: (id: string) => void;
   onCloseMenu: () => void;
   onEdit: (session: ClubSession) => void;
-  onTogglePublish: (session: ClubSession) => void;
   onDelete: (session: ClubSession) => void;
   onCreate: () => void;
 }) {
@@ -96,16 +120,6 @@ export function SessionList({
         label: "تعديل",
         icon: <Pencil className="size-3.5" />,
         onClick: () => onEdit(session),
-      },
-      {
-        key: "toggle-publish",
-        label: session.is_published ? "إخفاء" : "نشر",
-        icon: session.is_published ? (
-          <EyeOff className="size-3.5" />
-        ) : (
-          <Eye className="size-3.5" />
-        ),
-        onClick: () => onTogglePublish(session),
       },
       {
         key: "delete",
@@ -155,18 +169,12 @@ export function SessionList({
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatSessionDueDate(session.due_date)}
-                </p>
-                <Link
-                  href={session.record_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block truncate text-xs text-primary hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {session.record_link}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {formatSessionDueDate(session.due_date)}
+                  </p>
+                  <YoutubeLink href={session.record_link} />
+                </div>
               </div>
             </div>
 
@@ -229,15 +237,9 @@ export function SessionList({
             <p className="text-center text-sm text-muted-foreground">
               {formatSessionDueDate(session.due_date)}
             </p>
-            <Link
-              href={session.record_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-auto line-clamp-1 pt-3 text-center text-xs text-primary hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              يوتيوب
-            </Link>
+            <div className="mt-auto flex justify-center pt-3">
+              <YoutubeLink href={session.record_link} />
+            </div>
           </div>
         </article>
       ))}

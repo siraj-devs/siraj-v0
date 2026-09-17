@@ -2,10 +2,19 @@
 
 import type { SessionSeries } from "@/app/actions/sessions";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { PublishStatusField } from "@/components/dashboard/publish-status-field";
+import { ThumbnailField } from "@/components/dashboard/thumbnail-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Image from "next/image";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 
 export type SessionFormState = {
@@ -15,6 +24,8 @@ export type SessionFormState = {
   series_id: string;
   is_published: boolean;
 };
+
+const NO_SERIES = "__none__";
 
 export function SessionFormDialog({
   mode,
@@ -63,6 +74,7 @@ export function SessionFormDialog({
           onChange={(e) =>
             onFormChange((f) => ({ ...f, title: e.target.value }))
           }
+          placeholder="عنوان الأمسية"
           required
           autoFocus
         />
@@ -99,83 +111,72 @@ export function SessionFormDialog({
 
       <div className="space-y-2">
         <Label htmlFor="session-series">السلسلة</Label>
-        <select
-          id="session-series"
-          value={form.series_id}
-          onChange={(e) =>
-            onFormChange((f) => ({ ...f, series_id: e.target.value }))
+        <Select
+          value={form.series_id || NO_SERIES}
+          onValueChange={(value) =>
+            onFormChange((f) => ({
+              ...f,
+              series_id: value === NO_SERIES ? "" : value,
+            }))
           }
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
         >
-          <option value="">بدون سلسلة</option>
-          {seriesList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="session-series" className="w-full">
+            <SelectValue placeholder="اختر سلسلة…" />
+          </SelectTrigger>
+          <SelectContent dir="rtl">
+            <SelectItem value={NO_SERIES}>بدون سلسلة</SelectItem>
+            {seriesList.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="flex gap-2">
           <Input
             value={newSeriesName}
             onChange={(e) => onNewSeriesNameChange(e.target.value)}
             placeholder="سلسلة جديدة…"
+            aria-label="اسم سلسلة جديدة"
           />
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             disabled={pending || !newSeriesName.trim()}
             onClick={onCreateSeries}
+            className="shrink-0 gap-1.5"
           >
+            <Plus className="size-4" />
             إضافة
           </Button>
         </div>
+
         {form.series_id && (
           <button
             type="button"
             disabled={pending}
             onClick={() => onDeleteSeries(form.series_id)}
-            className="text-xs text-destructive hover:underline disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 text-xs text-destructive transition hover:underline disabled:opacity-40"
           >
+            <Trash2 className="size-3.5" />
             حذف السلسلة المحددة
           </button>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="session-thumb">الصورة المصغّرة</Label>
-        {currentImage && (
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border">
-            <Image
-              src={currentImage}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="400px"
-            />
-          </div>
-        )}
-        <Input
-          id="session-thumb"
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-          onChange={(e) => onImageChange(e.target.files?.[0] ?? null)}
-        />
-      </div>
+      <PublishStatusField
+        name="session-publish"
+        value={form.is_published}
+        onChange={(is_published) =>
+          onFormChange((f) => ({ ...f, is_published }))
+        }
+      />
 
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={form.is_published}
-          onChange={(e) =>
-            onFormChange((f) => ({
-              ...f,
-              is_published: e.target.checked,
-            }))
-          }
-          className="size-4 rounded border-border"
-        />
-        نشر الأمسية
-      </label>
+      <ThumbnailField
+        imageUrl={currentImage}
+        onChange={onImageChange}
+      />
     </FormDialog>
   );
 }
