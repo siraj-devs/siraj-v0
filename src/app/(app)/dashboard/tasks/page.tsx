@@ -115,7 +115,7 @@ export default function Tasks() {
             <Image
               width={700}
               height={700}
-              src="/back-end/card5.png"
+              src="/card5.png"
               alt="هموم الدنيا الفانية... ومصيرك يوم الغاشية"
               className="rounded-lg object-cover"
             />

@@ -38,7 +38,6 @@ export type MeetingFtOption = {
 
 function revalidateMeetings() {
   revalidatePath("/dashboard/meetings");
-  revalidatePath("/dashboard/back-end/meetings");
 }
 
 function normalizeTime(value: string) {

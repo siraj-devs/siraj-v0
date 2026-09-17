@@ -11,13 +11,13 @@ async function getHijriMonth(
 }
 
 const WEEKDAYS_AR = [
+  "السبت",
   "الأحد",
   "الاثنين",
   "الثلاثاء",
   "الأربعاء",
   "الخميس",
   "الجمعة",
-  "السبت",
 ];
 
 const WEEKDAY_INDEX: Record<string, number> = {
@@ -45,9 +45,8 @@ async function HijriCalendarMonth({
   if (!days.length) return null;
 
   const monthName = days[0].hijri.month.ar;
-  const yearLabel = days[0].hijri.year;
 
-  const startWeekday = getWeekIndex(days[0].gregorian.weekday.en);
+  const startWeekday = getWeekIndex(days[1].gregorian.weekday.en);
 
   const cells: (HijriDay | null)[] = [
     ...Array(startWeekday).fill(null),
@@ -60,17 +59,15 @@ async function HijriCalendarMonth({
   return (
     <section className="flex w-full flex-col sm:p-6">
       <h2 className="mb-3 text-center text-base font-bold sm:mb-4 sm:text-lg">
-        {monthName} {yearLabel}
+        {monthName}
       </h2>
 
       {/* Weekdays */}
       <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
-        {WEEKDAYS_AR.map((d, i) => (
+        {WEEKDAYS_AR.map((d) => (
           <div
             key={d}
-            className={`text-center text-[10px] font-bold sm:text-xs ${
-              i === 3 ? "text-amber-600" : "text-gray-600"
-            }`}
+            className={`text-center text-[10px] font-bold text-gray-600 sm:text-xs`}
           >
             {d}
           </div>
@@ -84,8 +81,6 @@ async function HijriCalendarMonth({
             return <div key={idx} className="h-12 sm:h-14" />;
           }
 
-          const isWed = getWeekIndex(day.gregorian.weekday.en) === 3;
-
           const [dd, mm, yyyy] = day.gregorian.date.split("-").map(Number);
 
           const cellDate = new Date(yyyy, mm - 1, dd);
@@ -94,18 +89,22 @@ async function HijriCalendarMonth({
           const isToday = cellDate.getTime() === today.getTime();
           const isPast = cellDate < today && !isToday;
 
+          const gregorianDate = cellDate.toLocaleDateString("ar-MA", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
+
           return (
             <div
               key={idx}
-              title={`${day.hijri.day} ${day.hijri.month.ar} ${day.hijri.year} هـ\n${day.gregorian.weekday.en} م`}
+              title={`${day.hijri.day} ${day.hijri.month.ar} ${day.hijri.year} هـ\n${gregorianDate} م`}
               className={`flex h-12 flex-col items-center justify-center rounded-md text-sm transition sm:h-14 ${
                 isPast ? "opacity-30" : ""
               } ${
                 isToday
                   ? "text- bg-blue-50 font-bold text-blue-800 shadow ring-2 ring-blue-200"
-                  : isWed
-                    ? "border border-amber-200 bg-amber-50 font-semibold text-amber-800"
-                    : "border bg-white text-gray-700 hover:bg-gray-50"
+                  : "border bg-white text-gray-700 hover:bg-gray-50"
               }`}
             >
               <span className="text-sm font-semibold sm:text-base">
@@ -153,7 +152,7 @@ export default async function Page() {
   });
 
   return (
-    <div className="container px-4 mx-auto space-y-4 p-3 sm:space-y-6 sm:p-6">
+    <div className="container mx-auto space-y-4 p-3 px-4 sm:space-y-6 sm:p-6">
       <div className="grid grid-cols-1 place-items-center gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {monthsToRender.map((item) => (
           <HijriCalendarMonth
