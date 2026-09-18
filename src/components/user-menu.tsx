@@ -6,6 +6,7 @@ import {
   type MemberRole,
 } from "@/lib/member-role";
 import {
+  CalendarClock,
   CalendarDays,
   Clapperboard,
   ClipboardList,
@@ -41,6 +42,7 @@ const OWNER_LINKS: {
   },
   { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
+  { href: "/dashboard/events", label: "الأحداث", icon: CalendarClock },
 ];
 
 const VIEWER_LINKS: {

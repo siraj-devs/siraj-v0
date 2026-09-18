@@ -1,131 +1,11 @@
-async function getHijriMonth(
-  hijriYear: number,
-  hijriMonth: number,
-): Promise<HijriDay[]> {
-  const res = await fetch(
-    `https://api.aladhan.com/v1/hToGCalendar/${hijriMonth}/${hijriYear}`,
-    { cache: "force-cache" },
-  );
-  const json = await res.json();
-  return json.data;
-}
+import { listEventsForRange } from "@/app/actions/events";
+import {
+  fetchHijriMonth,
+  gregorianBoundsFromDays,
+  HijriCalendarMonth,
+} from "@/components/calendar/hijri-calendar-month";
 
-const WEEKDAYS_AR = [
-  "السبت",
-  "الأحد",
-  "الاثنين",
-  "الثلاثاء",
-  "الأربعاء",
-  "الخميس",
-  "الجمعة",
-];
-
-const WEEKDAY_INDEX: Record<string, number> = {
-  Sunday: 0,
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
-};
-
-function getWeekIndex(en: string) {
-  return WEEKDAY_INDEX[en] ?? 0;
-}
-
-async function HijriCalendarMonth({
-  hijriYear,
-  hijriMonth,
-}: {
-  hijriYear: number;
-  hijriMonth: number;
-}) {
-  const days = await getHijriMonth(hijriYear, hijriMonth);
-  if (!days.length) return null;
-
-  const monthName = days[0].hijri.month.ar;
-
-  const startWeekday = getWeekIndex(days[1].gregorian.weekday.en);
-
-  const cells: (HijriDay | null)[] = [
-    ...Array(startWeekday).fill(null),
-    ...days,
-  ];
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return (
-    <section className="flex w-full flex-col sm:p-6">
-      <h2 className="mb-3 text-center text-base font-bold sm:mb-4 sm:text-lg">
-        {monthName}
-      </h2>
-
-      {/* Weekdays */}
-      <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
-        {WEEKDAYS_AR.map((d) => (
-          <div
-            key={d}
-            className={`text-center text-[10px] font-bold text-gray-600 sm:text-xs`}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Days */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {cells.map((day, idx) => {
-          if (!day) {
-            return <div key={idx} className="h-12 sm:h-14" />;
-          }
-
-          const [dd, mm, yyyy] = day.gregorian.date.split("-").map(Number);
-
-          const cellDate = new Date(yyyy, mm - 1, dd);
-          cellDate.setHours(0, 0, 0, 0);
-
-          const isToday = cellDate.getTime() === today.getTime();
-          const isPast = cellDate < today && !isToday;
-
-          const gregorianDate = cellDate.toLocaleDateString("ar-MA", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          });
-
-          return (
-            <div
-              key={idx}
-              title={`${day.hijri.day} ${day.hijri.month.ar} ${day.hijri.year} هـ\n${gregorianDate} م`}
-              className={`flex h-12 flex-col items-center justify-center rounded-md text-sm transition sm:h-14 ${
-                isPast ? "opacity-30" : ""
-              } ${
-                isToday
-                  ? "text- bg-blue-50 font-bold text-blue-800 shadow ring-2 ring-blue-200"
-                  : "border bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <span className="text-sm font-semibold sm:text-base">
-                {day.hijri.day}
-              </span>
-              <span
-                className={`text-[9px] sm:text-[10px] ${
-                  isToday ? "text-gray-400" : "text-gray-400"
-                }`}
-              >
-                {dd}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-export default async function Page() {
+export default async function CalendarPage() {
   const today = new Date();
   const dd = String(today.getDate()).padStart(2, "0");
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -151,14 +31,33 @@ export default async function Page() {
     return { month: m, year: y };
   });
 
+  const monthsDays = await Promise.all(
+    monthsToRender.map((item) => fetchHijriMonth(item.year, item.month)),
+  );
+
+  let rangeStart: Date | null = null;
+  let rangeEnd: Date | null = null;
+  for (const days of monthsDays) {
+    const bounds = gregorianBoundsFromDays(days);
+    if (!bounds) continue;
+    if (!rangeStart || bounds.start < rangeStart) rangeStart = bounds.start;
+    if (!rangeEnd || bounds.endExclusive > rangeEnd)
+      rangeEnd = bounds.endExclusive;
+  }
+
+  const events =
+    rangeStart && rangeEnd
+      ? await listEventsForRange(rangeStart, rangeEnd)
+      : [];
+
   return (
     <div className="container mx-auto space-y-4 p-3 px-4 sm:space-y-6 sm:p-6">
       <div className="grid grid-cols-1 place-items-center gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        {monthsToRender.map((item) => (
+        {monthsToRender.map((item, i) => (
           <HijriCalendarMonth
             key={`${item.year}-${item.month}`}
-            hijriYear={item.year}
-            hijriMonth={item.month}
+            days={monthsDays[i] ?? []}
+            events={events}
           />
         ))}
       </div>
