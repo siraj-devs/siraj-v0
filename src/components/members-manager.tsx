@@ -11,6 +11,7 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
 import { KebabMenu } from "@/components/dashboard/kebab-menu";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,17 @@ import {
   type PageAccessLevel,
   type PageGrant,
 } from "@/lib/page-permissions";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Crown,
+  Medal,
+  Pencil,
+  Plus,
+  Search,
+  Shield,
+  Sparkles,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -89,7 +100,7 @@ const emptyForm: MemberFormState = {
   page_permissions: [],
 };
 
-type RoleFilter = "all" | MemberRole;
+type RoleFilter = MemberRole;
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -120,7 +131,7 @@ export function MembersManager({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<MemberFormState>(emptyForm);
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter[]>([]);
   const [deleting, setDeleting] = useState<MemberProfile | null>(null);
 
   useEffect(() => {
@@ -157,7 +168,7 @@ export function MembersManager({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return members.filter((m) => {
-      if (roleFilter !== "all" && m.role !== roleFilter) return false;
+      if (!matchesSelection(roleFilter, m.role)) return false;
       if (!q) return true;
       return (
         m.name.toLowerCase().includes(q) ||
@@ -276,19 +287,18 @@ export function MembersManager({
 
   const hidePrivilegedRoles = viewerRole !== "owner";
 
-  const filters: { key: RoleFilter; label: string }[] = (
+  const roleOptions = (
     [
-      { key: "all", label: "الكل" },
-      { key: "owner", label: "مالك" },
-      { key: "admin", label: "مشرف" },
-      { key: "participant", label: "عضو" },
-      { key: "veteran", label: "مخضرم" },
-      { key: "newcomer", label: "وافد" },
-    ] as const
+      { key: "owner" as const, label: "مالك", tone: "rose" as const, icon: <Crown /> },
+      { key: "admin" as const, label: "مشرف", tone: "amber" as const, icon: <Shield /> },
+      { key: "participant" as const, label: "عضو", tone: "emerald" as const, icon: <UserRound /> },
+      { key: "veteran" as const, label: "مخضرم", tone: "sky" as const, icon: <Medal /> },
+      { key: "newcomer" as const, label: "وافد", tone: "violet" as const, icon: <Sparkles /> },
+    ]
   ).filter(
-    (filter) =>
+    (option) =>
       !hidePrivilegedRoles ||
-      (filter.key !== "owner" && filter.key !== "admin"),
+      (option.key !== "owner" && option.key !== "admin"),
   );
 
   return (
@@ -336,51 +346,32 @@ export function MembersManager({
                 !hidePrivilegedRoles || (key !== "owner" && key !== "admin"),
             )
             .map(([key, label, value]) => (
-            <button
+            <div
               key={key}
-              type="button"
-              onClick={() => setRoleFilter(key)}
-              className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-                roleFilter === key
-                  ? "border-primary/40 bg-background shadow-sm"
-                  : "border-transparent bg-background/50 hover:border-border"
-              }`}
+              className="rounded-2xl border border-transparent bg-background/50 px-4 py-3 text-start"
             >
               <p className="text-xs text-muted-foreground">{label}</p>
               <p className="mt-1 font-kufam text-2xl text-foreground">{value}</p>
-            </button>
+            </div>
           ))}
         </div>
       </header>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث بالاسم أو 42 أو ديسكورد…"
-            className="pr-10"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setRoleFilter(f.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-                roleFilter === f.key
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-foreground/70 hover:bg-muted/80"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم أو 42 أو ديسكورد…"
+        menuTitle="تصفية الأعضاء"
+        onReset={() => setRoleFilter([])}
+        groups={[
+          {
+            title: "الدور",
+            selected: roleFilter,
+            onChange: (next) => setRoleFilter(next as RoleFilter[]),
+            options: roleOptions,
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

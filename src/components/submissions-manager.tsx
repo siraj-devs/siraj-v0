@@ -3,10 +3,18 @@
 import {
   getSubmissionAvailabilityLabel,
   getSubmissionTeamLabel,
+  SUBMISSION_TEAM_LABELS,
   type SubmissionRow,
 } from "@/lib/submission-labels";
-import { Input } from "@/components/ui/input";
-import { ChevronDown, Search } from "lucide-react";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  GraduationCap,
+  MessageCircle,
+  Users,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -17,30 +25,45 @@ export function SubmissionsManager({
   submissions: SubmissionRow[];
 }) {
   const [query, setQuery] = useState("");
+  const [providers, setProviders] = useState<string[]>([]);
+  const [mail, setMail] = useState<string[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
   const [openId, setOpenId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return submissions;
-    return submissions.filter((s) => {
+    return submissions.filter((submission) => {
+      if (
+        providers.length > 0 &&
+        !matchesSelection(providers, submission.provider ?? "none")
+      ) {
+        return false;
+      }
+      if (
+        !matchesSelection(mail, submission.email_sent ? "sent" : "pending")
+      ) {
+        return false;
+      }
+      if (!matchesSelection(teams, submission.team)) return false;
+      if (!q) return true;
       const haystack = [
-        s.name,
-        s.email,
-        s.tel,
-        s.team,
-        s.connection_id,
-        s.connection_login,
-        s.connection_username,
-        s.about,
-        s.notes,
-        ...s.skills,
+        submission.name,
+        submission.email,
+        submission.tel,
+        submission.team,
+        submission.connection_id,
+        submission.connection_login,
+        submission.connection_username,
+        submission.about,
+        submission.notes,
+        ...submission.skills,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [submissions, query]);
+  }, [submissions, query, providers, mail, teams]);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -71,15 +94,48 @@ export function SubmissionsManager({
         </div>
       </header>
 
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث بالاسم، البريد، الاتصال…"
-          className="pr-10"
-        />
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم، البريد، الاتصال…"
+        menuTitle="تصفية التقديمات"
+        onReset={() => {
+          setProviders([]);
+          setMail([]);
+          setTeams([]);
+        }}
+        groups={[
+          {
+            title: "الحساب",
+            selected: providers,
+            onChange: setProviders,
+            options: [
+              { key: "42", label: "42", tone: "sky", icon: <GraduationCap /> },
+              { key: "discord", label: "ديسكورد", tone: "violet", icon: <MessageCircle /> },
+            ],
+          },
+          {
+            title: "البريد",
+            selected: mail,
+            onChange: setMail,
+            options: [
+              { key: "sent", label: "تم الإرسال", tone: "emerald", icon: <Check /> },
+              { key: "pending", label: "لم يُرسل", tone: "amber", icon: <Clock /> },
+            ],
+          },
+          {
+            title: "الفريق",
+            selected: teams,
+            onChange: setTeams,
+            options: Object.entries(SUBMISSION_TEAM_LABELS).map(([key, label]) => ({
+              key,
+              label,
+              tone: "slate" as const,
+              icon: <Users />,
+            })),
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <ul className="space-y-3">

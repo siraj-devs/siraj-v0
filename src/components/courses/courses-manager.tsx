@@ -8,10 +8,11 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
+import { matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import type { CourseAclMemberOption, CourseWithMeta } from "@/lib/course-types";
 import type { MemberRole } from "@/lib/member-role";
-import { Plus } from "lucide-react";
+import { Eye, EyeOff, Lock, LockOpen, Plus, Unlock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -19,8 +20,6 @@ import { CourseFormDialog, type CourseFormState } from "./course-form-dialog";
 import { CourseList } from "./course-list";
 
 export type { CourseAclMemberOption };
-
-type CourseFilter = "all" | "published" | "hidden" | "open" | "private";
 
 const emptyForm = (): CourseFormState => ({
   title: "",
@@ -51,7 +50,9 @@ export function CoursesManager({
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<CourseFilter>("all");
+  const [visibility, setVisibility] = useState<string[]>([]);
+  const [enrollment, setEnrollment] = useState<string[]>([]);
+  const [privacy, setPrivacy] = useState<string[]>([]);
   const [layout, setLayout] = useState<"list" | "grid">("grid");
 
   const counts = useMemo(
@@ -68,17 +69,23 @@ export function CoursesManager({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return courses.filter((course) => {
-      if (filter === "published" && !course.is_published) return false;
-      if (filter === "hidden" && course.is_published) return false;
-      if (filter === "open" && course.enrollment_status !== "open") return false;
-      if (filter === "private" && course.visibility !== "private") return false;
+      if (
+        !matchesSelection(
+          visibility,
+          course.is_published ? "published" : "hidden",
+        )
+      ) {
+        return false;
+      }
+      if (!matchesSelection(enrollment, course.enrollment_status)) return false;
+      if (!matchesSelection(privacy, course.visibility)) return false;
       if (!q) return true;
       return (
         course.title.toLowerCase().includes(q) ||
         course.description.toLowerCase().includes(q)
       );
     });
-  }, [courses, filter, query]);
+  }, [courses, visibility, enrollment, privacy, query]);
 
   useEffect(() => {
     if (!modal && !openMenuId) return;
@@ -224,23 +231,47 @@ export function CoursesManager({
           { key: "open", label: "تسجيل مفتوح", value: counts.open },
           { key: "private", label: "خاص", value: counts.private },
         ]}
-        activeStat={filter}
-        onStatClick={setFilter}
       />
 
       <DashboardToolbar
         query={query}
         onQueryChange={setQuery}
         searchPlaceholder="ابحث بالعنوان أو الوصف…"
-        filters={[
-          { key: "all", label: "الكل" },
-          { key: "published", label: "منشور" },
-          { key: "hidden", label: "مخفي" },
-          { key: "open", label: "تسجيل مفتوح" },
-          { key: "private", label: "خاص" },
+        menuTitle="تصفية الدورات"
+        onReset={() => {
+          setVisibility([]);
+          setEnrollment([]);
+          setPrivacy([]);
+        }}
+        groups={[
+          {
+            title: "الظهور",
+            selected: visibility,
+            onChange: setVisibility,
+            options: [
+              { key: "published", label: "منشور", tone: "emerald", icon: <Eye /> },
+              { key: "hidden", label: "مخفي", tone: "amber", icon: <EyeOff /> },
+            ],
+          },
+          {
+            title: "التسجيل",
+            selected: enrollment,
+            onChange: setEnrollment,
+            options: [
+              { key: "open", label: "مفتوح", tone: "sky", icon: <Unlock /> },
+              { key: "closed", label: "مغلق", tone: "slate", icon: <Lock /> },
+            ],
+          },
+          {
+            title: "الخصوصية",
+            selected: privacy,
+            onChange: setPrivacy,
+            options: [
+              { key: "public", label: "عام", tone: "violet", icon: <LockOpen /> },
+              { key: "private", label: "خاص", tone: "rose", icon: <Lock /> },
+            ],
+          },
         ]}
-        activeFilter={filter}
-        onFilterChange={setFilter}
         layout={layout}
         onLayoutChange={setLayout}
       />

@@ -3,9 +3,9 @@
 import {
   setPublicPageDisabledState,
 } from "@/app/actions/disabled-pages";
-import { Input } from "@/components/ui/input";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import type { PublicPageStatus } from "@/lib/disabled-pages";
-import { Search } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -20,15 +20,20 @@ export function DisabledPagesManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [stateFilter, setStateFilter] = useState<string[]>([]);
 
   const filteredPages = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return pages;
-
-    return pages.filter((page) =>
-      page.path.toLowerCase().includes(normalizedQuery),
-    );
-  }, [pages, query]);
+    return pages.filter((page) => {
+      if (
+        !matchesSelection(stateFilter, page.disabled ? "disabled" : "enabled")
+      ) {
+        return false;
+      }
+      if (!normalizedQuery) return true;
+      return page.path.toLowerCase().includes(normalizedQuery);
+    });
+  }, [pages, query, stateFilter]);
 
   function onStateChange(page: PublicPageStatus, disabled: boolean) {
     if (!canManage || page.disabled === disabled) return;
@@ -61,15 +66,24 @@ export function DisabledPagesManager({
         </div>
       </div>
 
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث بالمسار…"
-          className="pr-10"
-        />
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالمسار…"
+        menuTitle="تصفية الصفحات"
+        onReset={() => setStateFilter([])}
+        groups={[
+          {
+            title: "الحالة",
+            selected: stateFilter,
+            onChange: setStateFilter,
+            options: [
+              { key: "enabled", label: "مفعّلة", tone: "emerald", icon: <Eye /> },
+              { key: "disabled", label: "معطّلة", tone: "amber", icon: <EyeOff /> },
+            ],
+          },
+        ]}
+      />
 
       {filteredPages.length > 0 ? (
         <ul className="space-y-3">

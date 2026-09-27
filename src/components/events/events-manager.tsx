@@ -9,9 +9,10 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
+import { matchesSelection } from "@/components/dashboard/search-filter-bar";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { CalendarClock, History, Plus, Repeat } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -47,6 +48,8 @@ export function EventsManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [timing, setTiming] = useState<string[]>([]);
+  const [repeat, setRepeat] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [deleting, setDeleting] = useState<ClubEvent | null>(null);
@@ -78,9 +81,16 @@ export function EventsManager({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter((e) => e.name.toLowerCase().includes(q));
-  }, [events, query]);
+    const now = Date.now();
+    return events.filter((event) => {
+      const when =
+        new Date(event.end_at).getTime() >= now ? "upcoming" : "past";
+      if (!matchesSelection(timing, when)) return false;
+      if (!matchesSelection(repeat, event.repeat_mode)) return false;
+      if (!q) return true;
+      return event.name.toLowerCase().includes(q);
+    });
+  }, [events, query, timing, repeat]);
 
   function openCreate() {
     if (!canManage) return;
@@ -191,9 +201,32 @@ export function EventsManager({
         query={query}
         onQueryChange={setQuery}
         searchPlaceholder="ابحث باسم الحدث…"
-        filters={[]}
-        activeFilter="all"
-        onFilterChange={() => {}}
+        menuTitle="تصفية الأحداث"
+        onReset={() => {
+          setTiming([]);
+          setRepeat([]);
+        }}
+        groups={[
+          {
+            title: "الوقت",
+            selected: timing,
+            onChange: setTiming,
+            options: [
+              { key: "upcoming", label: "قادمة", tone: "emerald", icon: <CalendarClock /> },
+              { key: "past", label: "منتهية", tone: "slate", icon: <History /> },
+            ],
+          },
+          {
+            title: "التكرار",
+            selected: repeat,
+            onChange: setRepeat,
+            options: [
+              { key: "none", label: "مرة واحدة", tone: "sky", icon: <CalendarClock /> },
+              { key: "daily", label: "يومي", tone: "amber", icon: <Repeat /> },
+              { key: "weekly", label: "أسبوعي", tone: "violet", icon: <Repeat /> },
+            ],
+          },
+        ]}
         layout={layout}
         onLayoutChange={setLayout}
       />

@@ -12,16 +12,17 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
+import { matchesSelection } from "@/components/dashboard/search-filter-bar";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Eye, EyeOff, Layers, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SessionFormDialog, type SessionFormState } from "./session-form-dialog";
 import { SessionList } from "./session-list";
 
-type StatusFilter = "all" | "published" | "draft";
+type StatusFilter = "published" | "draft";
 
 const emptyForm = (): SessionFormState => ({
   title: "",
@@ -53,7 +54,8 @@ export function SessionsManager({
   const [removeThumbnail, setRemoveThumbnail] = useState(false);
   const [seriesList, setSeriesList] = useState(series);
   const [newSeriesName, setNewSeriesName] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter[]>([]);
+  const [seriesFilter, setSeriesFilter] = useState<string[]>([]);
   const [layout, setLayout] = useState<ViewLayout>("grid");
 
   useEffect(() => {
@@ -93,15 +95,27 @@ export function SessionsManager({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return sessions.filter((s) => {
-      if (statusFilter === "published" && !s.is_published) return false;
-      if (statusFilter === "draft" && s.is_published) return false;
+      if (
+        !matchesSelection(
+          statusFilter,
+          s.is_published ? "published" : "draft",
+        )
+      ) {
+        return false;
+      }
+      if (
+        seriesFilter.length > 0 &&
+        !seriesFilter.includes(s.series_id ?? "none")
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         s.title.toLowerCase().includes(q) ||
         (s.series?.name.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [sessions, query, statusFilter]);
+  }, [sessions, query, statusFilter, seriesFilter]);
 
   const editing = sessions.find((s) => s.id === editingId) ?? null;
 
@@ -250,21 +264,42 @@ export function SessionsManager({
           { key: "published", label: "منشور", value: counts.published },
           { key: "draft", label: "مخفي", value: counts.draft },
         ]}
-        activeStat={statusFilter}
-        onStatClick={setStatusFilter}
       />
 
       <DashboardToolbar
         query={query}
         onQueryChange={setQuery}
         searchPlaceholder="ابحث بالعنوان أو السلسلة…"
-        filters={[
-          { key: "all", label: "الكل" },
-          { key: "published", label: "منشور" },
-          { key: "draft", label: "مخفي" },
+        menuTitle="تصفية الأمسيات"
+        onReset={() => {
+          setStatusFilter([]);
+          setSeriesFilter([]);
+        }}
+        groups={[
+          {
+            title: "الظهور",
+            selected: statusFilter,
+            onChange: (next) => setStatusFilter(next as StatusFilter[]),
+            options: [
+              { key: "published", label: "منشور", tone: "emerald", icon: <Eye /> },
+              { key: "draft", label: "مخفي", tone: "amber", icon: <EyeOff /> },
+            ],
+          },
+          {
+            title: "السلسلة",
+            selected: seriesFilter,
+            onChange: setSeriesFilter,
+            options: [
+              { key: "none", label: "بدون سلسلة", tone: "slate", icon: <Layers /> },
+              ...seriesList.map((item) => ({
+                key: item.id,
+                label: item.name,
+                tone: "violet" as const,
+                icon: <Layers />,
+              })),
+            ],
+          },
         ]}
-        activeFilter={statusFilter}
-        onFilterChange={setStatusFilter}
         layout={layout}
         onLayoutChange={setLayout}
       />

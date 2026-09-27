@@ -1,11 +1,12 @@
 "use client";
 
 import { reviewProfileChangeRequest } from "@/app/actions/profiles";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import type { ProfileChangeRequest } from "@/lib/profile-requests";
-import { Check, X } from "lucide-react";
+import { Check, Clock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 const STATUS_LABEL: Record<ProfileChangeRequest["status"], string> = {
@@ -29,7 +30,23 @@ export function ProfileRequestsManager({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [query, setQuery] = useState("");
+  const [statuses, setStatuses] = useState<string[]>([]);
   const pendingCount = requests.filter((r) => r.status === "pending").length;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return requests.filter((request) => {
+      if (!matchesSelection(statuses, request.status)) return false;
+      if (!q) return true;
+      return (
+        request.requested_name.toLowerCase().includes(q) ||
+        request.requested_email.toLowerCase().includes(q) ||
+        request.requested_phone.toLowerCase().includes(q) ||
+        (request.member_name?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [requests, query, statuses]);
 
   function onReview(id: number, decision: "approved" | "rejected") {
     startTransition(async () => {
@@ -72,9 +89,29 @@ export function ProfileRequestsManager({
         </div>
       </header>
 
-      {requests.length > 0 ? (
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم أو البريد أو الهاتف…"
+        menuTitle="تصفية الطلبات"
+        onReset={() => setStatuses([])}
+        groups={[
+          {
+            title: "الحالة",
+            selected: statuses,
+            onChange: setStatuses,
+            options: [
+              { key: "pending", label: "قيد المراجعة", tone: "amber", icon: <Clock /> },
+              { key: "approved", label: "مقبول", tone: "emerald", icon: <Check /> },
+              { key: "rejected", label: "مرفوض", tone: "rose", icon: <X /> },
+            ],
+          },
+        ]}
+      />
+
+      {filtered.length > 0 ? (
         <ul className="space-y-3">
-          {requests.map((request) => (
+          {filtered.map((request) => (
             <li
               key={request.id}
               className="rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 sm:px-5"
@@ -139,9 +176,13 @@ export function ProfileRequestsManager({
         </ul>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-16 text-center">
-          <p className="font-kufam text-lg text-foreground">لا طلبات حالياً</p>
+          <p className="font-kufam text-lg text-foreground">
+            {requests.length === 0 ? "لا طلبات حالياً" : "لا نتائج"}
+          </p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            ستظهر هنا طلبات الأعضاء عند تحديث بياناتهم الشخصية.
+            {requests.length === 0
+              ? "ستظهر هنا طلبات الأعضاء عند تحديث بياناتهم الشخصية."
+              : "جرّب تغيير البحث أو التصفية."}
           </p>
         </div>
       )}

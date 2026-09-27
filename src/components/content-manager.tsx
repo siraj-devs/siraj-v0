@@ -14,12 +14,13 @@ import {
   type KebabMenuItem,
 } from "@/components/dashboard/kebab-menu";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
-import { LayoutToggle, type ViewLayout } from "@/components/layout-toggle";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
+import type { ViewLayout } from "@/components/layout-toggle";
 import { SocialIcon } from "@/components/social-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Globe, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Globe, Pencil, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -142,6 +143,7 @@ export function ContentManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [visibility, setVisibility] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [deleting, setDeleting] = useState<ProposedProgram | null>(null);
@@ -174,13 +176,22 @@ export function ContentManager({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return programs;
-    return programs.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q),
-    );
-  }, [programs, query]);
+    return programs.filter((program) => {
+      if (
+        !matchesSelection(
+          visibility,
+          program.is_published ? "published" : "hidden",
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        program.name.toLowerCase().includes(q) ||
+        program.description.toLowerCase().includes(q)
+      );
+    });
+  }, [programs, query, visibility]);
 
   const editing = programs.find((p) => p.id === editingId) ?? null;
 
@@ -290,7 +301,6 @@ export function ContentManager({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <LayoutToggle value={layout} onChange={setLayout} />
           {canManage && (
             <Button onClick={openCreate} className="gap-2">
               <Plus className="size-4" />
@@ -300,15 +310,26 @@ export function ContentManager({
         </div>
       </div>
 
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث بالاسم أو الوصف…"
-          className="pr-10"
-        />
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم أو الوصف…"
+        menuTitle="تصفية البرامج"
+        onReset={() => setVisibility([])}
+        layout={layout}
+        onLayoutChange={setLayout}
+        groups={[
+          {
+            title: "الظهور",
+            selected: visibility,
+            onChange: setVisibility,
+            options: [
+              { key: "published", label: "منشور", tone: "emerald", icon: <Eye /> },
+              { key: "hidden", label: "مخفي", tone: "amber", icon: <EyeOff /> },
+            ],
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <ul

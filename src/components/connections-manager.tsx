@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
+import { GraduationCap, MessageCircle, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -24,7 +24,7 @@ export type DcConnectionRow = {
   authorized_at: string | null;
 };
 
-type ProviderFilter = "all" | "42" | "discord";
+type ProviderFilter = "42" | "discord";
 
 type UnifiedConnection =
   | {
@@ -78,7 +78,7 @@ export function ConnectionsManager({
   dcConnections: DcConnectionRow[];
 }) {
   const [query, setQuery] = useState("");
-  const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter[]>([]);
 
   const mixed = useMemo(() => {
     const rows: UnifiedConnection[] = [
@@ -116,8 +116,7 @@ export function ConnectionsManager({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return mixed.filter((row) => {
-      if (providerFilter !== "all" && row.provider !== providerFilter)
-        return false;
+      if (!matchesSelection(providerFilter, row.provider)) return false;
       if (!q) return true;
       return (
         row.title.toLowerCase().includes(q) ||
@@ -125,12 +124,6 @@ export function ConnectionsManager({
       );
     });
   }, [mixed, query, providerFilter]);
-
-  const filters: { key: ProviderFilter; label: string }[] = [
-    { key: "all", label: "الكل" },
-    { key: "42", label: "42" },
-    { key: "discord", label: "ديسكورد" },
-  ];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -146,79 +139,45 @@ export function ConnectionsManager({
         </div>
 
         <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => setProviderFilter("all")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              providerFilter === "all"
-                ? "border-primary/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">الإجمالي</p>
             <p className="mt-1 font-kufam text-2xl text-foreground">
               {ftConnections.length + dcConnections.length}
             </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setProviderFilter("42")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              providerFilter === "42"
-                ? "border-primary/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          </div>
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">42</p>
             <p className="mt-1 font-kufam text-2xl text-foreground">
               {ftConnections.length}
             </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setProviderFilter("discord")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              providerFilter === "discord"
-                ? "border-primary/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          </div>
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">ديسكورد</p>
             <p className="mt-1 font-kufam text-2xl text-foreground">
               {dcConnections.length}
             </p>
-          </button>
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث بالاسم أو المعرّف…"
-            className="pr-10"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setProviderFilter(f.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-                providerFilter === f.key
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-foreground/70 hover:bg-muted/80"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم أو المعرّف…"
+        menuTitle="تصفية الاتصالات"
+        onReset={() => setProviderFilter([])}
+        groups={[
+          {
+            title: "المزوّد",
+            selected: providerFilter,
+            onChange: (next) => setProviderFilter(next as ProviderFilter[]),
+            options: [
+              { key: "42", label: "42", tone: "sky", icon: <GraduationCap /> },
+              { key: "discord", label: "ديسكورد", tone: "violet", icon: <MessageCircle /> },
+            ],
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <ul className="space-y-3">

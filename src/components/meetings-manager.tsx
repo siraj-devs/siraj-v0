@@ -14,10 +14,13 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  CalendarClock,
+  History,
   Pencil,
   Plus,
   Search,
@@ -95,6 +98,7 @@ export function MeetingsManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [timing, setTiming] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [modal, setModal] = useState<"create" | "edit" | "attendees" | null>(
     null,
@@ -119,13 +123,17 @@ export function MeetingsManager({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return meetings;
-    return meetings.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        (m.description?.toLowerCase().includes(q) ?? false),
-    );
-  }, [meetings, query]);
+    const today = todayInputValue();
+    return meetings.filter((meeting) => {
+      const when = meeting.date >= today ? "upcoming" : "past";
+      if (!matchesSelection(timing, when)) return false;
+      if (!q) return true;
+      return (
+        meeting.name.toLowerCase().includes(q) ||
+        (meeting.description?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [meetings, query, timing]);
 
   const activeMeeting =
     meetings.find((m) => m.id === editingId) ?? null;
@@ -329,15 +337,24 @@ export function MeetingsManager({
         </div>
       </header>
 
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث بالاسم أو الوصف…"
-          className="pr-10"
-        />
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث بالاسم أو الوصف…"
+        menuTitle="تصفية اللقاءات"
+        onReset={() => setTiming([])}
+        groups={[
+          {
+            title: "الوقت",
+            selected: timing,
+            onChange: setTiming,
+            options: [
+              { key: "upcoming", label: "قادمة", tone: "emerald", icon: <CalendarClock /> },
+              { key: "past", label: "منتهية", tone: "slate", icon: <History /> },
+            ],
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <ul className="space-y-3">

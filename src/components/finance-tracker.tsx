@@ -8,15 +8,16 @@ import {
 } from "@/app/actions/transactions";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormDialog } from "@/components/dashboard/form-dialog";
+import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-type TypeFilter = "all" | TransactionType;
+type TypeFilter = TransactionType;
 
 type TransactionFormState = {
   due_at: string;
@@ -70,7 +71,7 @@ export function FinanceTracker({
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<TransactionFormState>(emptyForm);
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter[]>([]);
   const [deleting, setDeleting] = useState<ClubTransaction | null>(null);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export function FinanceTracker({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return initialTransactions.filter((tx) => {
-      if (typeFilter !== "all" && tx.type !== typeFilter) return false;
+      if (!matchesSelection(typeFilter, tx.type)) return false;
       if (!q) return true;
       return tx.note.toLowerCase().includes(q);
     });
@@ -152,12 +153,6 @@ export function FinanceTracker({
     });
   }
 
-  const filters: { key: TypeFilter; label: string }[] = [
-    { key: "all", label: "الكل" },
-    { key: "income", label: "دخل" },
-    { key: "expense", label: "مصروف" },
-  ];
-
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
@@ -184,79 +179,45 @@ export function FinanceTracker({
         </div>
 
         <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => setTypeFilter("income")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              typeFilter === "income"
-                ? "border-emerald-500/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">إجمالي الدخل</p>
             <p className="mt-1 font-kufam text-2xl text-emerald-700">
               {formatAmount(totals.income)}
             </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTypeFilter("expense")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              typeFilter === "expense"
-                ? "border-rose-500/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          </div>
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">إجمالي المصروف</p>
             <p className="mt-1 font-kufam text-2xl text-rose-700">
               {formatAmount(totals.expense)}
             </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTypeFilter("all")}
-            className={`rounded-2xl border px-4 py-3 text-start transition-all ${
-              typeFilter === "all"
-                ? "border-primary/40 bg-background shadow-sm"
-                : "border-transparent bg-background/50 hover:border-border"
-            }`}
-          >
+          </div>
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">الرصيد</p>
             <p className="mt-1 font-kufam text-2xl text-foreground">
               {formatAmount(balance)}
             </p>
-          </button>
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="ابحث في الملاحظات…"
-            className="pr-10"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setTypeFilter(f.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-                typeFilter === f.key
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-foreground/70 hover:bg-muted/80"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SearchFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        searchPlaceholder="ابحث في الملاحظات…"
+        menuTitle="تصفية المالية"
+        onReset={() => setTypeFilter([])}
+        groups={[
+          {
+            title: "النوع",
+            selected: typeFilter,
+            onChange: (next) => setTypeFilter(next as TypeFilter[]),
+            options: [
+              { key: "income", label: "دخل", tone: "emerald", icon: <ArrowDownLeft /> },
+              { key: "expense", label: "مصروف", tone: "rose", icon: <ArrowUpRight /> },
+            ],
+          },
+        ]}
+      />
 
       {filtered.length > 0 ? (
         <ul className="space-y-3">
