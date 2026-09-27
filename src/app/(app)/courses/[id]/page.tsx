@@ -7,7 +7,7 @@ import {
   getCourseContents,
   getEnrollment,
 } from "@/lib/courses";
-import { registrationTarget } from "@/lib/course-schedule";
+import { pickJoinClass } from "@/lib/course-schedule";
 import {
   getMemberForSession,
   isMemberProfileComplete,
@@ -47,7 +47,7 @@ export default async function CourseDetailPage({
 
   if (enrollment) redirect(`/courses/${id}/learn`);
 
-  const registration = registrationTarget(classes);
+  const joinClass = pickJoinClass(classes);
 
   return (
     <div className="py-10 pb-16 md:py-14">
@@ -55,8 +55,7 @@ export default async function CourseDetailPage({
         course={course}
         contents={contents}
         enrollment={enrollment}
-        registrationPhase={registration.phase}
-        registrationClass={registration.courseClass}
+        joinClass={joinClass}
         isLoggedIn
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}

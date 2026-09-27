@@ -13,9 +13,8 @@ import type { CourseWithMeta, Enrollment } from "@/lib/course-types";
 import { type CourseContent } from "@/lib/course-types";
 import {
   formatClassDate,
-  formatLessonRelease,
+  formatLessonDuration,
   type CourseClass,
-  type RegistrationPhase,
 } from "@/lib/course-schedule";
 import {
   BookOpen,
@@ -35,8 +34,7 @@ export function CourseDetail({
   course,
   contents,
   enrollment,
-  registrationPhase,
-  registrationClass,
+  joinClass,
   isLoggedIn,
   isMember,
   hasCompleteProfile,
@@ -44,8 +42,7 @@ export function CourseDetail({
   course: CourseWithMeta;
   contents: CourseContent[];
   enrollment: Enrollment | null;
-  registrationPhase: RegistrationPhase;
-  registrationClass: CourseClass | null;
+  joinClass: CourseClass | null;
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
@@ -55,7 +52,7 @@ export function CourseDetail({
 
   const examCount = contents.filter((item) => item.type === "exam").length;
   const lessonCount = contents.length - examCount;
-  const closed = registrationPhase !== "open";
+  const closed = !joinClass;
 
   function onEnroll() {
     if (!isLoggedIn) {
@@ -140,8 +137,8 @@ export function CourseDetail({
                     ? "أكمل ملفك ثم التحق"
                     : pending
                       ? "جاري الالتحاق…"
-                      : registrationPhase === "upcoming" && registrationClass
-                        ? "التسجيل لم يُفتح بعد"
+                      : closed
+                        ? "لا توجد دفعة للالتحاق"
                         : "الإلتحاق الآن"}
               </Button>
             )}
@@ -161,11 +158,7 @@ export function CourseDetail({
                 ) : (
                   <LockOpen className="size-3.5" />
                 )}
-                {closed
-                  ? registrationPhase === "upcoming"
-                    ? "قريباً"
-                    : "مغلق"
-                  : "مفتوح"}
+                {closed ? "مغلق" : "مفتوح"}
               </span>
               {course.visibility === "private" && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800 ring-1 ring-violet-200 ring-inset">
@@ -196,27 +189,13 @@ export function CourseDetail({
               <MetaChip icon={BookOpen}>الدروس: {lessonCount}</MetaChip>
               <MetaChip icon={HelpCircle}>الاختبارات: {examCount}</MetaChip>
             </div>
-            {registrationClass && (
-              <dl className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
-                <div>
-                  <dt>فتح التسجيل</dt>
-                  <dd className="text-foreground">
-                    {formatClassDate(registrationClass.registration_opens_at)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>إغلاق التسجيل</dt>
-                  <dd className="text-foreground">
-                    {formatClassDate(registrationClass.registration_closes_at)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>بداية التعلم</dt>
-                  <dd className="text-foreground">
-                    {formatClassDate(registrationClass.learning_starts_at)}
-                  </dd>
-                </div>
-              </dl>
+            {joinClass && (
+              <p className="text-sm text-muted-foreground">
+                بداية التعلم{" "}
+                <span className="text-foreground">
+                  {formatClassDate(joinClass.learning_starts_at)}
+                </span>
+              </p>
             )}
           </div>
         </div>
@@ -257,9 +236,9 @@ export function CourseDetail({
                         {item.author}
                       </span>
                     )}
-                    {item.release_unit && (
+                    {formatLessonDuration(item) && (
                       <span className="block truncate text-xs text-muted-foreground">
-                        {formatLessonRelease(item)}
+                        المدة: {formatLessonDuration(item)}
                       </span>
                     )}
                   </span>

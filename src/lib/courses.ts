@@ -11,9 +11,8 @@ import type {
   ExamOption,
 } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
-import type { ReleaseUnit } from "@/lib/course-schedule";
+import type { DurationUnit } from "@/lib/course-schedule";
 import type { CourseClass } from "@/lib/course-schedule";
-import { pickOpenClass } from "@/lib/course-schedule";
 import type { MemberRole } from "@/lib/member-role";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,17 +24,17 @@ function mapContent(row: {
   author: string | null;
   content_url: string | null;
   order_sequence: number;
-  release_unit: string | null;
-  release_amount: number | null;
+  duration_unit: string | null;
+  duration_amount: number | null;
   metadata: CourseContentMetadata | null;
 }): CourseContent {
-  const releaseUnit =
-    row.release_unit === "hours" || row.release_unit === "days"
-      ? (row.release_unit as ReleaseUnit)
+  const durationUnit =
+    row.duration_unit === "hours" || row.duration_unit === "days"
+      ? (row.duration_unit as DurationUnit)
       : null;
-  const releaseAmount =
-    releaseUnit && row.release_amount && row.release_amount > 0
-      ? Number(row.release_amount)
+  const durationAmount =
+    durationUnit && row.duration_amount && row.duration_amount > 0
+      ? Number(row.duration_amount)
       : null;
   return {
     id: row.id,
@@ -45,8 +44,8 @@ function mapContent(row: {
     author: row.author?.trim() || null,
     content_url: row.content_url,
     order_sequence: Number(row.order_sequence) || 0,
-    release_unit: releaseAmount ? releaseUnit : null,
-    release_amount: releaseAmount,
+    duration_unit: durationAmount ? durationUnit : null,
+    duration_amount: durationAmount,
     metadata: row.metadata ?? {},
   };
 }
@@ -289,7 +288,7 @@ export async function getPublishedCourses(
   });
 
   const withMeta = await attachCourseMeta(visible);
-  const openIds = await getOpenRegistrationCourseIds(withMeta.map((course) => course.id));
+  const openIds = await getCourseIdsWithClasses(withMeta.map((course) => course.id));
   return withMeta.map((course) => ({
     ...course,
     registration_open: openIds.has(course.id),
@@ -340,11 +339,9 @@ export async function getCourseClasses(courseId: number): Promise<CourseClass[]>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("course_classes")
-    .select(
-      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
-    )
+    .select("id, course_id, learning_starts_at, created_at")
     .eq("course_id", courseId)
-    .order("registration_opens_at", { ascending: true });
+    .order("learning_starts_at", { ascending: true });
 
   if (error) {
     console.error("Error fetching course classes:", error);
@@ -354,25 +351,7 @@ export async function getCourseClasses(courseId: number): Promise<CourseClass[]>
   return (data ?? []) as CourseClass[];
 }
 
-export async function getCourseClass(id: number): Promise<CourseClass | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("course_classes")
-    .select(
-      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
-    )
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error fetching course class:", error);
-    return null;
-  }
-
-  return (data as CourseClass | null) ?? null;
-}
-
-export async function getOpenRegistrationCourseIds(
+export async function getCourseIdsWithClasses(
   courseIds: number[],
 ): Promise<Set<number>> {
   const open = new Set<number>();
@@ -381,25 +360,16 @@ export async function getOpenRegistrationCourseIds(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("course_classes")
-    .select(
-      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
-    )
+    .select("course_id")
     .in("course_id", courseIds);
 
   if (error) {
-    console.error("Error fetching open classes:", error);
+    console.error("Error fetching course classes:", error);
     return open;
   }
 
-  const byCourse = new Map<number, CourseClass[]>();
-  for (const row of (data ?? []) as CourseClass[]) {
-    const list = byCourse.get(row.course_id) ?? [];
-    list.push(row);
-    byCourse.set(row.course_id, list);
-  }
-
-  for (const [courseId, classes] of byCourse) {
-    if (pickOpenClass(classes)) open.add(courseId);
+  for (const row of data ?? []) {
+    open.add(row.course_id as number);
   }
 
   return open;
@@ -412,7 +382,7 @@ export async function getCourseContents(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, release_unit, release_amount, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
     )
     .eq("course_id", courseId)
     .order("order_sequence", { ascending: true })
@@ -433,7 +403,7 @@ export async function getCourseContentById(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, release_unit, release_amount, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
     )
     .eq("id", contentId)
     .maybeSingle();

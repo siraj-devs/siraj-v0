@@ -24,8 +24,8 @@ import { Rosette } from "@/components/islamic-motif";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatLessonRelease } from "@/lib/course-schedule";
-import type { CourseClass, ReleaseUnit } from "@/lib/course-schedule";
+import { formatLessonDuration } from "@/lib/course-schedule";
+import type { CourseClass, DurationUnit } from "@/lib/course-schedule";
 import type {
   CourseContent,
   CourseContentType,
@@ -44,7 +44,6 @@ import {
 import {
   CalendarDays,
   Clock,
-  Play,
   BookOpen,
   CheckCircle2,
   CircleHelp,
@@ -103,9 +102,8 @@ export function CourseContentManager({
   const [contentUrl, setContentUrl] = useState("");
   const [order, setOrder] = useState("0");
   const [timestampsText, setTimestampsText] = useState("");
-  const [releaseMode, setReleaseMode] = useState<"start" | ReleaseUnit>("start");
-  const [releaseDays, setReleaseDays] = useState<"1" | "2" | "3">("1");
-  const [releaseHours, setReleaseHours] = useState("1");
+  const [durationAmount, setDurationAmount] = useState("");
+  const [durationUnit, setDurationUnit] = useState<DurationUnit>("days");
 
   const [examContentId, setExamContentId] = useState<number | null>(null);
   const [questionText, setQuestionText] = useState("");
@@ -156,9 +154,8 @@ export function CourseContentManager({
     setContentUrl("");
     setOrder(String(contents.length));
     setTimestampsText("");
-    setReleaseMode("start");
-    setReleaseDays("1");
-    setReleaseHours("1");
+    setDurationAmount("");
+    setDurationUnit("days");
     setModal(true);
   }
 
@@ -174,21 +171,10 @@ export function CourseContentManager({
         .map((t) => `${t.seconds}|${t.label}`)
         .join("\n"),
     );
-    if (content.release_unit === "days" && content.release_amount) {
-      setReleaseMode("days");
-      setReleaseDays(
-        content.release_amount === 2
-          ? "2"
-          : content.release_amount === 3
-            ? "3"
-            : "1",
-      );
-    } else if (content.release_unit === "hours" && content.release_amount) {
-      setReleaseMode("hours");
-      setReleaseHours(String(content.release_amount));
-    } else {
-      setReleaseMode("start");
-    }
+    setDurationAmount(
+      content.duration_amount ? String(content.duration_amount) : "",
+    );
+    setDurationUnit(content.duration_unit ?? "days");
     setModal(true);
   }
 
@@ -209,19 +195,17 @@ export function CourseContentManager({
   function onSubmitContent(event: FormEvent) {
     event.preventDefault();
     startTransition(async () => {
-      let release_unit: ReleaseUnit | null = null;
-      let release_amount: number | null = null;
-      if (releaseMode === "days") {
-        release_unit = "days";
-        release_amount = Number(releaseDays);
-      } else if (releaseMode === "hours") {
-        const hours = Number(releaseHours);
-        if (!Number.isInteger(hours) || hours < 1) {
-          toast.error("أدخل عدد ساعات صحيحاً");
+      const trimmedDuration = durationAmount.trim();
+      let duration_unit: DurationUnit | null = null;
+      let duration_amount: number | null = null;
+      if (trimmedDuration) {
+        const amount = Number(trimmedDuration);
+        if (!Number.isInteger(amount) || amount < 1) {
+          toast.error("أدخل مدة صحيحة بالأيام أو الساعات");
           return;
         }
-        release_unit = "hours";
-        release_amount = hours;
+        duration_unit = durationUnit;
+        duration_amount = amount;
       }
 
       const result = await upsertCourseContent({
@@ -232,8 +216,8 @@ export function CourseContentManager({
         author,
         content_url: type === "exam" ? null : contentUrl,
         order_sequence: Number(order) || 0,
-        release_unit,
-        release_amount,
+        duration_unit,
+        duration_amount,
         timestamps: type === "watching" ? parseTimestamps(timestampsText) : [],
       });
       if (!result.success) {
@@ -493,9 +477,11 @@ export function CourseContentManager({
                           {content.author}
                         </p>
                       )}
-                      <p className="truncate text-xs text-muted-foreground">
-                        {formatLessonRelease(content)}
-                      </p>
+                      {formatLessonDuration(content) && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          المدة: {formatLessonDuration(content)}
+                        </p>
+                      )}
                       {content.content_url && (
                         <Link
                           href={content.content_url}
@@ -927,74 +913,41 @@ export function CourseContentManager({
               placeholder="اختياري"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="lesson-duration">مدة الدرس</Label>
+            <Input
+              id="lesson-duration"
+              type="number"
+              min={1}
+              step={1}
+              value={durationAmount}
+              onChange={(event) => setDurationAmount(event.target.value)}
+              placeholder="اختياري"
+            />
+          </div>
           <SegmentedChoiceField
-            legend="موعد فتح الدرس"
-            name="lesson-release"
-            value={releaseMode}
-            columns={3}
-            onChange={setReleaseMode}
+            legend="وحدة المدة"
+            name="lesson-duration-unit"
+            value={durationUnit}
+            columns={2}
+            onChange={setDurationUnit}
             options={[
               {
-                value: "start",
-                label: "مع البداية",
-                icon: <Play />,
-                activeClassName:
-                  "border-emerald-400/50 bg-emerald-50 text-emerald-900",
-              },
-              {
                 value: "days",
-                label: "بالأيام",
+                label: "أيام",
                 icon: <CalendarDays />,
                 activeClassName:
                   "border-sky-400/50 bg-sky-50 text-sky-900",
               },
               {
                 value: "hours",
-                label: "بالساعات",
+                label: "ساعات",
                 icon: <Clock />,
                 activeClassName:
                   "border-amber-400/50 bg-amber-50 text-amber-900",
               },
             ]}
           />
-          {releaseMode === "days" && (
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["1", "يوم"],
-                  ["2", "يومان"],
-                  ["3", "3 أيام"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setReleaseDays(value)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm transition ${
-                    releaseDays === value
-                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          {releaseMode === "hours" && (
-            <div className="space-y-2">
-              <Label htmlFor="lesson-hours">عدد الساعات بعد بداية التعلم</Label>
-              <Input
-                id="lesson-hours"
-                type="number"
-                min={1}
-                step={1}
-                required
-                value={releaseHours}
-                onChange={(event) => setReleaseHours(event.target.value)}
-              />
-            </div>
-          )}
           {type !== "exam" && (
             <div className="space-y-2">
               <Label>

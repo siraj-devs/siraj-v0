@@ -63,8 +63,8 @@ export type CourseContent = {
   author: string | null;
   content_url: string | null;
   order_sequence: number;
-  release_unit: import("@/lib/course-schedule").ReleaseUnit | null;
-  release_amount: number | null;
+  duration_unit: import("@/lib/course-schedule").DurationUnit | null;
+  duration_amount: number | null;
   metadata: CourseContentMetadata;
 };
 
