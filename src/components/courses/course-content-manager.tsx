@@ -90,6 +90,7 @@ export function CourseContentManager({
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [type, setType] = useState<CourseContentType>("watching");
   const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
   const [contentUrl, setContentUrl] = useState("");
   const [order, setOrder] = useState("0");
   const [timestampsText, setTimestampsText] = useState("");
@@ -139,6 +140,7 @@ export function CourseContentManager({
     setEditing(null);
     setType("watching");
     setTitle("");
+    setAuthor("");
     setContentUrl("");
     setOrder(String(contents.length));
     setTimestampsText("");
@@ -149,6 +151,7 @@ export function CourseContentManager({
     setEditing(content);
     setType(content.type);
     setTitle(content.title);
+    setAuthor(content.author ?? "");
     setContentUrl(content.content_url ?? "");
     setOrder(String(content.order_sequence));
     setTimestampsText(
@@ -181,6 +184,7 @@ export function CourseContentManager({
         course_id: course.id,
         type,
         title,
+        author,
         content_url: type === "exam" ? null : contentUrl,
         order_sequence: Number(order) || 0,
         timestamps: type === "watching" ? parseTimestamps(timestampsText) : [],
@@ -340,9 +344,11 @@ export function CourseContentManager({
             <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               {course.title}
             </h1>
-            <p className="max-w-xl text-base leading-8 text-foreground/65">
-              {course.description}
-            </p>
+            {course.description && (
+              <p className="max-w-xl text-base leading-8 text-foreground/65">
+                {course.description}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/2.5 px-3 py-1 text-xs font-medium text-foreground ring-1 ring-primary/20 ring-inset">
                 <StarRating
@@ -433,6 +439,11 @@ export function CourseContentManager({
                       <p className="truncate text-lg font-medium text-foreground">
                         {content.title}
                       </p>
+                      {content.author && (
+                        <p className="truncate text-sm text-muted-foreground">
+                          {content.author}
+                        </p>
+                      )}
                       {content.content_url && (
                         <Link
                           href={content.content_url}
@@ -720,13 +731,23 @@ export function CourseContentManager({
             className="relative z-10 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:rounded-3xl"
           >
             <div className="flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
-              <div className="flex min-w-0 items-center justify-center gap-1.5">
-                <p className="mt-1 font-kufam text-muted-foreground">
-                  {previewing.order_sequence}.
-                </p>
-                <h2 className="truncate text-xl text-foreground">
-                  {previewing.title}
-                </h2>
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <p className="mt-1 font-kufam text-muted-foreground">
+                    {previewing.order_sequence}.
+                  </p>
+                  <h2
+                    id="lesson-preview-title"
+                    className="truncate text-xl text-foreground"
+                  >
+                    {previewing.title}
+                  </h2>
+                </div>
+                {previewing.author && (
+                  <p className="truncate text-sm text-muted-foreground">
+                    {previewing.author}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -844,6 +865,14 @@ export function CourseContentManager({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>المؤلف</Label>
+            <Input
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="اختياري"
             />
           </div>
           {type !== "exam" && (

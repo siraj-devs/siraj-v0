@@ -110,7 +110,6 @@ export async function createCourse(formData: FormData): Promise<
     const imageFile = formData.get("thumbnail");
 
     if (!title) return { success: false, error: "العنوان مطلوب" };
-    if (!description) return { success: false, error: "الوصف مطلوب" };
 
     let thumbnail_url: string | null = null;
     if (imageFile instanceof File && imageFile.size > 0) {
@@ -122,7 +121,7 @@ export async function createCourse(formData: FormData): Promise<
       .from("courses")
       .insert({
         title,
-        description,
+        description: description || null,
         enrollment_status,
         is_published,
         visibility,
@@ -172,11 +171,10 @@ export async function updateCourse(formData: FormData): Promise<
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
     if (!title) return { success: false, error: "العنوان مطلوب" };
-    if (!description) return { success: false, error: "الوصف مطلوب" };
 
     const payload: Record<string, unknown> = {
       title,
-      description,
+      description: description || null,
       enrollment_status,
       is_published,
       visibility,
@@ -239,6 +237,7 @@ export async function upsertCourseContent(input: {
   course_id: number;
   type: CourseContentType;
   title: string;
+  author?: string | null;
   content_url?: string | null;
   order_sequence?: number;
   timestamps?: VideoTimestamp[];
@@ -247,6 +246,7 @@ export async function upsertCourseContent(input: {
     await requirePageEdit("/dashboard/courses");
 
     const title = input.title.trim();
+    const author = input.author?.trim() || null;
     const content_url = input.content_url?.trim() || null;
     if (!title) return { success: false, error: "عنوان الدرس مطلوب" };
     if (input.type !== "exam" && !content_url) {
@@ -265,6 +265,7 @@ export async function upsertCourseContent(input: {
         .update({
           type: input.type,
           title,
+          author,
           content_url,
           order_sequence: input.order_sequence ?? 0,
           metadata,
@@ -286,6 +287,7 @@ export async function upsertCourseContent(input: {
         course_id: input.course_id,
         type: input.type,
         title,
+        author,
         content_url,
         order_sequence: input.order_sequence ?? 0,
         metadata,

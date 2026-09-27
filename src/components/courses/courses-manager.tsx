@@ -82,7 +82,7 @@ export function CoursesManager({
       if (!q) return true;
       return (
         course.title.toLowerCase().includes(q) ||
-        course.description.toLowerCase().includes(q)
+        (course.description?.toLowerCase().includes(q) ?? false)
       );
     });
   }, [courses, visibility, enrollment, privacy, query]);
@@ -119,7 +119,7 @@ export function CoursesManager({
     setEditing(course);
     setForm({
       title: course.title,
-      description: course.description,
+      description: course.description ?? "",
       enrollmentStatus: course.enrollment_status,
       isPublished: course.is_published,
       visibility: course.visibility ?? "public",

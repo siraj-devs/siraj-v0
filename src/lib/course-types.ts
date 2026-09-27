@@ -29,7 +29,7 @@ export type CourseContentMetadata = {
 export type Course = {
   id: number;
   title: string;
-  description: string;
+  description: string | null;
   thumbnail_url: string | null;
   is_published: boolean;
   enrollment_status: CourseEnrollmentStatus;
@@ -59,6 +59,7 @@ export type CourseContent = {
   course_id: number;
   type: CourseContentType;
   title: string;
+  author: string | null;
   content_url: string | null;
   order_sequence: number;
   metadata: CourseContentMetadata;

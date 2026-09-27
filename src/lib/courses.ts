@@ -19,6 +19,7 @@ function mapContent(row: {
   course_id: number;
   type: CourseContent["type"];
   title: string;
+  author: string | null;
   content_url: string | null;
   order_sequence: number;
   metadata: CourseContentMetadata | null;
@@ -28,6 +29,7 @@ function mapContent(row: {
     course_id: row.course_id,
     type: row.type,
     title: row.title,
+    author: row.author?.trim() || null,
     content_url: row.content_url,
     order_sequence: Number(row.order_sequence) || 0,
     metadata: row.metadata ?? {},
@@ -58,7 +60,7 @@ function mapCourse(row: Record<string, unknown>): Course {
   return {
     id: row.id as number,
     title: row.title as string,
-    description: row.description as string,
+    description: (row.description as string | null)?.trim() || null,
     thumbnail_url: (row.thumbnail_url as string | null) ?? null,
     is_published: Boolean(row.is_published),
     enrollment_status: row.enrollment_status as Course["enrollment_status"],
@@ -321,7 +323,7 @@ export async function getCourseContents(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, content_url, order_sequence, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, metadata",
     )
     .eq("course_id", courseId)
     .order("order_sequence", { ascending: true })
@@ -342,7 +344,7 @@ export async function getCourseContentById(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, content_url, order_sequence, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, metadata",
     )
     .eq("id", contentId)
     .maybeSingle();

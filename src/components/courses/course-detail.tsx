@@ -163,9 +163,11 @@ export function CourseDetail({
               <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                 {course.title}
               </h1>
-              <p className="mx-auto max-w-2xl text-base leading-8 text-foreground/65 lg:mx-0">
-                {course.description}
-              </p>
+              {course.description && (
+                <p className="mx-auto max-w-2xl text-base leading-8 text-foreground/65 lg:mx-0">
+                  {course.description}
+                </p>
+              )}
             </div>
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/2.5 px-3 py-1 text-xs font-medium text-foreground ring-1 ring-primary/20 ring-inset">

@@ -85,9 +85,11 @@ export function CoursesCatalog({
                   count={course.rating_count}
                 />
 
-                <p className="line-clamp-2 text-sm leading-7 text-foreground/65">
-                  {course.description}
-                </p>
+                {course.description && (
+                  <p className="line-clamp-2 text-sm leading-7 text-foreground/65">
+                    {course.description}
+                  </p>
+                )}
 
                 <div className="mt-auto space-y-2 pt-1">
                   {(course.lesson_count > 0 || course.exam_count > 0) && (

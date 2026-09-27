@@ -78,7 +78,6 @@ export function CourseFormDialog({
         <Label htmlFor="course-desc">الوصف</Label>
         <textarea
           id="course-desc"
-          required
           rows={4}
           value={form.description}
           onChange={(e) => onFieldChange("description", e.target.value)}

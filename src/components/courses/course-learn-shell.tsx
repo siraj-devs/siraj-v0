@@ -136,6 +136,7 @@ export function CourseLearnShell({
                 <span className="block truncate font-medium">{item.title}</span>
                 <span className="text-xs text-muted-foreground">
                   {CONTENT_TYPE_HINT[item.type]}
+                  {item.author ? ` · ${item.author}` : ""}
                 </span>
               </span>
               {locked ? (

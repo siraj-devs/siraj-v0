@@ -208,9 +208,11 @@ export function CourseList({
                   </h3>
                   <CourseStatusBadges course={course} size="sm" />
                 </div>
-                <p className="line-clamp-1 text-sm text-foreground/65">
-                  {course.description}
-                </p>
+                {course.description && (
+                  <p className="line-clamp-1 text-sm text-foreground/65">
+                    {course.description}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <StarRating
                     value={course.rating_avg}
@@ -293,9 +295,11 @@ export function CourseList({
               <StarRating value={course.rating_avg} count={course.rating_count} />
             </div>
 
-            <p className="line-clamp-2 text-center text-sm text-foreground/65">
-              {course.description}
-            </p>
+            {course.description && (
+              <p className="line-clamp-2 text-center text-sm text-foreground/65">
+                {course.description}
+              </p>
+            )}
             <div className="mt-auto pt-4">
               <CourseCardMeta course={course} className="justify-center" />
             </div>
