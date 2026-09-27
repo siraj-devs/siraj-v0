@@ -24,6 +24,7 @@ type SiteHeaderProps = {
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
+    pagePermissions: string[];
   }) | null;
 };
 

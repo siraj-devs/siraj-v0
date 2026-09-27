@@ -63,13 +63,22 @@ export function UserMenu({
     | (SessionData["user"] & {
         isAdmin: boolean;
         role: MemberRole | null;
+        pagePermissions: string[];
       })
     | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const isAdmin = user?.isAdmin ?? false;
   const avatarSrc = user?.image || null;
   const isOwner = user?.role === "owner";
+  const showViewerLinks =
+    user?.role === "owner" ||
+    user?.role === "admin" ||
+    user?.role === "participant";
+  const grantedLinks = isOwner
+    ? OWNER_LINKS
+    : OWNER_LINKS.filter((link) =>
+        (user?.pagePermissions ?? []).includes(link.href),
+      );
 
   return (
     <div className="relative">
@@ -116,7 +125,7 @@ export function UserMenu({
                 </p>
               )}
             </div>
-            {isAdmin && (
+            {showViewerLinks && (
               <>
                 {VIEWER_LINKS.map((link) => (
                   <Link
@@ -132,9 +141,9 @@ export function UserMenu({
                 <hr className="border-border" />
               </>
             )}
-            {isOwner && (
+            {grantedLinks.length > 0 && (
               <>
-                {OWNER_LINKS.map((link) => (
+                {grantedLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}

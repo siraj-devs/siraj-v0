@@ -35,9 +35,11 @@ const emptyForm = (): CourseFormState => ({
 export function CoursesManager({
   courses,
   members = [],
+  canManage,
 }: {
   courses: CourseWithMeta[];
   members?: CourseAclMemberOption[];
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -207,10 +209,12 @@ export function CoursesManager({
         title="الدورات"
         description="أنشئ الدورات ونظّم الدروس والاختبارات وظهورها للزوار."
         action={
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="size-4" />
-            دورة جديدة
-          </Button>
+          canManage && (
+            <Button onClick={openCreate} className="gap-2">
+              <Plus className="size-4" />
+              دورة جديدة
+            </Button>
+          )
         }
         statsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
         stats={[
@@ -255,6 +259,7 @@ export function CoursesManager({
         }}
         onCreate={openCreate}
         pending={pending}
+        canManage={canManage}
       />
 
       <ConfirmDeleteModal

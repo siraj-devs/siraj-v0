@@ -11,7 +11,7 @@ import {
   type ProfileChangeRequest,
 } from "@/lib/profile-requests";
 import { getSession } from "@/lib/session";
-import { requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { unlinkMemberConnection } from "@/lib/link-connection";
 import { revalidatePath } from "next/cache";
@@ -170,7 +170,7 @@ export async function submitProfileChangeRequest(input: {
 export async function listProfileChangeRequests(): Promise<
   ProfileChangeRequest[]
 > {
-  await requireOwner();
+  await requirePageAccess("/dashboard/profile-requests");
   return getProfileRequestsForDashboard();
 }
 

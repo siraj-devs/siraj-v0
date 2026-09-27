@@ -3,9 +3,11 @@ import {
   type DcConnectionRow,
   type FtConnectionRow,
 } from "@/components/connections-manager";
+import { gateDashboardPage } from "@/lib/dashboard-gate";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ConnectionsPage() {
+  await gateDashboardPage("/dashboard/connections");
   const supabase = await createClient();
 
   const [{ data: ftData }, { data: dcData }] = await Promise.all([

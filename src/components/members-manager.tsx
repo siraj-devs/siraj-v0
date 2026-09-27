@@ -15,6 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { MemberRole } from "@/lib/members";
+import {
+  GRANTABLE_DASHBOARD_PAGES,
+  type DashboardPagePath,
+} from "@/lib/page-permissions";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -66,6 +70,7 @@ type MemberFormState = {
   role: MemberRole;
   ft_connection: string;
   dc_connection: string;
+  page_permissions: DashboardPagePath[];
 };
 
 const emptyForm: MemberFormState = {
@@ -73,6 +78,7 @@ const emptyForm: MemberFormState = {
   role: "newcomer",
   ft_connection: "",
   dc_connection: "",
+  page_permissions: [],
 };
 
 type RoleFilter = "all" | MemberRole;
@@ -202,6 +208,7 @@ export function MembersManager({
       role: member.role,
       ft_connection: member.ft_connection ? String(member.ft_connection) : "",
       dc_connection: member.dc_connection ?? "",
+      page_permissions: member.page_permissions ?? [],
     });
     setEditingId(member.id);
     setModal("edit");
@@ -223,6 +230,7 @@ export function MembersManager({
       role: form.role,
       ft_connection: form.ft_connection ? Number(form.ft_connection) : null,
       dc_connection: form.dc_connection || null,
+      page_permissions: form.page_permissions,
     };
 
     startTransition(async () => {
@@ -424,6 +432,16 @@ export function MembersManager({
                     {ROLE_LABELS[member.role]}
                   </span>
 
+                  {canManage && member.page_permissions.length > 0 && (
+                    <p className="mb-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+                      {GRANTABLE_DASHBOARD_PAGES.filter((page) =>
+                        member.page_permissions.includes(page.path),
+                      )
+                        .map((page) => page.label)
+                        .join(" · ")}
+                    </p>
+                  )}
+
                   <div className="mt-auto flex flex-col items-center gap-1">
                     {member.login ? (
                       <Link
@@ -570,6 +588,49 @@ export function MembersManager({
               ))}
             </select>
           </div>
+
+          {canManage && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium leading-none">
+                صلاحيات المشاهدة
+              </legend>
+              <p className="text-xs text-muted-foreground">
+                مشاهدة الصفحة فقط. التعديل والإدارة يبقيان للمالك.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {GRANTABLE_DASHBOARD_PAGES.map((page) => {
+                  const selected = form.page_permissions.includes(page.path);
+                  return (
+                    <label
+                      key={page.path}
+                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${
+                        selected
+                          ? "border-primary/40 bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:bg-muted/40"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                        checked={selected}
+                        onChange={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            page_permissions: selected
+                              ? prev.page_permissions.filter(
+                                  (path) => path !== page.path,
+                                )
+                              : [...prev.page_permissions, page.path],
+                          }))
+                        }
+                      />
+                      {page.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
         </FormDialog>
       )}
 

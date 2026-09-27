@@ -1,11 +1,17 @@
 "use server";
 
+import { requireDashboardMember, requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import {
+  getPagePermissionsByMember,
+  setMemberPagePermissions,
+} from "@/lib/member-permissions";
+import {
+  canManageMembers,
   memberRoleRank,
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import type { DashboardPagePath } from "@/lib/page-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -14,6 +20,7 @@ export type MemberProfile = AppMember & {
   avatar: string | null;
   dc_username: string | null;
   dc_avatar: string | null;
+  page_permissions: DashboardPagePath[];
 };
 
 export type FtConnectionOption = {
@@ -40,10 +47,17 @@ const ROLE_VALUES: MemberRole[] = [
 
 function revalidateMembers() {
   revalidatePath("/dashboard/members");
+  revalidatePath("/", "layout");
 }
 
 export async function getClubMembers(): Promise<MemberProfile[]> {
-  await requireDashboardMember();
+  let includePermissions = false;
+  try {
+    const { member } = await requireDashboardMember();
+    includePermissions = canManageMembers(member?.role);
+  } catch {
+    await requirePageAccess("/dashboard/courses");
+  }
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -57,6 +71,10 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
     console.error("Error fetching members:", error);
     throw new Error("تعذر جلب الأعضاء");
   }
+
+  const permissionsByMember = includePermissions
+    ? await getPagePermissionsByMember()
+    : new Map<number, DashboardPagePath[]>();
 
   return (data ?? [])
     .map((row) => {
@@ -79,6 +97,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
         avatar: ft?.avatar ?? dc?.avatar ?? null,
         dc_username: dc?.username ?? null,
         dc_avatar: dc?.avatar ?? null,
+        page_permissions: permissionsByMember.get(row.id) ?? [],
       };
     })
     .sort((a, b) => {
@@ -179,6 +198,7 @@ export async function createMember(input: {
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
+  page_permissions?: string[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     await requireOwner();
@@ -193,19 +213,29 @@ export async function createMember(input: {
       return { success: false, error: "الدور غير صالح" };
 
     const supabase = await createClient();
-    const { error } = await supabase.from("members").insert({
-      name,
-      role,
-      ft_connection,
-      dc_connection,
-    });
+    const { data, error } = await supabase
+      .from("members")
+      .insert({
+        name,
+        role,
+        ft_connection,
+        dc_connection,
+      })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !data) {
       console.error("Error creating member:", error);
-      if (error.code === "23505")
+      if (error?.code === "23505")
         return { success: false, error: "هذا الحساب مرتبط بعضو آخر" };
       return { success: false, error: "تعذر إنشاء العضو" };
     }
+
+    const saved = await setMemberPagePermissions(
+      data.id,
+      input.page_permissions ?? [],
+    );
+    if (!saved.success) return saved;
 
     revalidateMembers();
     return { success: true };
@@ -220,6 +250,7 @@ export async function updateMember(input: {
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
+  page_permissions?: string[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const { member: current } = await requireOwner();
@@ -255,6 +286,12 @@ export async function updateMember(input: {
         return { success: false, error: "هذا الحساب مرتبط بعضو آخر" };
       return { success: false, error: "تعذر تحديث العضو" };
     }
+
+    const saved = await setMemberPagePermissions(
+      id,
+      input.page_permissions ?? [],
+    );
+    if (!saved.success) return saved;
 
     revalidateMembers();
     return { success: true };

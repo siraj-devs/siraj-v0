@@ -7,11 +7,7 @@ import {
   getExamQuestions,
 } from "@/lib/courses";
 import type { ExamQuestion } from "@/lib/course-types";
-import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
+import { gateDashboardPage } from "@/lib/dashboard-gate";
 import { notFound, redirect } from "next/navigation";
 
 export default async function DashboardCourseDetailPage({
@@ -19,11 +15,8 @@ export default async function DashboardCourseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
-  const member = await getMemberForSession(session);
-  if (!canManageMembers(member?.role)) redirect("/dashboard/members");
+  const { isOwner } = await gateDashboardPage("/dashboard/courses");
+  if (!isOwner) redirect("/dashboard/courses");
 
   const { id: raw } = await params;
   const id = Number(raw);

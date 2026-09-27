@@ -7,13 +7,13 @@ import {
   getSubmissions,
   type SubmissionRow,
 } from "@/lib/submissions";
-import { requireOwner } from "@/lib/auth-guards";
+import { requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import env from "@/env";
 import nodemailer from "nodemailer";
 
 export async function getSubmissionsForDashboard(): Promise<SubmissionRow[]> {
-  await requireOwner();
+  await requirePageAccess("/dashboard/submissions");
   return getSubmissions();
 }
 

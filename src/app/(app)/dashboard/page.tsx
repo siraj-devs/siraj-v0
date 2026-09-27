@@ -1,7 +1,6 @@
-import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
+import { dashboardEntryPath } from "@/lib/dashboard-access";
+import { getMemberPagePermissions } from "@/lib/member-permissions";
+import { getMemberForSession } from "@/lib/members";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
@@ -10,6 +9,8 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   const member = await getMemberForSession(session);
-  if (canManageMembers(member?.role)) redirect("/dashboard/submissions");
-  redirect("/dashboard/members");
+  const permissions = member
+    ? await getMemberPagePermissions(member.id)
+    : [];
+  redirect(dashboardEntryPath(member?.role, permissions));
 }

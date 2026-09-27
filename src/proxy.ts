@@ -1,9 +1,11 @@
 import env from "@/env";
 import {
-  canAccessDashboard,
-  canAccessDashboardPath,
-  getMemberForSession,
-} from "@/lib/members";
+  canOpenDashboard,
+  canOpenDashboardPath,
+  dashboardEntryPath,
+} from "@/lib/dashboard-access";
+import { getMemberPagePermissions } from "@/lib/member-permissions";
+import { getMemberForSession } from "@/lib/members";
 import {
   isProtectedFromDisable,
   normalizePublicPath,
@@ -80,11 +82,19 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
 
     const member = await getMemberForSession(session);
-    if (!canAccessDashboard(member?.role))
+    const permissions = member
+      ? await getMemberPagePermissions(member.id)
+      : [];
+
+    if (!canOpenDashboard(member?.role, permissions))
       return NextResponse.redirect(new URL("/", request.url));
 
-    if (!canAccessDashboardPath(member?.role, pathname))
-      return NextResponse.redirect(new URL("/dashboard/members", request.url));
+    if (!canOpenDashboardPath(member?.role, permissions, pathname)) {
+      const dest = dashboardEntryPath(member?.role, permissions);
+      if (dest === "/" || dest === pathname)
+        return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
   }
 }
 

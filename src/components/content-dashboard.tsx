@@ -15,11 +15,13 @@ export function ContentDashboard({
   pages,
   socials,
   canManage,
+  showDisabledPages = true,
 }: {
   programs: ProposedProgram[];
   pages: PublicPageStatus[];
   socials: SocialLink[];
   canManage: boolean;
+  showDisabledPages?: boolean;
 }) {
   const [tab, setTab] = useState<ContentTab>("programs");
   const disabledCount = pages.filter((page) => page.disabled).length;
@@ -35,11 +37,15 @@ export function ContentDashboard({
       label: "روابط التواصل",
       count: socials.length,
     },
-    {
-      id: "disabled" as const,
-      label: "صفحات معطّلة",
-      count: disabledCount,
-    },
+    ...(showDisabledPages
+      ? [
+          {
+            id: "disabled" as const,
+            label: "صفحات معطّلة",
+            count: disabledCount,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -110,16 +116,18 @@ export function ContentDashboard({
         )}
       </div>
 
-      <div
-        role="tabpanel"
-        id="content-panel-disabled"
-        aria-labelledby="content-tab-disabled"
-        hidden={tab !== "disabled"}
-      >
-        {tab === "disabled" && (
-          <DisabledPagesManager pages={pages} canManage={canManage} />
-        )}
-      </div>
+      {showDisabledPages && (
+        <div
+          role="tabpanel"
+          id="content-panel-disabled"
+          aria-labelledby="content-tab-disabled"
+          hidden={tab !== "disabled"}
+        >
+          {tab === "disabled" && (
+            <DisabledPagesManager pages={pages} canManage={canManage} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

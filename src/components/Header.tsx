@@ -2,9 +2,10 @@ import { SiteHeader } from "@/components/site-header";
 import { checkFormCompletionStatus } from "@/lib/form-status";
 import { isPublicPathDisabled } from "@/lib/disabled-pages";
 import {
-  canAccessDashboard,
-  getMemberForSession,
-} from "@/lib/members";
+  canOpenDashboard,
+} from "@/lib/dashboard-access";
+import { getMemberPagePermissions } from "@/lib/member-permissions";
+import { getMemberForSession } from "@/lib/members";
 import { getSession } from "@/lib/session";
 
 export async function Header() {
@@ -18,6 +19,9 @@ export async function Header() {
     ]);
 
   const member = session ? await getMemberForSession(session) : null;
+  const pagePermissions = member
+    ? await getMemberPagePermissions(member.id)
+    : [];
 
   return (
     <SiteHeader
@@ -31,8 +35,9 @@ export async function Header() {
           ? {
               ...session.user,
               name: member?.name ?? session.user.name,
-              isAdmin: canAccessDashboard(member?.role),
+              isAdmin: canOpenDashboard(member?.role, pagePermissions),
               role: member?.role ?? null,
+              pagePermissions,
             }
           : null
       }

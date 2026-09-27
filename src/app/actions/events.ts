@@ -1,6 +1,10 @@
 "use server";
 
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import {
+  requireDashboardMember,
+  requireOwner,
+  requirePageAccess,
+} from "@/lib/auth-guards";
 import {
   isEventColor,
   resolveEventColor,
@@ -76,7 +80,7 @@ function toRepeatable(event: ClubEvent): RepeatableEvent {
 }
 
 export async function listEvents(): Promise<ClubEvent[]> {
-  await requireDashboardMember();
+  await requirePageAccess("/dashboard/events");
   const supabase = await createClient();
 
   const { data, error } = await supabase

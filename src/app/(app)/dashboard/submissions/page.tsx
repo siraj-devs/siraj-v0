@@ -1,19 +1,9 @@
 import { getSubmissionsForDashboard } from "@/app/actions/submit-form";
 import { SubmissionsManager } from "@/components/submissions-manager";
-import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { gateDashboardPage } from "@/lib/dashboard-gate";
 
 export default async function SubmissionsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
-  const current = await getMemberForSession(session);
-  if (!canManageMembers(current?.role)) redirect("/dashboard/members");
-
+  await gateDashboardPage("/dashboard/submissions");
   const submissions = await getSubmissionsForDashboard();
 
   return (

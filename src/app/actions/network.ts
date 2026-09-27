@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import {
   fetchFtUserByLogin,
   type FtUserKind,
@@ -98,7 +98,7 @@ function ftSnapshot(ftUser: FtUserLookup) {
 }
 
 export async function listNetworkProfiles(): Promise<NetworkProfile[]> {
-  await requireOwner();
+  await requirePageAccess("/dashboard/network");
   const supabase = await createClient();
 
   const { data, error } = await supabase

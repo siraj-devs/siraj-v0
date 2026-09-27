@@ -27,7 +27,7 @@ import { getMemberForSession, isMemberProfileComplete } from "@/lib/members";
 import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
-import { requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -89,7 +89,7 @@ export async function listPublishedCourses() {
 }
 
 export async function listCoursesForDashboard(): Promise<CourseWithMeta[]> {
-  await requireOwner();
+  await requirePageAccess("/dashboard/courses");
   return getAllCoursesForDashboard();
 }
 

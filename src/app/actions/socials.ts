@@ -5,7 +5,7 @@ import {
   isKnownSocialLabel,
   type SocialLink,
 } from "@/lib/socials";
-import { requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -15,7 +15,7 @@ function revalidateSocials() {
 }
 
 export async function getSocialsForDashboard(): Promise<SocialLink[]> {
-  await requireOwner();
+  await requirePageAccess("/dashboard/content");
   return getSocialLinksForDashboard();
 }
 

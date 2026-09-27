@@ -22,8 +22,10 @@ const STATUS_STYLE: Record<ProfileChangeRequest["status"], string> = {
 
 export function ProfileRequestsManager({
   requests,
+  canManage,
 }: {
   requests: ProfileChangeRequest[];
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -109,7 +111,7 @@ export function ProfileRequestsManager({
                   </p>
                 </div>
 
-                {request.status === "pending" && (
+                {canManage && request.status === "pending" && (
                   <div className="flex shrink-0 gap-2 self-end sm:self-center">
                     <Button
                       size="sm"

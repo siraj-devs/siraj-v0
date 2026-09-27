@@ -117,6 +117,7 @@ export function CourseList({
   onDelete,
   onCreate,
   pending,
+  canManage,
 }: {
   courses: CourseWithMeta[];
   allCoursesCount: number;
@@ -128,6 +129,7 @@ export function CourseList({
   onDelete: (course: CourseWithMeta) => void;
   onCreate: () => void;
   pending: boolean;
+  canManage: boolean;
 }) {
   if (courses.length === 0) {
     return (
@@ -138,7 +140,7 @@ export function CourseList({
             ? "ابدأ بإنشاء أول دورة لتظهر هنا وعند النشر للزوار."
             : "جرّب تغيير نص البحث أو التصفية."}
         </p>
-        {allCoursesCount === 0 && (
+        {canManage && allCoursesCount === 0 && (
           <Button onClick={onCreate} className="mt-6 gap-2">
             <Plus className="size-4" />
             إنشاء دورة
@@ -219,16 +221,18 @@ export function CourseList({
               </div>
             </div>
 
-            <div className="relative shrink-0 self-end sm:self-center">
-              <ListRowActions
-                items={itemsFor(course)}
-                open={openMenuId === course.id}
-                onToggle={() => onToggleMenu(course.id)}
-                onClose={onCloseMenu}
-                menuPlacement="up"
-                ariaLabel="خيارات الدورة"
-              />
-            </div>
+            {canManage && (
+              <div className="relative shrink-0 self-end sm:self-center">
+                <ListRowActions
+                  items={itemsFor(course)}
+                  open={openMenuId === course.id}
+                  onToggle={() => onToggleMenu(course.id)}
+                  onClose={onCloseMenu}
+                  menuPlacement="up"
+                  ariaLabel="خيارات الدورة"
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -261,17 +265,19 @@ export function CourseList({
               )}
             </div>
 
-            <div className="absolute top-2 left-2 z-20">
-              <KebabMenu
-                items={itemsFor(course)}
-                open={openMenuId === course.id}
-                onToggle={() => onToggleMenu(course.id)}
-                onClose={onCloseMenu}
-                placement="down"
-                ariaLabel="خيارات الدورة"
-                buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-              />
-            </div>
+            {canManage && (
+              <div className="absolute top-2 left-2 z-20">
+                <KebabMenu
+                  items={itemsFor(course)}
+                  open={openMenuId === course.id}
+                  onToggle={() => onToggleMenu(course.id)}
+                  onClose={onCloseMenu}
+                  placement="down"
+                  ariaLabel="خيارات الدورة"
+                  buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+                />
+              </div>
+            )}
           </div>
 
           <div className="relative flex flex-1 flex-col items-center px-2 pb-2 pt-4">

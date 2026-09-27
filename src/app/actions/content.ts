@@ -1,6 +1,6 @@
 "use server";
 
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -90,7 +90,7 @@ export async function getProposedPrograms(): Promise<ProposedProgram[]> {
 export async function getProposedProgramsForDashboard(): Promise<
   ProposedProgram[]
 > {
-  await requireDashboardMember();
+  await requirePageAccess("/dashboard/content");
 
   const supabase = await createClient();
   const { data, error } = await supabase

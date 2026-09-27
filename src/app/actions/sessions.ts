@@ -1,6 +1,6 @@
 "use server";
 
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { isYoutubeUrl } from "@/lib/youtube";
 import { revalidatePath } from "next/cache";
@@ -189,7 +189,7 @@ export async function getPublishedSessionById(
 
 /** Dashboard: all sessions including unpublished. */
 export async function getSessionsForDashboard(): Promise<ClubSession[]> {
-  await requireDashboardMember();
+  await requirePageAccess("/dashboard/sessions");
 
   const supabase = await createClient();
   const { data, error } = await supabase
