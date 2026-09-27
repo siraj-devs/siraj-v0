@@ -2,7 +2,6 @@
 
 import { enrollInCourse } from "@/app/actions/courses";
 import {
-  CONTENT_TYPE_HINT,
   CONTENT_TYPE_ICON,
   MetaChip,
   ProgressRing,
@@ -12,6 +11,12 @@ import { Rosette } from "@/components/islamic-motif";
 import { Button } from "@/components/ui/button";
 import type { CourseWithMeta, Enrollment } from "@/lib/course-types";
 import { type CourseContent } from "@/lib/course-types";
+import {
+  formatClassDate,
+  formatLessonRelease,
+  type CourseClass,
+  type RegistrationPhase,
+} from "@/lib/course-schedule";
 import {
   BookOpen,
   HelpCircle,
@@ -30,6 +35,8 @@ export function CourseDetail({
   course,
   contents,
   enrollment,
+  registrationPhase,
+  registrationClass,
   isLoggedIn,
   isMember,
   hasCompleteProfile,
@@ -37,6 +44,8 @@ export function CourseDetail({
   course: CourseWithMeta;
   contents: CourseContent[];
   enrollment: Enrollment | null;
+  registrationPhase: RegistrationPhase;
+  registrationClass: CourseClass | null;
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
@@ -46,7 +55,7 @@ export function CourseDetail({
 
   const examCount = contents.filter((item) => item.type === "exam").length;
   const lessonCount = contents.length - examCount;
-  const closed = course.enrollment_status !== "open";
+  const closed = registrationPhase !== "open";
 
   function onEnroll() {
     if (!isLoggedIn) {
@@ -131,7 +140,9 @@ export function CourseDetail({
                     ? "أكمل ملفك ثم التحق"
                     : pending
                       ? "جاري الالتحاق…"
-                      : "الإلتحاق الآن"}
+                      : registrationPhase === "upcoming" && registrationClass
+                        ? "التسجيل لم يُفتح بعد"
+                        : "الإلتحاق الآن"}
               </Button>
             )}
           </div>
@@ -150,7 +161,11 @@ export function CourseDetail({
                 ) : (
                   <LockOpen className="size-3.5" />
                 )}
-                {closed ? "مغلق" : "مفتوح"}
+                {closed
+                  ? registrationPhase === "upcoming"
+                    ? "قريباً"
+                    : "مغلق"
+                  : "مفتوح"}
               </span>
               {course.visibility === "private" && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800 ring-1 ring-violet-200 ring-inset">
@@ -181,6 +196,28 @@ export function CourseDetail({
               <MetaChip icon={BookOpen}>الدروس: {lessonCount}</MetaChip>
               <MetaChip icon={HelpCircle}>الاختبارات: {examCount}</MetaChip>
             </div>
+            {registrationClass && (
+              <dl className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                <div>
+                  <dt>فتح التسجيل</dt>
+                  <dd className="text-foreground">
+                    {formatClassDate(registrationClass.registration_opens_at)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>إغلاق التسجيل</dt>
+                  <dd className="text-foreground">
+                    {formatClassDate(registrationClass.registration_closes_at)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>بداية التعلم</dt>
+                  <dd className="text-foreground">
+                    {formatClassDate(registrationClass.learning_starts_at)}
+                  </dd>
+                </div>
+              </dl>
+            )}
           </div>
         </div>
       </header>
@@ -215,9 +252,16 @@ export function CourseDetail({
                     <span className="block truncate text-lg text-foreground">
                       {item.title}
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {CONTENT_TYPE_HINT[item.type]}
-                    </span>
+                    {item.author && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {item.author}
+                      </span>
+                    )}
+                    {item.release_unit && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {formatLessonRelease(item)}
+                      </span>
+                    )}
                   </span>
                   {!enrollment && (
                     <Lock className="size-4 shrink-0 text-muted-foreground/60" />

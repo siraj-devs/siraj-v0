@@ -6,6 +6,9 @@ import {
   getCompletedContentIds,
   getCourseAcl,
   getCourseById,
+  getCourseClass,
+  getCourseClasses,
+  getCourseContentById,
   getCourseContents,
   getEnrollment,
   getExamQuestions,
@@ -28,6 +31,11 @@ import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
 import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
+import {
+  isLessonOpen,
+  pickOpenClass,
+  type ReleaseUnit,
+} from "@/lib/course-schedule";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -240,6 +248,8 @@ export async function upsertCourseContent(input: {
   author?: string | null;
   content_url?: string | null;
   order_sequence?: number;
+  release_unit?: ReleaseUnit | null;
+  release_amount?: number | null;
   timestamps?: VideoTimestamp[];
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
@@ -248,9 +258,22 @@ export async function upsertCourseContent(input: {
     const title = input.title.trim();
     const author = input.author?.trim() || null;
     const content_url = input.content_url?.trim() || null;
+    const release_unit = input.release_unit ?? null;
+    const release_amount =
+      release_unit && input.release_amount && input.release_amount > 0
+        ? Math.floor(input.release_amount)
+        : null;
     if (!title) return { success: false, error: "عنوان الدرس مطلوب" };
     if (input.type !== "exam" && !content_url) {
       return { success: false, error: "رابط المحتوى مطلوب" };
+    }
+    if (
+      release_unit === "days" &&
+      release_amount !== 1 &&
+      release_amount !== 2 &&
+      release_amount !== 3
+    ) {
+      return { success: false, error: "اختر يوماً أو يومين أو ثلاثة أيام" };
     }
 
     const metadata =
@@ -268,6 +291,8 @@ export async function upsertCourseContent(input: {
           author,
           content_url,
           order_sequence: input.order_sequence ?? 0,
+          release_unit: release_amount ? release_unit : null,
+          release_amount,
           metadata,
           updated_at: new Date().toISOString(),
         })
@@ -290,6 +315,8 @@ export async function upsertCourseContent(input: {
         author,
         content_url,
         order_sequence: input.order_sequence ?? 0,
+        release_unit: release_amount ? release_unit : null,
+        release_amount,
         metadata,
       })
       .select("id")
@@ -451,10 +478,12 @@ export async function enrollInCourse(
       };
     }
 
-    if (course.enrollment_status !== "open") {
+    const classes = await getCourseClasses(courseId);
+    const openClass = pickOpenClass(classes);
+    if (!openClass) {
       return {
         success: false,
-        error: "التسجيل مغلق لهذه الدورة",
+        error: "لا توجد دفعة مفتوحة للتسجيل حالياً",
         code: "closed",
       };
     }
@@ -470,11 +499,12 @@ export async function enrollInCourse(
       .insert({
         member_id: member.id,
         course_id: courseId,
+        class_id: openClass.id,
         progress_percentage: 0,
         status: "active",
       })
       .select(
-        "id, member_id, course_id, progress_percentage, status, created_at, updated_at",
+        "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
       )
       .single();
 
@@ -488,6 +518,7 @@ export async function enrollInCourse(
       success: true,
       enrollment: {
         ...(data as Enrollment),
+        class_id: (data.class_id as number | null) ?? openClass.id,
         progress_percentage: Number(data.progress_percentage) || 0,
       },
     };
@@ -551,6 +582,22 @@ async function recalculateProgress(enrollmentId: number, courseId: number) {
   return progress;
 }
 
+async function assertLessonOpen(
+  classId: number | null,
+  contentId: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!classId) return { ok: true };
+  const [courseClass, content] = await Promise.all([
+    getCourseClass(classId),
+    getCourseContentById(contentId),
+  ]);
+  if (!courseClass || !content) return { ok: true };
+  if (!isLessonOpen(courseClass.learning_starts_at, content)) {
+    return { ok: false, error: "هذا الدرس لم يُفتح بعد" };
+  }
+  return { ok: true };
+}
+
 export async function markContentComplete(
   courseId: number,
   contentId: number,
@@ -564,6 +611,9 @@ export async function markContentComplete(
 
     const enrollment = await getEnrollment(member.id, courseId);
     if (!enrollment) return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+
+    const opened = await assertLessonOpen(enrollment.class_id, contentId);
+    if (!opened.ok) return { success: false, error: opened.error };
 
     const supabase = await createClient();
     const { error } = await supabase.from("content_completions").upsert(
@@ -606,6 +656,9 @@ export async function submitExam(
 
     const enrollment = await getEnrollment(member.id, courseId);
     if (!enrollment) return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+
+    const opened = await assertLessonOpen(enrollment.class_id, contentId);
+    if (!opened.ok) return { success: false, error: opened.error };
 
     const questions = await getExamQuestions(contentId);
     if (questions.length === 0) {
@@ -707,5 +760,74 @@ export async function rateCourse(
     return { success: true };
   } catch {
     return { success: false, error: "حدث خطأ غير متوقع" };
+  }
+}
+
+export async function createCourseClass(input: {
+  course_id: number;
+  registration_opens_at: string;
+  registration_closes_at: string;
+  learning_starts_at: string;
+}): Promise<{ success: true; id: number } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const opens = new Date(input.registration_opens_at);
+    const closes = new Date(input.registration_closes_at);
+    const starts = new Date(input.learning_starts_at);
+    if (
+      !Number.isFinite(opens.getTime()) ||
+      !Number.isFinite(closes.getTime()) ||
+      !Number.isFinite(starts.getTime())
+    ) {
+      return { success: false, error: "التواريخ غير صالحة" };
+    }
+    if (opens.getTime() >= closes.getTime()) {
+      return {
+        success: false,
+        error: "تاريخ إغلاق التسجيل يجب أن يكون بعد فتحه",
+      };
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("course_classes")
+      .insert({
+        course_id: input.course_id,
+        registration_opens_at: opens.toISOString(),
+        registration_closes_at: closes.toISOString(),
+        learning_starts_at: starts.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error || !data) {
+      console.error("Error creating course class:", error);
+      return { success: false, error: "تعذر فتح الدفعة" };
+    }
+
+    revalidateCoursePaths(input.course_id);
+    return { success: true, id: data.id as number };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function deleteCourseClass(
+  id: number,
+  courseId: number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+    const supabase = await createClient();
+    const { error } = await supabase.from("course_classes").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting course class:", error);
+      return { success: false, error: "تعذر حذف الدفعة" };
+    }
+    revalidateCoursePaths(courseId);
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
   }
 }

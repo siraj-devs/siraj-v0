@@ -7,7 +7,6 @@ import {
 } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import {
-  CONTENT_TYPE_HINT,
   CONTENT_TYPE_ICON,
   ProgressRing,
   RatingInput,
@@ -19,6 +18,10 @@ import type {
   CourseWithMeta,
   Enrollment,
 } from "@/lib/course-types";
+import {
+  formatLessonRelease,
+  isLessonOpen,
+} from "@/lib/course-schedule";
 import {
   Check,
   ChevronLeft,
@@ -40,6 +43,7 @@ export function CourseLearnShell({
   completedIds,
   activeContentId,
   myRating = null,
+  learningStartsAt = null,
   children,
 }: {
   course: CourseWithMeta;
@@ -48,6 +52,7 @@ export function CourseLearnShell({
   completedIds: number[];
   activeContentId: number | null;
   myRating?: number | null;
+  learningStartsAt?: string | null;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -64,10 +69,18 @@ export function CourseLearnShell({
       : null;
   const activeContent = activeIndex >= 0 ? contents[activeIndex] : null;
   const nextUnlocked = Boolean(
-    next && activeContent && completed.has(activeContent.id),
+    next &&
+      activeContent &&
+      completed.has(activeContent.id) &&
+      isLessonOpen(learningStartsAt, next),
   );
 
+  function isTimeLocked(index: number) {
+    return !isLessonOpen(learningStartsAt, contents[index]);
+  }
+
   function isLocked(index: number) {
+    if (isTimeLocked(index)) return true;
     const earlier = contents[index - 1];
     return index > 0 && !completed.has(earlier.id);
   }
@@ -134,10 +147,11 @@ export function CourseLearnShell({
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{item.title}</span>
-                <span className="text-xs text-muted-foreground">
-                  {CONTENT_TYPE_HINT[item.type]}
-                  {item.author ? ` · ${item.author}` : ""}
-                </span>
+                {item.author && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {item.author}
+                  </span>
+                )}
               </span>
               {locked ? (
                 <Lock className="size-4 shrink-0 text-muted-foreground/70" />
@@ -162,7 +176,11 @@ export function CourseLearnShell({
             >
               {locked ? (
                 <div
-                  title="أكمل الدرس السابق أولاً"
+                  title={
+                    isTimeLocked(index)
+                      ? formatLessonRelease(item)
+                      : "أكمل الدرس السابق أولاً"
+                  }
                   className="flex cursor-not-allowed items-center gap-3 px-3 py-3 text-sm text-foreground/40"
                 >
                   {row}

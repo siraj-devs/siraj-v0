@@ -31,7 +31,7 @@ export function CoursesCatalog({
   return (
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
       {courses.map((course) => {
-        const closed = course.enrollment_status !== "open";
+        const closed = !course.registration_open;
         const isEnrolled = enrolled.has(course.id);
         return (
           <li key={course.id}>

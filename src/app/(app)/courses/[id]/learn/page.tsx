@@ -2,10 +2,12 @@ import { CourseLearnShell } from "@/components/courses/course-learn-shell";
 import {
   getCompletedContentIds,
   getCourseById,
+  getCourseClass,
   getCourseContents,
   getEnrollment,
   getMyCourseRating,
 } from "@/lib/courses";
+import { nextOpenLesson } from "@/lib/course-schedule";
 import {
   getMemberForSession,
   isMemberProfileComplete,
@@ -44,9 +46,12 @@ export default async function CourseLearnPage({
   const contents = await getCourseContents(id);
   const completed = await getCompletedContentIds(enrollment.id);
   const myRating = await getMyCourseRating(member.id, id);
+  const courseClass = enrollment.class_id
+    ? await getCourseClass(enrollment.class_id)
+    : null;
+  const learningStartsAt = courseClass?.learning_starts_at ?? null;
 
-  const resumeTarget =
-    contents.find((item) => !completed.has(item.id)) ?? contents[0];
+  const resumeTarget = nextOpenLesson(contents, completed, learningStartsAt);
 
   return (
     <div className="py-10 pb-16 md:py-14">
@@ -57,6 +62,7 @@ export default async function CourseLearnPage({
         completedIds={[...completed]}
         activeContentId={null}
         myRating={myRating}
+        learningStartsAt={learningStartsAt}
       >
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/80 px-6 py-16 text-center">
           <p className="font-kufam text-xl text-foreground">اختر درساً للبدء</p>

@@ -11,6 +11,9 @@ import type {
   ExamOption,
 } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
+import type { ReleaseUnit } from "@/lib/course-schedule";
+import type { CourseClass } from "@/lib/course-schedule";
+import { pickOpenClass } from "@/lib/course-schedule";
 import type { MemberRole } from "@/lib/member-role";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,8 +25,18 @@ function mapContent(row: {
   author: string | null;
   content_url: string | null;
   order_sequence: number;
+  release_unit: string | null;
+  release_amount: number | null;
   metadata: CourseContentMetadata | null;
 }): CourseContent {
+  const releaseUnit =
+    row.release_unit === "hours" || row.release_unit === "days"
+      ? (row.release_unit as ReleaseUnit)
+      : null;
+  const releaseAmount =
+    releaseUnit && row.release_amount && row.release_amount > 0
+      ? Number(row.release_amount)
+      : null;
   return {
     id: row.id,
     course_id: row.course_id,
@@ -32,6 +45,8 @@ function mapContent(row: {
     author: row.author?.trim() || null,
     content_url: row.content_url,
     order_sequence: Number(row.order_sequence) || 0,
+    release_unit: releaseAmount ? releaseUnit : null,
+    release_amount: releaseAmount,
     metadata: row.metadata ?? {},
   };
 }
@@ -273,7 +288,12 @@ export async function getPublishedCourses(
     );
   });
 
-  return attachCourseMeta(visible);
+  const withMeta = await attachCourseMeta(visible);
+  const openIds = await getOpenRegistrationCourseIds(withMeta.map((course) => course.id));
+  return withMeta.map((course) => ({
+    ...course,
+    registration_open: openIds.has(course.id),
+  }));
 }
 
 export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
@@ -316,6 +336,75 @@ export async function getCourseById(
   return withMeta ?? null;
 }
 
+export async function getCourseClasses(courseId: number): Promise<CourseClass[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("course_classes")
+    .select(
+      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
+    )
+    .eq("course_id", courseId)
+    .order("registration_opens_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching course classes:", error);
+    return [];
+  }
+
+  return (data ?? []) as CourseClass[];
+}
+
+export async function getCourseClass(id: number): Promise<CourseClass | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("course_classes")
+    .select(
+      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching course class:", error);
+    return null;
+  }
+
+  return (data as CourseClass | null) ?? null;
+}
+
+export async function getOpenRegistrationCourseIds(
+  courseIds: number[],
+): Promise<Set<number>> {
+  const open = new Set<number>();
+  if (courseIds.length === 0) return open;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("course_classes")
+    .select(
+      "id, course_id, registration_opens_at, registration_closes_at, learning_starts_at, created_at",
+    )
+    .in("course_id", courseIds);
+
+  if (error) {
+    console.error("Error fetching open classes:", error);
+    return open;
+  }
+
+  const byCourse = new Map<number, CourseClass[]>();
+  for (const row of (data ?? []) as CourseClass[]) {
+    const list = byCourse.get(row.course_id) ?? [];
+    list.push(row);
+    byCourse.set(row.course_id, list);
+  }
+
+  for (const [courseId, classes] of byCourse) {
+    if (pickOpenClass(classes)) open.add(courseId);
+  }
+
+  return open;
+}
+
 export async function getCourseContents(
   courseId: number,
 ): Promise<CourseContent[]> {
@@ -323,7 +412,7 @@ export async function getCourseContents(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, release_unit, release_amount, metadata",
     )
     .eq("course_id", courseId)
     .order("order_sequence", { ascending: true })
@@ -344,7 +433,7 @@ export async function getCourseContentById(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, metadata",
+      "id, course_id, type, title, author, content_url, order_sequence, release_unit, release_amount, metadata",
     )
     .eq("id", contentId)
     .maybeSingle();
@@ -394,7 +483,7 @@ export async function getEnrollment(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, progress_percentage, status, created_at, updated_at",
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
     )
     .eq("member_id", memberId)
     .eq("course_id", courseId)
@@ -408,6 +497,7 @@ export async function getEnrollment(
   if (!data) return null;
   return {
     ...(data as Enrollment),
+    class_id: (data.class_id as number | null) ?? null,
     progress_percentage: Number(data.progress_percentage) || 0,
   };
 }
@@ -456,7 +546,7 @@ export async function getCourseEnrollments(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, role )",
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, role )",
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -476,6 +566,7 @@ export async function getCourseEnrollments(
         id: row.id as number,
         member_id: row.member_id as number,
         course_id: row.course_id as number,
+        class_id: (row.class_id as number | null) ?? null,
         progress_percentage: Number(row.progress_percentage) || 0,
         status: row.status as CourseEnrollmentWithMember["status"],
         created_at: row.created_at as string,

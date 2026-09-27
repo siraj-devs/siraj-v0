@@ -50,6 +50,7 @@ export type CourseWithMeta = Course & {
   lesson_count: number;
   exam_count: number;
   enrollment_count: number;
+  registration_open?: boolean;
   allowed_roles?: import("@/lib/member-role").MemberRole[];
   allowed_member_ids?: number[];
 };
@@ -62,6 +63,8 @@ export type CourseContent = {
   author: string | null;
   content_url: string | null;
   order_sequence: number;
+  release_unit: import("@/lib/course-schedule").ReleaseUnit | null;
+  release_amount: number | null;
   metadata: CourseContentMetadata;
 };
 
@@ -86,6 +89,7 @@ export type Enrollment = {
   course_id: number;
   progress_percentage: number;
   status: EnrollmentStatus;
+  class_id: number | null;
   created_at: string;
   updated_at: string;
 };
