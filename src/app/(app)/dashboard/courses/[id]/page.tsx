@@ -15,8 +15,8 @@ export default async function DashboardCourseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { isOwner } = await gateDashboardPage("/dashboard/courses");
-  if (!isOwner) redirect("/dashboard/courses");
+  const { canEdit } = await gateDashboardPage("/dashboard/courses");
+  if (!canEdit) redirect("/dashboard/courses");
 
   const { id: raw } = await params;
   const id = Number(raw);

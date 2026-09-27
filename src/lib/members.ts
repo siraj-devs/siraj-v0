@@ -6,6 +6,7 @@ export {
   MEMBER_ROLE_LABELS,
   MEMBER_ROLE_ORDER,
   memberRoleRank,
+  roleVisibleTo,
 } from "@/lib/member-role";
 
 export type AppMember = {

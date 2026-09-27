@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import {
   fetchFtUserByLogin,
   type FtUserKind,
@@ -182,7 +182,7 @@ export async function addNetworkProfile(input: {
   { success: true; profile: NetworkProfile } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/network");
 
     const login = input.login.trim().toLowerCase();
     if (!login) return { success: false, error: "حساب 42 مطلوب" };
@@ -248,7 +248,7 @@ export async function updateNetworkProfile(input: {
   rank: NetworkRank;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/network");
     if (!input.id) return { success: false, error: "معرّف غير صالح" };
     if (!isRank(input.rank)) return { success: false, error: "رتبة غير صالحة" };
 
@@ -281,7 +281,7 @@ export async function refreshNetworkProfile(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/network");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();
@@ -335,7 +335,7 @@ export async function deleteNetworkProfile(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/network");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();

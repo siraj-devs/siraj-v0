@@ -2,7 +2,7 @@
 
 import {
   requireDashboardMember,
-  requireOwner,
+  requirePageEdit,
   requirePageAccess,
 } from "@/lib/auth-guards";
 import {
@@ -182,7 +182,7 @@ export async function createEvent(
   { success: true; event: ClubEvent } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/events");
     const parsed = parseWriteFields(input);
     if (!parsed.success) return parsed;
 
@@ -220,7 +220,7 @@ export async function updateEvent(
   input: EventWriteInput & { id: string },
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/events");
     if (!input.id) return { success: false, error: "معرّف غير صالح" };
 
     const parsed = parseWriteFields(input);
@@ -259,7 +259,7 @@ export async function deleteEvent(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/events");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();

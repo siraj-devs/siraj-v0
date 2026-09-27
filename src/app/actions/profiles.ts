@@ -11,7 +11,7 @@ import {
   type ProfileChangeRequest,
 } from "@/lib/profile-requests";
 import { getSession } from "@/lib/session";
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { unlinkMemberConnection } from "@/lib/link-connection";
 import { revalidatePath } from "next/cache";
@@ -180,7 +180,7 @@ export async function reviewProfileChangeRequest(input: {
   rejection_note?: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const { member: owner } = await requireOwner();
+    const { member: owner } = await requirePageEdit("/dashboard/profile-requests");
 
     if (!input.id || !Number.isFinite(input.id)) {
       return { success: false, error: "معرّف غير صالح" };

@@ -1,16 +1,16 @@
 import {
-  normalizePagePermissions,
-  type DashboardPagePath,
+  normalizePageGrants,
+  type PageGrant,
 } from "@/lib/page-permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getMemberPagePermissions(
   memberId: number,
-): Promise<DashboardPagePath[]> {
+): Promise<PageGrant[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("member_page_permissions")
-    .select("path")
+    .select("path, access")
     .eq("member_id", memberId);
 
   if (error) {
@@ -18,29 +18,32 @@ export async function getMemberPagePermissions(
     return [];
   }
 
-  return normalizePagePermissions((data ?? []).map((row) => row.path));
+  return normalizePageGrants(data ?? []);
 }
 
 export async function getPagePermissionsByMember(): Promise<
-  Map<number, DashboardPagePath[]>
+  Map<number, PageGrant[]>
 > {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("member_page_permissions")
-    .select("member_id, path");
+    .select("member_id, path, access");
 
-  const map = new Map<number, DashboardPagePath[]>();
+  const map = new Map<number, PageGrant[]>();
   if (error) {
     console.error("Error fetching page permissions:", error);
     return map;
   }
 
+  const grouped = new Map<number, { path: string; access: string }[]>();
   for (const row of data ?? []) {
-    const path = normalizePagePermissions([row.path])[0];
-    if (!path) continue;
-    const list = map.get(row.member_id) ?? [];
-    list.push(path);
-    map.set(row.member_id, list);
+    const list = grouped.get(row.member_id) ?? [];
+    list.push({ path: row.path, access: row.access });
+    grouped.set(row.member_id, list);
+  }
+
+  for (const [memberId, rows] of grouped) {
+    map.set(memberId, normalizePageGrants(rows));
   }
 
   return map;
@@ -48,9 +51,9 @@ export async function getPagePermissionsByMember(): Promise<
 
 export async function setMemberPagePermissions(
   memberId: number,
-  paths: readonly string[],
+  grants: unknown,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const clean = normalizePagePermissions([...paths]);
+  const clean = normalizePageGrants(grants);
   const supabase = await createClient();
 
   const { error: deleteError } = await supabase
@@ -66,9 +69,10 @@ export async function setMemberPagePermissions(
   if (clean.length === 0) return { success: true };
 
   const { error } = await supabase.from("member_page_permissions").insert(
-    clean.map((path) => ({
+    clean.map((grant) => ({
       member_id: memberId,
-      path,
+      path: grant.path,
+      access: grant.access,
     })),
   );
 

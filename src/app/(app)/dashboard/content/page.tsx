@@ -5,7 +5,7 @@ import { ContentDashboard } from "@/components/content-dashboard";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
 
 export default async function ContentPage() {
-  const { isOwner } = await gateDashboardPage("/dashboard/content");
+  const { isOwner, canEdit } = await gateDashboardPage("/dashboard/content");
 
   const [programs, pages, socials] = await Promise.all([
     getProposedProgramsForDashboard(),
@@ -18,7 +18,7 @@ export default async function ContentPage() {
       programs={programs}
       pages={pages}
       socials={socials}
-      canManage={isOwner}
+      canManage={canEdit}
       showDisabledPages={isOwner}
     />
   );

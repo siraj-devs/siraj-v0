@@ -26,3 +26,17 @@ export function memberRoleRank(role: MemberRole) {
   const index = MEMBER_ROLE_ORDER.indexOf(role);
   return index === -1 ? MEMBER_ROLE_ORDER.length : index;
 }
+
+/** Only the owner sees owner and admin. Everyone else sees them as عضو. */
+export function roleVisibleTo(
+  viewerRole: MemberRole | null | undefined,
+  role: MemberRole,
+): MemberRole {
+  if (
+    viewerRole !== "owner" &&
+    (role === "owner" || role === "admin")
+  ) {
+    return "participant";
+  }
+  return role;
+}

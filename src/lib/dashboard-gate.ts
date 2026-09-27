@@ -1,7 +1,7 @@
 import { dashboardEntryPath, canOpenDashboardPath } from "@/lib/dashboard-access";
 import { getMemberPagePermissions } from "@/lib/member-permissions";
 import { canManageMembers, getMemberForSession } from "@/lib/members";
-import type { DashboardPagePath } from "@/lib/page-permissions";
+import { hasPageEdit, type DashboardPagePath } from "@/lib/page-permissions";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
@@ -18,10 +18,13 @@ export async function gateDashboardPage(path: DashboardPagePath) {
     redirect(dashboardEntryPath(member?.role, permissions));
   }
 
+  const isOwner = canManageMembers(member?.role);
+
   return {
     session,
     member,
     permissions,
-    isOwner: canManageMembers(member?.role),
+    isOwner,
+    canEdit: isOwner || hasPageEdit(permissions, path),
   };
 }

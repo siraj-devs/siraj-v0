@@ -17,7 +17,8 @@ import { Label } from "@/components/ui/label";
 import type { MemberRole } from "@/lib/members";
 import {
   GRANTABLE_DASHBOARD_PAGES,
-  type DashboardPagePath,
+  type PageAccessLevel,
+  type PageGrant,
 } from "@/lib/page-permissions";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
@@ -70,8 +71,15 @@ type MemberFormState = {
   role: MemberRole;
   ft_connection: string;
   dc_connection: string;
-  page_permissions: DashboardPagePath[];
+  page_permissions: PageGrant[];
 };
+
+const PAGE_ACCESS_OPTIONS: { value: PageAccessLevel | "none"; label: string }[] =
+  [
+    { value: "none", label: "بدون" },
+    { value: "view", label: "مشاهدة" },
+    { value: "edit", label: "تعديل" },
+  ];
 
 const emptyForm: MemberFormState = {
   name: "",
@@ -95,12 +103,14 @@ export function MembersManager({
   ftConnections,
   dcConnections,
   canManage,
+  viewerRole,
   currentMemberId,
 }: {
   members: MemberProfile[];
   ftConnections: FtConnectionOption[];
   dcConnections: DcConnectionOption[];
   canManage: boolean;
+  viewerRole: MemberRole | null;
   currentMemberId: number | null;
 }) {
   const router = useRouter();
@@ -264,14 +274,22 @@ export function MembersManager({
     });
   }
 
-  const filters: { key: RoleFilter; label: string }[] = [
-    { key: "all", label: "الكل" },
-    { key: "owner", label: "مالك" },
-    { key: "admin", label: "مشرف" },
-    { key: "participant", label: "عضو" },
-    { key: "veteran", label: "مخضرم" },
-    { key: "newcomer", label: "وافد" },
-  ];
+  const hidePrivilegedRoles = viewerRole !== "owner";
+
+  const filters: { key: RoleFilter; label: string }[] = (
+    [
+      { key: "all", label: "الكل" },
+      { key: "owner", label: "مالك" },
+      { key: "admin", label: "مشرف" },
+      { key: "participant", label: "عضو" },
+      { key: "veteran", label: "مخضرم" },
+      { key: "newcomer", label: "وافد" },
+    ] as const
+  ).filter(
+    (filter) =>
+      !hidePrivilegedRoles ||
+      (filter.key !== "owner" && filter.key !== "admin"),
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -298,7 +316,11 @@ export function MembersManager({
           )}
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div
+          className={`relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 ${
+            hidePrivilegedRoles ? "lg:grid-cols-4" : "lg:grid-cols-6"
+          }`}
+        >
           {(
             [
               ["all", "الإجمالي", counts.all],
@@ -308,7 +330,12 @@ export function MembersManager({
               ["veteran", "مخضرم", counts.veteran],
               ["newcomer", "وافد", counts.newcomer],
             ] as const
-          ).map(([key, label, value]) => (
+          )
+            .filter(
+              ([key]) =>
+                !hidePrivilegedRoles || (key !== "owner" && key !== "admin"),
+            )
+            .map(([key, label, value]) => (
             <button
               key={key}
               type="button"
@@ -434,11 +461,15 @@ export function MembersManager({
 
                   {canManage && member.page_permissions.length > 0 && (
                     <p className="mb-3 text-center text-[11px] leading-relaxed text-muted-foreground">
-                      {GRANTABLE_DASHBOARD_PAGES.filter((page) =>
-                        member.page_permissions.includes(page.path),
-                      )
-                        .map((page) => page.label)
-                        .join(" · ")}
+                      {GRANTABLE_DASHBOARD_PAGES.flatMap((page) => {
+                        const grant = member.page_permissions.find(
+                          (item) => item.path === page.path,
+                        );
+                        if (!grant) return [];
+                        return [
+                          `${page.label} (${grant.access === "edit" ? "تعديل" : "مشاهدة"})`,
+                        ];
+                      }).join(" · ")}
                     </p>
                   )}
 
@@ -592,40 +623,57 @@ export function MembersManager({
           {canManage && (
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium leading-none">
-                صلاحيات المشاهدة
+                صلاحيات الصفحات
               </legend>
               <p className="text-xs text-muted-foreground">
-                مشاهدة الصفحة فقط. التعديل والإدارة يبقيان للمالك.
+                لكل صفحة: مشاهدة فقط، أو مشاهدة وتعديل.
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
                 {GRANTABLE_DASHBOARD_PAGES.map((page) => {
-                  const selected = form.page_permissions.includes(page.path);
+                  const access =
+                    form.page_permissions.find((item) => item.path === page.path)
+                      ?.access ?? "none";
                   return (
-                    <label
+                    <div
                       key={page.path}
-                      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition ${
-                        selected
-                          ? "border-primary/40 bg-primary/10 text-foreground"
-                          : "border-border text-muted-foreground hover:bg-muted/40"
-                      }`}
+                      className="flex flex-col gap-2 rounded-xl border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
-                        checked={selected}
-                        onChange={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            page_permissions: selected
-                              ? prev.page_permissions.filter(
-                                  (path) => path !== page.path,
-                                )
-                              : [...prev.page_permissions, page.path],
-                          }))
-                        }
-                      />
-                      {page.label}
-                    </label>
+                      <span className="text-sm text-foreground">{page.label}</span>
+                      <div className="flex rounded-lg bg-muted p-0.5">
+                        {PAGE_ACCESS_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                page_permissions:
+                                  option.value === "none"
+                                    ? prev.page_permissions.filter(
+                                        (item) => item.path !== page.path,
+                                      )
+                                    : [
+                                        ...prev.page_permissions.filter(
+                                          (item) => item.path !== page.path,
+                                        ),
+                                        {
+                                          path: page.path,
+                                          access: option.value,
+                                        },
+                                      ],
+                              }))
+                            }
+                            className={`rounded-md px-2.5 py-1 text-xs transition ${
+                              access === option.value
+                                ? "bg-background font-medium text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   );
                 })}
               </div>

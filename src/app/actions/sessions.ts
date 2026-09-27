@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { isYoutubeUrl } from "@/lib/youtube";
 import { revalidatePath } from "next/cache";
@@ -94,7 +94,7 @@ export async function createSeries(
   { success: true; series: SessionSeries } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
     const trimmed = name.trim();
     if (!trimmed) return { success: false, error: "اسم السلسلة مطلوب" };
 
@@ -127,7 +127,7 @@ export async function deleteSeries(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();
@@ -294,7 +294,7 @@ export async function createSession(formData: FormData): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
 
     const fields = parseSessionForm(formData);
     const validationError = validateSessionFields(fields);
@@ -335,7 +335,7 @@ export async function updateSession(formData: FormData): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
 
     const id = String(formData.get("id") ?? "").trim();
     if (!id) return { success: false, error: "معرّف غير صالح" };
@@ -402,7 +402,7 @@ export async function setSessionPublished(
   is_published: boolean,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();
@@ -430,7 +430,7 @@ export async function deleteSession(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/sessions");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();

@@ -6,6 +6,7 @@ import {
   type AppMember,
 } from "@/lib/members";
 import {
+  hasPageEdit,
   hasPagePermission,
   type DashboardPagePath,
 } from "@/lib/page-permissions";
@@ -63,5 +64,17 @@ export async function requirePageAccess(
 
   const permissions = await getMemberPagePermissions(ctx.member.id);
   if (!hasPagePermission(permissions, path)) throw new Error("غير مصرح");
+  return ctx;
+}
+
+/** Owner, or a member granted edit (not view-only) on this page. */
+export async function requirePageEdit(
+  path: DashboardPagePath,
+): Promise<OwnerGuardContext> {
+  const ctx = await requireSessionMember();
+  if (canManageMembers(ctx.member.role)) return ctx;
+
+  const permissions = await getMemberPagePermissions(ctx.member.id);
+  if (!hasPageEdit(permissions, path)) throw new Error("غير مصرح");
   return ctx;
 }

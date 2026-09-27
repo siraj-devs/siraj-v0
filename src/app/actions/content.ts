@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -166,7 +166,7 @@ export async function createProposedProgram(formData: FormData): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     const name = String(formData.get("name") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
@@ -222,7 +222,7 @@ export async function updateProposedProgram(formData: FormData): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     const id = Number(formData.get("id"));
     const name = String(formData.get("name") ?? "").trim();
@@ -294,7 +294,7 @@ export async function setProposedProgramPublished(
   is_published: boolean,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
@@ -321,7 +321,7 @@ export async function deleteProposedProgram(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };

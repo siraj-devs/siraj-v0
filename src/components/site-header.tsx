@@ -4,6 +4,7 @@ import { Logo } from "@/components/logo";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import type { MemberRole } from "@/lib/member-role";
+import type { PageGrant } from "@/lib/page-permissions";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -24,7 +25,7 @@ type SiteHeaderProps = {
   user: (SessionData["user"] & {
     isAdmin: boolean;
     role: MemberRole | null;
-    pagePermissions: string[];
+    pagePermissions: PageGrant[];
   }) | null;
 };
 

@@ -7,18 +7,19 @@ import {
 import {
   GRANTABLE_DASHBOARD_PAGES,
   hasPagePermission,
+  type PageGrant,
 } from "@/lib/page-permissions";
 
 export function canOpenDashboard(
   role: MemberRole | null | undefined,
-  permissions: readonly string[],
+  permissions: readonly PageGrant[],
 ) {
   return canAccessDashboard(role) || permissions.length > 0;
 }
 
 export function canOpenDashboardPath(
   role: MemberRole | null | undefined,
-  permissions: readonly string[],
+  permissions: readonly PageGrant[],
   pathname: string,
 ): boolean {
   if (role === "owner") return true;
@@ -39,12 +40,12 @@ export function canOpenDashboardPath(
 /** Where `/dashboard` and denied routes should send this member. */
 export function dashboardEntryPath(
   role: MemberRole | null | undefined,
-  permissions: readonly string[],
+  permissions: readonly PageGrant[],
 ): string {
   if (canManageMembers(role)) return "/dashboard/submissions";
   if (canAccessDashboard(role)) return "/dashboard/members";
   const granted = GRANTABLE_DASHBOARD_PAGES.find((page) =>
-    permissions.includes(page.path),
+    permissions.some((grant) => grant.path === page.path),
   );
   return granted?.path ?? "/";
 }

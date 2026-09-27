@@ -6,7 +6,7 @@ import { SessionsManager } from "@/components/sessions/sessions-manager";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
 
 export default async function DashboardSessionsPage() {
-  const { isOwner } = await gateDashboardPage("/dashboard/sessions");
+  const { canEdit } = await gateDashboardPage("/dashboard/sessions");
 
   const [sessions, series] = await Promise.all([
     getSessionsForDashboard(),
@@ -15,7 +15,7 @@ export default async function DashboardSessionsPage() {
 
   return (
     <div className="py-6 md:py-10">
-      <SessionsManager sessions={sessions} series={series} canManage={isOwner} />
+      <SessionsManager sessions={sessions} series={series} canManage={canEdit} />
     </div>
   );
 }

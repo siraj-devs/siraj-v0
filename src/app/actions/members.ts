@@ -11,7 +11,7 @@ import {
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
-import type { DashboardPagePath } from "@/lib/page-permissions";
+import type { PageGrant } from "@/lib/page-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -20,7 +20,7 @@ export type MemberProfile = AppMember & {
   avatar: string | null;
   dc_username: string | null;
   dc_avatar: string | null;
-  page_permissions: DashboardPagePath[];
+  page_permissions: PageGrant[];
 };
 
 export type FtConnectionOption = {
@@ -74,7 +74,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
 
   const permissionsByMember = includePermissions
     ? await getPagePermissionsByMember()
-    : new Map<number, DashboardPagePath[]>();
+    : new Map<number, PageGrant[]>();
 
   return (data ?? [])
     .map((row) => {
@@ -198,7 +198,7 @@ export async function createMember(input: {
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
-  page_permissions?: string[];
+  page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     await requireOwner();
@@ -250,7 +250,7 @@ export async function updateMember(input: {
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
-  page_permissions?: string[];
+  page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const { member: current } = await requireOwner();

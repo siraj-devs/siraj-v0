@@ -4,7 +4,7 @@ import { CoursesManager } from "@/components/courses/courses-manager";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
 
 export default async function DashboardCoursesPage() {
-  const { isOwner } = await gateDashboardPage("/dashboard/courses");
+  const { canEdit } = await gateDashboardPage("/dashboard/courses");
 
   const [courses, clubMembers] = await Promise.all([
     listCoursesForDashboard(),
@@ -20,7 +20,7 @@ export default async function DashboardCoursesPage() {
           name: m.name,
           role: m.role,
         }))}
-        canManage={isOwner}
+        canManage={canEdit}
       />
     </div>
   );

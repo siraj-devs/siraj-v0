@@ -27,7 +27,7 @@ import { getMemberForSession, isMemberProfileComplete } from "@/lib/members";
 import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -97,7 +97,7 @@ export async function createCourse(formData: FormData): Promise<
   { success: true; id: number } | { success: false; error: string }
 > {
   try {
-    const { member } = await requireOwner();
+    const { member } = await requirePageEdit("/dashboard/courses");
 
     const title = String(formData.get("title") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
@@ -156,7 +156,7 @@ export async function updateCourse(formData: FormData): Promise<
   { success: true } | { success: false; error: string }
 > {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
 
     const id = Number(formData.get("id"));
     const title = String(formData.get("title") ?? "").trim();
@@ -215,7 +215,7 @@ export async function deleteCourse(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
 
@@ -244,7 +244,7 @@ export async function upsertCourseContent(input: {
   timestamps?: VideoTimestamp[];
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
 
     const title = input.title.trim();
     const content_url = input.content_url?.trim() || null;
@@ -313,7 +313,7 @@ export async function deleteCourseContent(
   courseId: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
     const supabase = await createClient();
     const { error } = await supabase.from("course_contents").delete().eq("id", id);
     if (error) {
@@ -338,7 +338,7 @@ export async function upsertExamQuestion(input: {
   order_sequence?: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
 
     const question_text = input.question_text.trim();
     if (!question_text) return { success: false, error: "نص السؤال مطلوب" };
@@ -378,7 +378,7 @@ export async function deleteExamQuestion(
   courseId: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/courses");
     const supabase = await createClient();
     const { error } = await supabase.from("exam_questions").delete().eq("id", id);
     if (error) return { success: false, error: "تعذر حذف السؤال" };

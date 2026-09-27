@@ -5,6 +5,7 @@ import {
   MEMBER_ROLE_LABELS,
   type MemberRole,
 } from "@/lib/member-role";
+import type { PageGrant } from "@/lib/page-permissions";
 import {
   CalendarClock,
   CalendarDays,
@@ -63,7 +64,7 @@ export function UserMenu({
     | (SessionData["user"] & {
         isAdmin: boolean;
         role: MemberRole | null;
-        pagePermissions: string[];
+        pagePermissions: PageGrant[];
       })
     | null;
 }) {
@@ -77,7 +78,7 @@ export function UserMenu({
   const grantedLinks = isOwner
     ? OWNER_LINKS
     : OWNER_LINKS.filter((link) =>
-        (user?.pagePermissions ?? []).includes(link.href),
+        (user?.pagePermissions ?? []).some((grant) => grant.path === link.href),
       );
 
   return (

@@ -5,7 +5,7 @@ import {
   isKnownSocialLabel,
   type SocialLink,
 } from "@/lib/socials";
-import { requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -25,7 +25,7 @@ export async function upsertSocialLink(input: {
   is_published?: boolean;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     const label = input.label.trim().toLowerCase();
     const link = input.link.trim();
@@ -63,7 +63,7 @@ export async function setSocialPublished(
   is_published: boolean,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     const normalized = label.trim().toLowerCase();
     if (!normalized) return { success: false, error: "المنصة غير صالحة" };
@@ -90,7 +90,7 @@ export async function deleteSocialLink(
   label: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit("/dashboard/content");
 
     const normalized = label.trim().toLowerCase();
     if (!normalized) return { success: false, error: "المنصة غير صالحة" };
