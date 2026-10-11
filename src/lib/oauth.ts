@@ -39,8 +39,13 @@ export async function ftFetch(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("User-Agent")) {
+    headers.set("User-Agent", "siraj.club");
+  }
+
   try {
-    return await fetch(url, init);
+    return await fetch(url, { ...init, headers });
   } catch (error) {
     console.error(`[42] ${label} network`, error);
     throw error;
