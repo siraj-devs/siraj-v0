@@ -10,6 +10,7 @@
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:push": "supabase db push",
+    "db:migrate": "supabase migration up",
     "lint": "eslint"
   },
   "dependencies": {

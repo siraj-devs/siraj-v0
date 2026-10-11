@@ -32,6 +32,7 @@ import {
   FileText,
   GraduationCap,
   Link2,
+  ListChecks,
   Medal,
   Network,
   Pencil,
@@ -113,6 +114,7 @@ const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/sessions": Clapperboard,
   "/dashboard/network": Network,
   "/dashboard/events": CalendarClock,
+  "/dashboard/lists": ListChecks,
 };
 
 function FortyTwoIcon({ className }: { className?: string }) {

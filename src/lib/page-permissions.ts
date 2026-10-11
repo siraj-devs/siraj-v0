@@ -8,6 +8,7 @@ export const GRANTABLE_DASHBOARD_PAGES = [
   { path: "/dashboard/sessions", label: "الأمسيات" },
   { path: "/dashboard/network", label: "الشبكة" },
   { path: "/dashboard/events", label: "الأحداث" },
+  { path: "/dashboard/lists", label: "اللوائح" },
 ] as const;
 
 export type DashboardPagePath =

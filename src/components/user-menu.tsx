@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Handshake,
   Link2,
+  ListChecks,
   LogOut,
   type LucideIcon,
   Network,
@@ -44,6 +45,7 @@ const OWNER_LINKS: {
   { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
   { href: "/dashboard/events", label: "الأحداث", icon: CalendarClock },
+  { href: "/dashboard/lists", label: "اللوائح", icon: ListChecks },
 ];
 
 const VIEWER_LINKS: {
