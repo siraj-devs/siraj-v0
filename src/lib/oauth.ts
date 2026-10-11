@@ -22,6 +22,31 @@ export function get42AuthUrl(state?: string): string {
   return `${FT_OAUTH_CONFIG.authorizationUrl}?${params.toString()}`;
 }
 
+/** Logs status and body for a failed Intra response. Does not record secrets or tokens. */
+export async function logFtApiError(label: string, response: Response) {
+  let body = "";
+  try {
+    body = await response.text();
+  } catch (error) {
+    console.error(`[42] ${label} unreadable body`, response.status, error);
+    return;
+  }
+  console.error(`[42] ${label}`, response.status, body.slice(0, 2000));
+}
+
+export async function ftFetch(
+  label: string,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    console.error(`[42] ${label} network`, error);
+    throw error;
+  }
+}
+
 export async function exchangeCodeForToken(code: string): Promise<{
   access_token: string;
   token_type: string;
@@ -31,7 +56,7 @@ export async function exchangeCodeForToken(code: string): Promise<{
   created_at: number;
   secret_valid_until: number;
 }> {
-  const response = await fetch(FT_OAUTH_CONFIG.tokenUrl, {
+  const response = await ftFetch("token exchange", FT_OAUTH_CONFIG.tokenUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -46,7 +71,8 @@ export async function exchangeCodeForToken(code: string): Promise<{
   });
 
   if (!response.ok) {
-    throw new Error("Failed to exchange code for token");
+    await logFtApiError("token exchange", response);
+    throw new Error(`42 token exchange failed: ${response.status}`);
   }
 
   return response.json();
@@ -58,13 +84,16 @@ export async function getUserInfo(accessToken: string): Promise<{
   login: string;
   image?: { link: string };
 } | null> {
-  const response = await fetch(FT_OAUTH_CONFIG.userInfoUrl, {
+  const response = await ftFetch("user info", FT_OAUTH_CONFIG.userInfoUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    await logFtApiError("user info", response);
+    return null;
+  }
 
   return response.json();
 }

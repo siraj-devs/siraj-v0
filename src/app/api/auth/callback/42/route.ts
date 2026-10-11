@@ -137,9 +137,11 @@ export async function GET(request: NextRequest) {
     });
     response.cookies.delete("dc-session");
     return response;
-  } catch {
+  } catch (error) {
+    console.error("[42] callback", error);
+    const message = error instanceof Error ? error.message : "callback_error";
     return NextResponse.redirect(
-      new URL("/login?error=callback_error", request.url),
+      new URL(`/login?error=${encodeURIComponent(message)}`, request.url),
     );
   }
 }

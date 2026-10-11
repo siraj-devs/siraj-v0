@@ -1,5 +1,5 @@
 import env from "@/env";
-import { FT_OAUTH_CONFIG } from "@/lib/oauth";
+import { FT_OAUTH_CONFIG, ftFetch, logFtApiError } from "@/lib/oauth";
 
 export type FtUserKind = "student" | "pooler";
 
@@ -63,7 +63,7 @@ async function getClientCredentialsToken(): Promise<string> {
     return cachedToken.value;
   }
 
-  const response = await fetch(FT_OAUTH_CONFIG.tokenUrl, {
+  const response = await ftFetch("client credentials", FT_OAUTH_CONFIG.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -75,7 +75,8 @@ async function getClientCredentialsToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error("تعذر الاتصال بواجهة 42");
+    await logFtApiError("client credentials", response);
+    throw new Error(`42 client credentials failed: ${response.status}`);
   }
 
   const data = (await response.json()) as FtTokenResponse;
@@ -175,7 +176,8 @@ export async function fetchFtUserByLogin(
   if (!trimmed) return null;
 
   const token = await getClientCredentialsToken();
-  const response = await fetch(
+  const response = await ftFetch(
+    "user lookup",
     `https://api.intra.42.fr/v2/users/${encodeURIComponent(trimmed)}`,
     {
       headers: { Authorization: `Bearer ${token}` },
@@ -183,9 +185,13 @@ export async function fetchFtUserByLogin(
     },
   );
 
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    await logFtApiError("user lookup", response);
+    return null;
+  }
   if (!response.ok) {
-    throw new Error("تعذر جلب بيانات المستخدم من 42");
+    await logFtApiError("user lookup", response);
+    throw new Error(`42 user lookup failed: ${response.status}`);
   }
 
   const data = (await response.json()) as FtUserResponse;

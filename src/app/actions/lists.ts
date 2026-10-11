@@ -201,8 +201,15 @@ async function resolveListProfile(listId: string, login: string) {
   let ftUser;
   try {
     ftUser = await fetchFtUserByLogin(normalized);
-  } catch {
-    return { ok: false as const, error: "تعذر جلب بيانات المستخدم من 42" };
+  } catch (error) {
+    console.error("[42] list lookup", error);
+    return {
+      ok: false as const,
+      error:
+        error instanceof Error
+          ? error.message
+          : "تعذر جلب بيانات المستخدم من 42",
+    };
   }
   if (!ftUser) {
     return { ok: false as const, error: "لم يُعثر على هذا الحساب في 42" };
