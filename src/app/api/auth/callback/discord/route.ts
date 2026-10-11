@@ -3,6 +3,7 @@ import {
   exchangeDiscordCodeForToken,
   getDiscordAvatarUrl,
   getDiscordUserInfo,
+  joinDiscordGuild,
   type DiscordUser,
 } from "@/lib/discord-oauth";
 import { linkConnectionToSessionMember } from "@/lib/link-connection";
@@ -92,6 +93,8 @@ export async function GET(request: NextRequest) {
           ? profileLinkErrorUrl(request.url, "user_info_error", redirect)
           : new URL("/login?error=user_info_error", request.url),
       );
+
+    await joinDiscordGuild(userInfo.id, access_token);
 
     const dcError = await dc_connection(userInfo);
     if (dcError)

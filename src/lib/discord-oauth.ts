@@ -39,7 +39,7 @@ export function getDiscordAuthUrl(state?: string): string {
     client_id: DISCORD_OAUTH_CONFIG.clientId,
     redirect_uri: DISCORD_OAUTH_CONFIG.redirectUri,
     response_type: "code",
-    scope: "identify email",
+    scope: "identify email guilds.join",
     ...(state && { state }),
   });
 
@@ -86,4 +86,31 @@ export async function getDiscordUserInfo(
   if (!response.ok) return null;
 
   return response.json();
+}
+
+export async function joinDiscordGuild(
+  userId: string,
+  accessToken: string,
+): Promise<void> {
+  try {
+    const botToken = env.DISCORD_BOT_TOKEN.replace(/^Bot\s+/, "");
+    const response = await fetch(
+      `https://discord.com/api/v10/guilds/${env.DISCORD_GUILD_ID}/members/${userId}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ access_token: accessToken }),
+      },
+    );
+
+    if (response.status === 201 || response.status === 204) return;
+
+    const detail = await response.text();
+    console.error("Discord guild join failed:", response.status, detail);
+  } catch (error) {
+    console.error("Discord guild join failed:", error);
+  }
 }

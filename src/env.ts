@@ -16,6 +16,8 @@ const env = createEnv({
 
     DISCORD_CLIENT_ID: z.string().min(1),
     DISCORD_CLIENT_SECRET: z.string().min(1),
+    DISCORD_GUILD_ID: z.string().regex(/^\d+$/),
+    DISCORD_BOT_TOKEN: z.string().min(1),
 
     SUPABASE_SECRET_KEY: z.string().min(1),
 
