@@ -1,5 +1,10 @@
 import env from "@/env";
-import { FT_OAUTH_CONFIG, ftFetch, logFtApiError } from "@/lib/oauth";
+import {
+  FT_OAUTH_CONFIG,
+  ftFailureMessage,
+  ftFetch,
+  logFtApiError,
+} from "@/lib/oauth";
 
 export type FtUserKind = "student" | "pooler";
 
@@ -75,8 +80,8 @@ async function getClientCredentialsToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    await logFtApiError("client credentials", response);
-    throw new Error(`42 client credentials failed: ${response.status}`);
+    const body = await logFtApiError("client credentials", response);
+    throw new Error(ftFailureMessage("client credentials", response.status, body));
   }
 
   const data = (await response.json()) as FtTokenResponse;
@@ -190,8 +195,8 @@ export async function fetchFtUserByLogin(
     return null;
   }
   if (!response.ok) {
-    await logFtApiError("user lookup", response);
-    throw new Error(`42 user lookup failed: ${response.status}`);
+    const body = await logFtApiError("user lookup", response);
+    throw new Error(ftFailureMessage("user lookup", response.status, body));
   }
 
   const data = (await response.json()) as FtUserResponse;

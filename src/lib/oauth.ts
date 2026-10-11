@@ -22,6 +22,9 @@ export function get42AuthUrl(state?: string): string {
   return `${FT_OAUTH_CONFIG.authorizationUrl}?${params.toString()}`;
 }
 
+const FT_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 /** Logs status and body for a failed Intra response. Does not record secrets or tokens. */
 export async function logFtApiError(label: string, response: Response) {
   let body = "";
@@ -29,9 +32,27 @@ export async function logFtApiError(label: string, response: Response) {
     body = await response.text();
   } catch (error) {
     console.error(`[42] ${label} unreadable body`, response.status, error);
-    return;
+    return "";
   }
-  console.error(`[42] ${label}`, response.status, body.slice(0, 2000));
+  const authenticate = response.headers.get("www-authenticate");
+  console.error(
+    `[42] ${label}`,
+    response.status,
+    authenticate,
+    body.slice(0, 2000),
+  );
+  return body;
+}
+
+export function ftFailureMessage(label: string, status: number, body: string) {
+  const detail = body
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+  return detail
+    ? `42 ${label} failed: ${status} ${detail}`
+    : `42 ${label} failed: ${status}`;
 }
 
 export async function ftFetch(
@@ -40,9 +61,8 @@ export async function ftFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
-  if (!headers.has("User-Agent")) {
-    headers.set("User-Agent", "siraj.club");
-  }
+  headers.set("User-Agent", FT_USER_AGENT);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
 
   try {
     return await fetch(url, { ...init, headers });
@@ -76,8 +96,8 @@ export async function exchangeCodeForToken(code: string): Promise<{
   });
 
   if (!response.ok) {
-    await logFtApiError("token exchange", response);
-    throw new Error(`42 token exchange failed: ${response.status}`);
+    const body = await logFtApiError("token exchange", response);
+    throw new Error(ftFailureMessage("token exchange", response.status, body));
   }
 
   return response.json();
