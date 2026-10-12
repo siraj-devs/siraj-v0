@@ -2,6 +2,8 @@
 
 import { MetaChip, StarRating } from "@/components/courses/course-ui";
 import { Rosette } from "@/components/islamic-motif";
+import type { MemberEnrollmentBrief } from "@/lib/courses";
+import { hasLearningStarted } from "@/lib/course-schedule";
 import type { CourseWithMeta } from "@/lib/course-types";
 import { BookOpen, HelpCircle, Lock, Shield } from "lucide-react";
 import Image from "next/image";
@@ -9,12 +11,14 @@ import Link from "next/link";
 
 export function CoursesCatalog({
   courses,
-  enrolledCourseIds = [],
+  enrollments = [],
 }: {
   courses: CourseWithMeta[];
-  enrolledCourseIds?: number[];
+  enrollments?: MemberEnrollmentBrief[];
 }) {
-  const enrolled = new Set(enrolledCourseIds);
+  const enrollmentByCourse = new Map(
+    enrollments.map((item) => [item.courseId, item]),
+  );
 
   if (courses.length === 0) {
     return (
@@ -32,18 +36,21 @@ export function CoursesCatalog({
     <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
       {courses.map((course) => {
         const closed = !course.registration_open;
-        const isEnrolled = enrolled.has(course.id);
+        const enrollment = enrollmentByCourse.get(course.id);
+        const isEnrolled = Boolean(enrollment);
+        const learningStarted = Boolean(
+          enrollment?.learningStartsAt &&
+            hasLearningStarted(enrollment.learningStartsAt),
+        );
         return (
           <li key={course.id}>
-            <Link
-              href={
-                isEnrolled
-                  ? `/courses/${course.id}/learn`
-                  : `/courses/${course.id}`
-              }
-              className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-background/80 p-3 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_10%,transparent)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_22px_60px_-30px_color-mix(in_oklch,var(--primary)_35%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <div className="relative aspect-video overflow-hidden rounded-2xl bg-muted/12">
+            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-background/80 p-3 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_10%,transparent)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_22px_60px_-30px_color-mix(in_oklch,var(--primary)_35%,transparent)]">
+              <Link
+                href={`/courses/${course.id}`}
+                className="absolute inset-0 z-0 rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                aria-label={course.title}
+              />
+              <div className="pointer-events-none relative aspect-video overflow-hidden rounded-2xl bg-muted/12">
                 {course.thumbnail_url ? (
                   <Image
                     src={course.thumbnail_url}
@@ -75,7 +82,7 @@ export function CoursesCatalog({
                 )}
               </div>
 
-              <div className="flex flex-1 flex-col gap-3 px-2 pb-2 pt-4">
+              <div className="pointer-events-none relative z-10 flex flex-1 flex-col gap-3 px-2 pb-2 pt-4">
                 <h3 className="font-kufam text-xl font-medium leading-8 text-foreground">
                   {course.title}
                 </h3>
@@ -107,16 +114,31 @@ export function CoursesCatalog({
                     </div>
                   )}
 
-                  <span className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-all group-hover:brightness-110">
-                    {isEnrolled
-                      ? "متابعة التعلم"
-                      : closed
-                        ? "عرض الدورة"
-                        : "الإلتحاق الآن"}
-                  </span>
+                  {isEnrolled ? (
+                    <div className="pointer-events-auto relative z-10 flex gap-2">
+                      {learningStarted && (
+                        <Link
+                          href={`/portal/learning/${course.id}`}
+                          className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition hover:brightness-110"
+                        >
+                          متابعة التعلم
+                        </Link>
+                      )}
+                      <Link
+                        href={`/courses/${course.id}`}
+                        className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted"
+                      >
+                        عرض الدورة
+                      </Link>
+                    </div>
+                  ) : (
+                    <span className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-all group-hover:brightness-110">
+                      {closed ? "عرض الدورة" : "الإلتحاق الآن"}
+                    </span>
+                  )}
                 </div>
               </div>
-            </Link>
+            </article>
           </li>
         );
       })}

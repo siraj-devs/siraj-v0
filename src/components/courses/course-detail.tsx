@@ -1,10 +1,10 @@
 "use client";
 
-import { enrollInCourse } from "@/app/actions/courses";
+import { enrollInCourse, unenrollFromCourse } from "@/app/actions/courses";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import {
   CONTENT_TYPE_ICON,
   MetaChip,
-  ProgressRing,
   StarRating,
 } from "@/components/courses/course-ui";
 import { Rosette } from "@/components/islamic-motif";
@@ -14,6 +14,7 @@ import { type CourseContent } from "@/lib/course-types";
 import {
   formatClassDate,
   formatLessonDuration,
+  hasLearningStarted,
   type CourseClass,
 } from "@/lib/course-schedule";
 import {
@@ -21,13 +22,15 @@ import {
   HelpCircle,
   Lock,
   LockOpen,
+  MoreHorizontal,
   Play,
   Shield,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 export function CourseDetail({
@@ -35,6 +38,9 @@ export function CourseDetail({
   contents,
   enrollment,
   joinClass,
+  previewClass,
+  previewKind,
+  learningStarted,
   isLoggedIn,
   isMember,
   hasCompleteProfile,
@@ -43,16 +49,34 @@ export function CourseDetail({
   contents: CourseContent[];
   enrollment: Enrollment | null;
   joinClass: CourseClass | null;
+  previewClass: CourseClass | null;
+  previewKind: "enrolled" | "open" | "upcoming" | "none";
+  learningStarted: boolean;
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmUnenroll, setConfirmUnenroll] = useState(false);
 
   const examCount = contents.filter((item) => item.type === "exam").length;
   const lessonCount = contents.length - examCount;
   const closed = !joinClass;
+
+  function onUnenroll() {
+    startTransition(async () => {
+      const result = await unenrollFromCourse(course.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      setConfirmUnenroll(false);
+      toast.success("تم إلغاء الالتحاق بالدورة");
+      router.refresh();
+    });
+  }
 
   function onEnroll() {
     if (!isLoggedIn) {
@@ -88,15 +112,61 @@ export function CourseDetail({
         return;
       }
       toast.success("تم الالتحاق بالدورة");
-      router.push(`/courses/${course.id}/learn`);
+      if (
+        joinClass &&
+        hasLearningStarted(joinClass.learning_starts_at)
+      ) {
+        router.push(`/portal/learning/${course.id}`);
+      }
       router.refresh();
     });
   }
 
   return (
     <div className="flex w-full flex-col gap-10 md:gap-12">
-      <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
-        <Rosette className="pointer-events-none absolute -start-10 -bottom-10 size-40 text-primary/5" />
+      <header className="relative rounded-3xl border border-border/70 px-6 py-8 md:px-10 md:py-10">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl bg-linear-to-b from-primary/8 to-transparent">
+          <Rosette className="absolute -start-10 -bottom-10 size-40 text-primary/5" />
+        </div>
+
+        {enrollment && !learningStarted && (
+          <div className="absolute top-4 left-4 z-20">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="خيارات الدورة"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+            {menuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="إغلاق القائمة"
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute top-11 left-0 z-20 w-52 overflow-hidden rounded-xl border border-border bg-background py-1 text-start shadow-lg">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConfirmUnenroll(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-start text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="size-4" />
+                    إلغاء الالتحاق بالدورة
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="relative flex flex-col items-center gap-7 text-center lg:flex-row lg:items-start lg:gap-10 lg:text-start">
           <div className="flex w-full shrink-0 flex-col items-center gap-4 sm:w-80 lg:w-96">
@@ -116,32 +186,6 @@ export function CourseDetail({
                 </div>
               )}
             </div>
-
-            {enrollment && (
-              <ProgressRing value={enrollment.progress_percentage} size={72} />
-            )}
-
-            {enrollment ? (
-              <Button asChild className="w-full">
-                <Link href={`/courses/${course.id}/learn`}>متابعة التعلم</Link>
-              </Button>
-            ) : (
-              <Button
-                onClick={onEnroll}
-                disabled={pending || closed}
-                className="w-full"
-              >
-                {!isLoggedIn
-                  ? "سجّل الدخول للالتحاق"
-                  : !isMember || !hasCompleteProfile
-                    ? "أكمل ملفك ثم التحق"
-                    : pending
-                      ? "جاري الالتحاق…"
-                      : closed
-                        ? "لا توجد دفعة للالتحاق"
-                        : "الإلتحاق الآن"}
-              </Button>
-            )}
           </div>
 
           <div className="min-w-0 flex-1 space-y-4">
@@ -189,13 +233,67 @@ export function CourseDetail({
               <MetaChip icon={BookOpen}>الدروس: {lessonCount}</MetaChip>
               <MetaChip icon={HelpCircle}>الاختبارات: {examCount}</MetaChip>
             </div>
-            {joinClass && (
+            {previewClass && previewKind === "open" && (
               <p className="text-sm text-muted-foreground">
-                بداية التعلم{" "}
+                التسجيل من{" "}
                 <span className="text-foreground">
-                  {formatClassDate(joinClass.learning_starts_at)}
+                  {formatClassDate(previewClass.registration_opens_on)}
+                </span>
+                {" حتى بداية التعلم "}
+                <span className="text-foreground">
+                  {formatClassDate(previewClass.learning_starts_at)}
                 </span>
               </p>
+            )}
+            {previewClass && previewKind === "upcoming" && (
+              <p className="text-sm text-muted-foreground">
+                لا توجد فترة تسجيل مفتوحة اليوم. التسجيل القادم يبدأ{" "}
+                <span className="text-foreground">
+                  {formatClassDate(previewClass.registration_opens_on)}
+                </span>
+                {" ويبدأ التعلم "}
+                <span className="text-foreground">
+                  {formatClassDate(previewClass.learning_starts_at)}
+                </span>
+                . الدروس أدناه لهذه الفترة.
+              </p>
+            )}
+            {previewClass && previewKind === "enrolled" && !learningStarted && (
+              <p className="text-sm text-muted-foreground">
+                أنت ملتحق. يبدأ التعلم{" "}
+                <span className="text-foreground">
+                  {formatClassDate(previewClass.learning_starts_at)}
+                </span>
+                . الدروس أدناه لدفعتك، وتُفتح في ذلك التاريخ.
+              </p>
+            )}
+            {previewKind === "none" && (
+              <p className="text-sm text-muted-foreground">
+                لا توجد فترة تسجيل مفتوحة ولا دفعة قادمة.
+              </p>
+            )}
+
+            {(learningStarted || !enrollment) && (
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2 lg:justify-start">
+              {enrollment && learningStarted && (
+                <Button asChild>
+                  <Link href={`/portal/learning/${course.id}`}>متابعة التعلم</Link>
+                </Button>
+              )}
+              {!enrollment && (
+                <Button onClick={onEnroll} disabled={pending || closed}>
+                  {!isLoggedIn
+                    ? "سجّل الدخول للالتحاق"
+                    : !isMember || !hasCompleteProfile
+                      ? "أكمل ملفك ثم التحق"
+                      : pending
+                        ? "جاري الالتحاق…"
+                        : closed
+                          ? "لا توجد دفعة للالتحاق"
+                          : "الإلتحاق الآن"}
+                </Button>
+              )}
+            </div>
             )}
           </div>
         </div>
@@ -221,7 +319,7 @@ export function CourseDetail({
                     {index + 1}
                   </span>
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                    {enrollment ? (
+                    {enrollment && learningStarted ? (
                       <Play className="size-4 fill-current" />
                     ) : (
                       <Icon className="size-4" />
@@ -242,7 +340,7 @@ export function CourseDetail({
                       </span>
                     )}
                   </span>
-                  {!enrollment && (
+                  {!(enrollment && learningStarted) && (
                     <Lock className="size-4 shrink-0 text-muted-foreground/60" />
                   )}
                 </div>
@@ -253,9 +351,9 @@ export function CourseDetail({
                   key={item.id}
                   className="border-b border-border/60 last:border-b-0"
                 >
-                  {enrollment ? (
+                  {enrollment && learningStarted ? (
                     <Link
-                      href={`/courses/${course.id}/learn/${item.id}`}
+                      href={`/portal/learning/${course.id}/${item.id}`}
                       className="block hover:bg-primary/4"
                     >
                       {row}
@@ -269,10 +367,34 @@ export function CourseDetail({
           </ol>
         ) : (
           <div className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
-            <p className="text-sm text-muted-foreground">لا دروس بعد.</p>
+            <p className="font-kufam text-lg text-foreground">
+              {previewKind === "upcoming"
+                ? "لا دروس في الفترة القادمة بعد"
+                : previewKind === "none"
+                  ? "لا توجد دفعة لعرض دروسها"
+                  : "لا دروس بعد"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {previewKind === "upcoming" && previewClass
+                ? `تبدأ فترة التسجيل ${formatClassDate(previewClass.registration_opens_on)}.`
+                : previewKind === "none"
+                  ? "عند فتح فترة تسجيل ستظهر دروس تلك الدفعة هنا."
+                  : "ستظهر الدروس هنا عند إضافتها لهذه الفترة."}
+            </p>
           </div>
         )}
       </section>
+
+      <ConfirmDeleteModal
+        open={confirmUnenroll}
+        title="إلغاء الالتحاق بالدورة"
+        description={`هل تريد إلغاء التحاقك بدورة «${course.title}»؟`}
+        confirmLabel="إلغاء الالتحاق"
+        cancelLabel="تراجع"
+        pending={pending}
+        onCancel={() => setConfirmUnenroll(false)}
+        onConfirm={onUnenroll}
+      />
     </div>
   );
 }

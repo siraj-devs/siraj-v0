@@ -40,6 +40,7 @@ export function CourseLearnShell({
   completedIds,
   activeContentId,
   myRating = null,
+  allowUnenroll = false,
   children,
 }: {
   course: CourseWithMeta;
@@ -48,6 +49,7 @@ export function CourseLearnShell({
   completedIds: number[];
   activeContentId: number | null;
   myRating?: number | null;
+  allowUnenroll?: boolean;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -106,7 +108,7 @@ export function CourseLearnShell({
       }
       setConfirmUnenroll(false);
       toast.success("تم إلغاء الالتحاق بالدورة");
-      router.push("/courses");
+      router.push("/portal/learning");
       router.refresh();
     });
   }
@@ -175,7 +177,7 @@ export function CourseLearnShell({
                 </div>
               ) : (
                 <Link
-                  href={`/courses/${course.id}/learn/${item.id}`}
+                  href={`/portal/learning/${course.id}/${item.id}`}
                   className={`flex items-center gap-3 px-3 py-3 text-sm transition-colors ${
                     active
                       ? "bg-primary/8 text-foreground"
@@ -232,7 +234,9 @@ export function CourseLearnShell({
               <ProgressRing value={enrollment.progress_percentage} size={64} />
               <div className="min-w-0 flex-1">
                 <p className="font-kufam text-xs text-primary/80">
-                  دورة تعليمية
+                  <Link href="/portal/learning" className="transition hover:underline">
+                    تعلّمي
+                  </Link>
                 </p>
                 <h1 className="font-kufam text-xl font-semibold text-foreground md:text-2xl">
                   {course.title}
@@ -243,6 +247,7 @@ export function CourseLearnShell({
               </div>
             </div>
 
+            {allowUnenroll && (
             <div className="relative flex shrink-0 justify-end">
               <Button
                 type="button"
@@ -279,6 +284,7 @@ export function CourseLearnShell({
                 </>
               )}
             </div>
+            )}
           </div>
         </div>
       </header>
@@ -295,7 +301,7 @@ export function CourseLearnShell({
                 <NavArrow
                   href={
                     previous
-                      ? `/courses/${course.id}/learn/${previous.id}`
+                      ? `/portal/learning/${course.id}/${previous.id}`
                       : null
                   }
                   label="الدرس السابق"
@@ -304,7 +310,7 @@ export function CourseLearnShell({
                 <NavArrow
                   href={
                     next && nextUnlocked
-                      ? `/courses/${course.id}/learn/${next.id}`
+                      ? `/portal/learning/${course.id}/${next.id}`
                       : null
                   }
                   label="الدرس التالي"

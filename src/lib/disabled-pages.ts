@@ -25,6 +25,7 @@ export function isProtectedFromDisable(path: string) {
     normalized === "/login" ||
     normalized === "/profile" ||
     normalized.startsWith("/dashboard") ||
+    normalized.startsWith("/portal") ||
     normalized.startsWith("/api") ||
     normalized.startsWith("/_next") ||
     normalized === "/force-not-found" ||

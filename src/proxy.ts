@@ -76,6 +76,16 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith("/portal")) {
+    const session = readSessionCookie(request);
+    if (!session) {
+      const next = `${pathname}${request.nextUrl.search}`;
+      return NextResponse.redirect(
+        new URL(`/login?next=${encodeURIComponent(next)}`, request.url),
+      );
+    }
+  }
+
   if (pathname.startsWith("/dashboard")) {
     const session = readSessionCookie(request);
     if (!session)

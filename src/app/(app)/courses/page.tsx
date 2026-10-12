@@ -1,15 +1,15 @@
 import DecorativeLines from "@/components/DecorativeLines";
 import { CoursesCatalog } from "@/components/courses/courses-catalog";
-import { getEnrolledCourseIds, getPublishedCourses } from "@/lib/courses";
+import { getMemberEnrollmentBriefs, getPublishedCourses } from "@/lib/courses";
 import { getMemberForSession } from "@/lib/members";
 import { getSession } from "@/lib/session";
 
 export default async function CoursesPage() {
   const session = await getSession();
   const member = session ? await getMemberForSession(session) : null;
-  const [courses, enrolledCourseIds] = await Promise.all([
+  const [courses, enrollments] = await Promise.all([
     getPublishedCourses(member),
-    member ? getEnrolledCourseIds(member.id) : Promise.resolve([] as number[]),
+    member ? getMemberEnrollmentBriefs(member.id) : Promise.resolve([]),
   ]);
 
   return (
@@ -19,10 +19,7 @@ export default async function CoursesPage() {
         title="إبدأ رحلتك التعليمية مع سراج"
         description="تصفّح الدورات المنشورة. عرض التفاصيل والالتحاق يتطلب تسجيل الدخول وملفاً شخصياً مكتملاً."
       />
-      <CoursesCatalog
-        courses={courses}
-        enrolledCourseIds={enrolledCourseIds}
-      />
+      <CoursesCatalog courses={courses} enrollments={enrollments} />
     </div>
   );
 }

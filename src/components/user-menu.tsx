@@ -128,6 +128,15 @@ export function UserMenu({
                 </p>
               )}
             </div>
+            <Link
+              href="/portal/learning"
+              className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
+              onClick={() => setIsOpen(false)}
+            >
+              <GraduationCap className="size-4 shrink-0 text-muted-foreground" />
+              تعلّمي
+            </Link>
+            <hr className="border-border" />
             {showViewerLinks && (
               <>
                 {VIEWER_LINKS.map((link) => (

@@ -12,13 +12,14 @@ import type {
 } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
 import type { DurationUnit } from "@/lib/course-schedule";
-import type { CourseClass } from "@/lib/course-schedule";
+import { isClassOpen, type CourseClass } from "@/lib/course-schedule";
 import type { MemberRole } from "@/lib/member-role";
 import { createClient } from "@/lib/supabase/server";
 
 function mapContent(row: {
   id: number;
   course_id: number;
+  class_id?: number | null;
   type: CourseContent["type"];
   title: string;
   author: string | null;
@@ -39,6 +40,7 @@ function mapContent(row: {
   return {
     id: row.id,
     course_id: row.course_id,
+    class_id: row.class_id ?? null,
     type: row.type,
     title: row.title,
     author: row.author?.trim() || null,
@@ -77,7 +79,6 @@ function mapCourse(row: Record<string, unknown>): Course {
     description: (row.description as string | null)?.trim() || null,
     thumbnail_url: (row.thumbnail_url as string | null) ?? null,
     is_published: Boolean(row.is_published),
-    enrollment_status: row.enrollment_status as Course["enrollment_status"],
     visibility: (row.visibility as CourseVisibility) ?? "public",
     owner_id: (row.owner_id as number | null) ?? null,
     rating_avg: Number(row.rating_avg) || 0,
@@ -88,7 +89,7 @@ function mapCourse(row: Record<string, unknown>): Course {
 }
 
 const COURSE_COLUMNS =
-  "id, title, description, thumbnail_url, is_published, enrollment_status, visibility, owner_id, rating_avg, rating_count, created_at, updated_at";
+  "id, title, description, thumbnail_url, is_published, visibility, owner_id, rating_avg, rating_count, created_at, updated_at";
 
 export function canAccessCourse(
   course: Pick<Course, "visibility">,
@@ -339,7 +340,9 @@ export async function getCourseClasses(courseId: number): Promise<CourseClass[]>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("course_classes")
-    .select("id, course_id, learning_starts_at, created_at")
+    .select(
+      "id, course_id, registration_opens_on, learning_starts_at, created_at",
+    )
     .eq("course_id", courseId)
     .order("learning_starts_at", { ascending: true });
 
@@ -360,7 +363,7 @@ export async function getCourseIdsWithClasses(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("course_classes")
-    .select("course_id")
+    .select("course_id, registration_opens_on, learning_starts_at")
     .in("course_id", courseIds);
 
   if (error) {
@@ -369,7 +372,21 @@ export async function getCourseIdsWithClasses(
   }
 
   for (const row of data ?? []) {
-    open.add(row.course_id as number);
+    const courseClass = row as Pick<
+      CourseClass,
+      "registration_opens_on" | "learning_starts_at"
+    > & { course_id: number };
+    if (
+      isClassOpen({
+        id: 0,
+        course_id: courseClass.course_id,
+        created_at: "",
+        registration_opens_on: courseClass.registration_opens_on,
+        learning_starts_at: courseClass.learning_starts_at,
+      })
+    ) {
+      open.add(courseClass.course_id);
+    }
   }
 
   return open;
@@ -377,16 +394,23 @@ export async function getCourseIdsWithClasses(
 
 export async function getCourseContents(
   courseId: number,
+  classId?: number | null,
 ): Promise<CourseContent[]> {
+  if (classId === null) return [];
+
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
+      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
     )
     .eq("course_id", courseId)
     .order("order_sequence", { ascending: true })
     .order("id", { ascending: true });
+
+  if (classId != null) query = query.eq("class_id", classId);
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching course contents:", error);
@@ -403,7 +427,7 @@ export async function getCourseContentById(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
+      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
     )
     .eq("id", contentId)
     .maybeSingle();
@@ -472,13 +496,18 @@ export async function getEnrollment(
   };
 }
 
-export async function getEnrolledCourseIds(
+export type MemberEnrollmentBrief = {
+  courseId: number;
+  learningStartsAt: string | null;
+};
+
+export async function getMemberEnrollmentBriefs(
   memberId: number,
-): Promise<number[]> {
+): Promise<MemberEnrollmentBrief[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("enrollments")
-    .select("course_id")
+    .select("course_id, course_classes ( learning_starts_at )")
     .eq("member_id", memberId);
 
   if (error) {
@@ -486,7 +515,82 @@ export async function getEnrolledCourseIds(
     return [];
   }
 
-  return (data ?? []).map((row) => row.course_id as number);
+  return (data ?? []).map((row) => {
+    const classRaw = Array.isArray(row.course_classes)
+      ? row.course_classes[0]
+      : row.course_classes;
+    return {
+      courseId: row.course_id as number,
+      learningStartsAt:
+        (classRaw?.learning_starts_at as string | undefined) ?? null,
+    };
+  });
+}
+
+export type MemberLearningItem = {
+  enrollment: Enrollment;
+  course: {
+    id: number;
+    title: string;
+    description: string | null;
+    thumbnail_url: string | null;
+  };
+  courseClass: CourseClass | null;
+};
+
+export async function getMemberLearning(
+  memberId: number,
+): Promise<MemberLearningItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select(
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, courses ( id, title, description, thumbnail_url ), course_classes ( id, course_id, registration_opens_on, learning_starts_at, created_at )",
+    )
+    .eq("member_id", memberId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching member learning:", error);
+    return [];
+  }
+
+  return (data ?? []).flatMap((row) => {
+    const courseRaw = Array.isArray(row.courses) ? row.courses[0] : row.courses;
+    if (!courseRaw) return [];
+    const classRaw = Array.isArray(row.course_classes)
+      ? row.course_classes[0]
+      : row.course_classes;
+    return [
+      {
+        enrollment: {
+          id: row.id as number,
+          member_id: row.member_id as number,
+          course_id: row.course_id as number,
+          class_id: (row.class_id as number | null) ?? null,
+          progress_percentage: Number(row.progress_percentage) || 0,
+          status: row.status as Enrollment["status"],
+          created_at: row.created_at as string,
+          updated_at: row.updated_at as string,
+        },
+        course: {
+          id: courseRaw.id as number,
+          title: courseRaw.title as string,
+          description: (courseRaw.description as string | null) ?? null,
+          thumbnail_url: (courseRaw.thumbnail_url as string | null) ?? null,
+        },
+        courseClass: classRaw
+          ? {
+              id: classRaw.id as number,
+              course_id: classRaw.course_id as number,
+              registration_opens_on: classRaw.registration_opens_on as string,
+              learning_starts_at: classRaw.learning_starts_at as string,
+              created_at: classRaw.created_at as string,
+            }
+          : null,
+      },
+    ];
+  });
 }
 
 export async function getMyCourseRating(

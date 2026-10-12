@@ -12,7 +12,7 @@ import { matchesSelection } from "@/components/dashboard/search-filter-bar";
 import { Button } from "@/components/ui/button";
 import type { CourseAclMemberOption, CourseWithMeta } from "@/lib/course-types";
 import type { MemberRole } from "@/lib/member-role";
-import { Eye, EyeOff, Lock, LockOpen, Plus, Unlock } from "lucide-react";
+import { Eye, EyeOff, Lock, LockOpen, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ export type { CourseAclMemberOption };
 const emptyForm = (): CourseFormState => ({
   title: "",
   description: "",
-  enrollmentStatus: "closed",
   isPublished: false,
   visibility: "public",
   allowedRoles: [],
@@ -51,7 +50,6 @@ export function CoursesManager({
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<string[]>([]);
-  const [enrollment, setEnrollment] = useState<string[]>([]);
   const [privacy, setPrivacy] = useState<string[]>([]);
   const [layout, setLayout] = useState<"list" | "grid">("grid");
 
@@ -60,7 +58,6 @@ export function CoursesManager({
       all: courses.length,
       published: courses.filter((c) => c.is_published).length,
       hidden: courses.filter((c) => !c.is_published).length,
-      open: courses.filter((c) => c.enrollment_status === "open").length,
       private: courses.filter((c) => c.visibility === "private").length,
     }),
     [courses],
@@ -77,7 +74,6 @@ export function CoursesManager({
       ) {
         return false;
       }
-      if (!matchesSelection(enrollment, course.enrollment_status)) return false;
       if (!matchesSelection(privacy, course.visibility)) return false;
       if (!q) return true;
       return (
@@ -85,7 +81,7 @@ export function CoursesManager({
         (course.description?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [courses, visibility, enrollment, privacy, query]);
+  }, [courses, visibility, privacy, query]);
 
   useEffect(() => {
     if (!modal && !openMenuId) return;
@@ -120,7 +116,6 @@ export function CoursesManager({
     setForm({
       title: course.title,
       description: course.description ?? "",
-      enrollmentStatus: course.enrollment_status,
       isPublished: course.is_published,
       visibility: course.visibility ?? "public",
       allowedRoles: course.allowed_roles ?? [],
@@ -167,7 +162,6 @@ export function CoursesManager({
     const formData = new FormData();
     formData.set("title", form.title);
     formData.set("description", form.description);
-    formData.set("enrollment_status", form.enrollmentStatus);
     formData.set("is_published", form.isPublished ? "true" : "false");
     formData.set("visibility", form.visibility);
     for (const role of form.allowedRoles) formData.append("allowed_roles", role);
@@ -223,12 +217,11 @@ export function CoursesManager({
             </Button>
           )
         }
-        statsClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+        statsClassName="grid-cols-2 sm:grid-cols-4"
         stats={[
           { key: "all", label: "الإجمالي", value: counts.all },
           { key: "published", label: "منشور", value: counts.published },
           { key: "hidden", label: "مخفي", value: counts.hidden },
-          { key: "open", label: "تسجيل مفتوح", value: counts.open },
           { key: "private", label: "خاص", value: counts.private },
         ]}
       />
@@ -240,7 +233,6 @@ export function CoursesManager({
         menuTitle="تصفية الدورات"
         onReset={() => {
           setVisibility([]);
-          setEnrollment([]);
           setPrivacy([]);
         }}
         groups={[
@@ -251,15 +243,6 @@ export function CoursesManager({
             options: [
               { key: "published", label: "منشور", tone: "emerald", icon: <Eye /> },
               { key: "hidden", label: "مخفي", tone: "amber", icon: <EyeOff /> },
-            ],
-          },
-          {
-            title: "التسجيل",
-            selected: enrollment,
-            onChange: setEnrollment,
-            options: [
-              { key: "open", label: "مفتوح", tone: "sky", icon: <Unlock /> },
-              { key: "closed", label: "مغلق", tone: "slate", icon: <Lock /> },
             ],
           },
           {

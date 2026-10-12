@@ -7,6 +7,7 @@ import {
   getCourseAcl,
   getCourseById,
   getCourseClasses,
+  getCourseContentById,
   getCourseContents,
   getEnrollment,
   getExamQuestions,
@@ -16,7 +17,6 @@ import {
 } from "@/lib/courses";
 import type {
   CourseContentType,
-  CourseEnrollmentStatus,
   CourseVisibility,
   CourseWithMeta,
   Enrollment,
@@ -30,19 +30,32 @@ import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
 import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import {
+  classRangesOverlap,
+  hasLearningStarted,
   parseDateOnly,
-  pickJoinClass,
+  pickOpenClass,
   type DurationUnit,
 } from "@/lib/course-schedule";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+
+async function learningBlockedReason(enrollment: Enrollment) {
+  if (!enrollment.class_id) return "يبدأ التعلم في تاريخ بداية الدفعة";
+  const classes = await getCourseClasses(enrollment.course_id);
+  const courseClass = classes.find((item) => item.id === enrollment.class_id);
+  if (!courseClass || !hasLearningStarted(courseClass.learning_starts_at)) {
+    return "يبدأ التعلم في تاريخ بداية الدفعة";
+  }
+  return null;
+}
 
 function revalidateCoursePaths(courseId?: number) {
   revalidatePath("/courses");
   revalidatePath("/dashboard/courses");
   if (courseId) {
     revalidatePath(`/courses/${courseId}`);
-    revalidatePath(`/courses/${courseId}/learn`);
+    revalidatePath(`/portal/learning`);
+    revalidatePath(`/portal/learning/${courseId}`);
     revalidatePath(`/dashboard/courses/${courseId}`);
   }
 }
@@ -107,9 +120,6 @@ export async function createCourse(formData: FormData): Promise<
 
     const title = String(formData.get("title") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
-    const enrollment_status = (String(
-      formData.get("enrollment_status") ?? "closed",
-    ) || "closed") as CourseEnrollmentStatus;
     const is_published = formData.get("is_published") !== "false";
     const visibility = parseVisibility(formData.get("visibility"));
     const acl = parseAclFromForm(formData);
@@ -128,7 +138,6 @@ export async function createCourse(formData: FormData): Promise<
       .insert({
         title,
         description: description || null,
-        enrollment_status,
         is_published,
         visibility,
         owner_id: member.id,
@@ -166,9 +175,6 @@ export async function updateCourse(formData: FormData): Promise<
     const id = Number(formData.get("id"));
     const title = String(formData.get("title") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
-    const enrollment_status = String(
-      formData.get("enrollment_status") ?? "closed",
-    ) as CourseEnrollmentStatus;
     const is_published = formData.get("is_published") !== "false";
     const visibility = parseVisibility(formData.get("visibility"));
     const acl = parseAclFromForm(formData);
@@ -181,7 +187,6 @@ export async function updateCourse(formData: FormData): Promise<
     const payload: Record<string, unknown> = {
       title,
       description: description || null,
-      enrollment_status,
       is_published,
       visibility,
       updated_at: new Date().toISOString(),
@@ -249,6 +254,7 @@ export async function upsertCourseContent(input: {
   duration_unit?: DurationUnit | null;
   duration_amount?: number | null;
   timestamps?: VideoTimestamp[];
+  class_id?: number;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
     await requirePageEdit("/dashboard/courses");
@@ -299,10 +305,15 @@ export async function upsertCourseContent(input: {
       return { success: true, id: input.id };
     }
 
+    if (!input.class_id) {
+      return { success: false, error: "اختر الدفعة التي ينتمي إليها الدرس" };
+    }
+
     const { data, error } = await supabase
       .from("course_contents")
       .insert({
         course_id: input.course_id,
+        class_id: input.class_id,
         type: input.type,
         title,
         author,
@@ -472,7 +483,7 @@ export async function enrollInCourse(
     }
 
     const classes = await getCourseClasses(courseId);
-    const joinClass = pickJoinClass(classes);
+    const joinClass = pickOpenClass(classes);
     if (!joinClass) {
       return {
         success: false,
@@ -535,6 +546,17 @@ export async function unenrollFromCourse(
       return { success: false, error: "لست ملتحقاً بهذه الدورة" };
     }
 
+    if (enrollment.class_id) {
+      const classes = await getCourseClasses(courseId);
+      const courseClass = classes.find((item) => item.id === enrollment.class_id);
+      if (courseClass && hasLearningStarted(courseClass.learning_starts_at)) {
+        return {
+          success: false,
+          error: "لا يمكن إلغاء الالتحاق بعد بداية التعلم",
+        };
+      }
+    }
+
     const supabase = await createClient();
     const { error } = await supabase
       .from("enrollments")
@@ -555,14 +577,22 @@ export async function unenrollFromCourse(
 }
 
 async function recalculateProgress(enrollmentId: number, courseId: number) {
-  const contents = await getCourseContents(courseId);
+  const supabase = await createClient();
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("class_id")
+    .eq("id", enrollmentId)
+    .maybeSingle();
+  const contents = await getCourseContents(
+    courseId,
+    (enrollment?.class_id as number | null) ?? null,
+  );
   const completed = await getCompletedContentIds(enrollmentId);
   const total = contents.length;
   const progress =
     total === 0 ? 0 : Math.round((completed.size / total) * 10000) / 100;
 
   const status = progress >= 100 ? "completed" : "active";
-  const supabase = await createClient();
   await supabase
     .from("enrollments")
     .update({
@@ -588,6 +618,13 @@ export async function markContentComplete(
 
     const enrollment = await getEnrollment(member.id, courseId);
     if (!enrollment) return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+
+    const content = await getCourseContentById(contentId);
+    if (!content || content.class_id !== enrollment.class_id) {
+      return { success: false, error: "هذا الدرس لا ينتمي إلى دفعتك" };
+    }
+    const blocked = await learningBlockedReason(enrollment);
+    if (blocked) return { success: false, error: blocked };
 
     const supabase = await createClient();
     const { error } = await supabase.from("content_completions").upsert(
@@ -630,6 +667,13 @@ export async function submitExam(
 
     const enrollment = await getEnrollment(member.id, courseId);
     if (!enrollment) return { success: false, error: "لست ملتحقاً بهذه الدورة" };
+
+    const content = await getCourseContentById(contentId);
+    if (!content || content.class_id !== enrollment.class_id) {
+      return { success: false, error: "هذا الاختبار لا ينتمي إلى دفعتك" };
+    }
+    const blocked = await learningBlockedReason(enrollment);
+    if (blocked) return { success: false, error: blocked };
 
     const questions = await getExamQuestions(contentId);
     if (questions.length === 0) {
@@ -734,23 +778,76 @@ export async function rateCourse(
   }
 }
 
+function parseClassWindow(input: {
+  registration_opens_on: string;
+  learning_starts_at: string;
+}):
+  | { ok: true; registrationOpensOn: string; learningStartsAt: string }
+  | { ok: false; error: string } {
+  const registrationOpensOn = parseDateOnly(input.registration_opens_on);
+  const learningStartsAt = parseDateOnly(input.learning_starts_at);
+  if (!registrationOpensOn) {
+    return { ok: false, error: "تاريخ التسجيل غير صالح" };
+  }
+  if (!learningStartsAt) {
+    return { ok: false, error: "تاريخ بداية التعلم غير صالح" };
+  }
+  if (registrationOpensOn >= learningStartsAt) {
+    return {
+      ok: false,
+      error: "تاريخ التسجيل يجب أن يكون قبل بداية التعلم",
+    };
+  }
+  return { ok: true, registrationOpensOn, learningStartsAt };
+}
+
+async function assertClassWindowFree(
+  courseId: number,
+  registrationOpensOn: string,
+  learningStartsAt: string,
+  ignoreId?: number,
+) {
+  const existing = await getCourseClasses(courseId);
+  const candidate = {
+    id: ignoreId ?? 0,
+    course_id: courseId,
+    registration_opens_on: registrationOpensOn,
+    learning_starts_at: learningStartsAt,
+    created_at: "",
+  };
+  const overlaps = existing.some(
+    (courseClass) =>
+      courseClass.id !== ignoreId && classRangesOverlap(candidate, courseClass),
+  );
+  if (!overlaps) return null;
+  return "هذه الفترة تتداخل مع دفعة أخرى. اختر تواريخ لا تتقاطع مع التسجيل أو بداية التعلم لدفعة قائمة";
+}
+
 export async function createCourseClass(input: {
   course_id: number;
+  registration_opens_on: string;
   learning_starts_at: string;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
     await requirePageEdit("/dashboard/courses");
 
-    const learningStartsAt = parseDateOnly(input.learning_starts_at);
-    if (!learningStartsAt) {
-      return { success: false, error: "تاريخ بداية التعلم غير صالح" };
-    }
+    const dates = parseClassWindow(input);
+    if (!dates.ok) return { success: false, error: dates.error };
+    const { registrationOpensOn, learningStartsAt } = dates;
+
+    const overlap = await assertClassWindowFree(
+      input.course_id,
+      registrationOpensOn,
+      learningStartsAt,
+    );
+    if (overlap) return { success: false, error: overlap };
 
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("course_classes")
       .insert({
         course_id: input.course_id,
+        registration_opens_on: registrationOpensOn,
         learning_starts_at: learningStartsAt,
       })
       .select("id")
@@ -758,11 +855,63 @@ export async function createCourseClass(input: {
 
     if (error || !data) {
       console.error("Error creating course class:", error);
+      if (error?.code === "23P01") {
+        return {
+          success: false,
+          error: "هذه الفترة تتداخل مع دفعة أخرى",
+        };
+      }
       return { success: false, error: "تعذر فتح الدفعة" };
     }
 
     revalidateCoursePaths(input.course_id);
     return { success: true, id: data.id as number };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function updateCourseClass(input: {
+  id: number;
+  course_id: number;
+  registration_opens_on: string;
+  learning_starts_at: string;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const dates = parseClassWindow(input);
+    if (!dates.ok) return { success: false, error: dates.error };
+    const { registrationOpensOn, learningStartsAt } = dates;
+
+    const overlap = await assertClassWindowFree(
+      input.course_id,
+      registrationOpensOn,
+      learningStartsAt,
+      input.id,
+    );
+    if (overlap) return { success: false, error: overlap };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("course_classes")
+      .update({
+        registration_opens_on: registrationOpensOn,
+        learning_starts_at: learningStartsAt,
+      })
+      .eq("id", input.id)
+      .eq("course_id", input.course_id);
+
+    if (error) {
+      console.error("Error updating course class:", error);
+      if (error.code === "23P01") {
+        return { success: false, error: "هذه الفترة تتداخل مع دفعة أخرى" };
+      }
+      return { success: false, error: "تعذر تعديل الدفعة" };
+    }
+
+    revalidateCoursePaths(input.course_id);
+    return { success: true };
   } catch {
     return { success: false, error: "غير مصرح" };
   }

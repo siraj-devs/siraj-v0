@@ -7,19 +7,18 @@ import { ThumbnailField } from "@/components/dashboard/thumbnail-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CourseAclMemberOption, CourseVisibility } from "@/lib/course-types";
-import { ENROLLMENT_STATUS_LABELS, VISIBILITY_LABELS } from "@/lib/course-types";
+import { VISIBILITY_LABELS } from "@/lib/course-types";
 import {
   MEMBER_ROLE_LABELS,
   MEMBER_ROLE_ORDER,
   type MemberRole,
 } from "@/lib/member-role";
-import { Globe, Lock, Shield, Unlock } from "lucide-react";
+import { Globe, Lock, Shield } from "lucide-react";
 import type { FormEvent } from "react";
 
 export type CourseFormState = {
   title: string;
   description: string;
-  enrollmentStatus: "open" | "closed";
   isPublished: boolean;
   visibility: CourseVisibility;
   allowedRoles: MemberRole[];
@@ -169,29 +168,6 @@ export function CourseFormDialog({
           </fieldset>
         </>
       )}
-
-      <SegmentedChoiceField
-        legend="التسجيل"
-        name="course-enrollment"
-        value={form.enrollmentStatus}
-        onChange={(enrollmentStatus) =>
-          onFieldChange("enrollmentStatus", enrollmentStatus)
-        }
-        options={[
-          {
-            value: "open",
-            label: ENROLLMENT_STATUS_LABELS.open,
-            icon: <Unlock />,
-            activeClassName: "border-sky-400/50 bg-sky-50 text-sky-900",
-          },
-          {
-            value: "closed",
-            label: ENROLLMENT_STATUS_LABELS.closed,
-            icon: <Lock />,
-            activeClassName: "border-rose-400/50 bg-rose-50 text-rose-900",
-          },
-        ]}
-      />
 
       <PublishStatusField
         name="course-publish"

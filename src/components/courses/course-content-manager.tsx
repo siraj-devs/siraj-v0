@@ -24,7 +24,11 @@ import { Rosette } from "@/components/islamic-motif";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatLessonDuration } from "@/lib/course-schedule";
+import {
+  formatClassDate,
+  formatLessonDuration,
+  isClassOpen,
+} from "@/lib/course-schedule";
 import type { CourseClass, DurationUnit } from "@/lib/course-schedule";
 import type {
   CourseContent,
@@ -38,7 +42,6 @@ import type {
 } from "@/lib/course-types";
 import {
   CONTENT_TYPE_LABELS,
-  ENROLLMENT_STATUS_LABELS,
   VISIBILITY_LABELS,
 } from "@/lib/course-types";
 import {
@@ -50,13 +53,11 @@ import {
   Eye,
   EyeOff,
   Globe,
-  Lock,
   Book,
   Pencil,
   Plus,
   Shield,
   Trash2,
-  Unlock,
   Users,
   X,
 } from "lucide-react";
@@ -104,6 +105,9 @@ export function CourseContentManager({
   const [timestampsText, setTimestampsText] = useState("");
   const [durationAmount, setDurationAmount] = useState("");
   const [durationUnit, setDurationUnit] = useState<DurationUnit>("days");
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(
+    classes[0]?.id ?? null,
+  );
 
   const [examContentId, setExamContentId] = useState<number | null>(null);
   const [questionText, setQuestionText] = useState("");
@@ -112,14 +116,58 @@ export function CourseContentManager({
   const [optionsText, setOptionsText] = useState("صح\nخطأ");
   const [correctIndex, setCorrectIndex] = useState("0");
 
+  useEffect(() => {
+    if (
+      selectedClassId != null &&
+      classes.some((item) => item.id === selectedClassId)
+    ) {
+      return;
+    }
+    setSelectedClassId(classes[0]?.id ?? null);
+  }, [classes, selectedClassId]);
+
+  const classContents = useMemo(
+    () => contents.filter((item) => item.class_id === selectedClassId),
+    [contents, selectedClassId],
+  );
+  const selectedClass =
+    classes.find((item) => item.id === selectedClassId) ?? null;
+  const selectedClassNumber =
+    classes.findIndex((item) => item.id === selectedClassId) + 1;
+
+  const classEnrollments = useMemo(
+    () => enrollments.filter((item) => item.class_id === selectedClassId),
+    [enrollments, selectedClassId],
+  );
+
   const completedCount = useMemo(
     () =>
-      enrollments.filter(
+      classEnrollments.filter(
         (item) =>
           item.status === "completed" || item.progress_percentage >= 100,
       ).length,
-    [enrollments],
+    [classEnrollments],
   );
+
+  const classSummaries = useMemo(() => {
+    const map: Record<
+      number,
+      { lessons: number; exams: number; participants: number }
+    > = {};
+    for (const courseClass of classes) {
+      map[courseClass.id] = { lessons: 0, exams: 0, participants: 0 };
+    }
+    for (const content of contents) {
+      if (content.class_id == null || !map[content.class_id]) continue;
+      if (content.type === "exam") map[content.class_id].exams += 1;
+      else map[content.class_id].lessons += 1;
+    }
+    for (const enrollment of enrollments) {
+      if (enrollment.class_id == null || !map[enrollment.class_id]) continue;
+      map[enrollment.class_id].participants += 1;
+    }
+    return map;
+  }, [classes, contents, enrollments]);
 
   const examTitle = useMemo(
     () => contents.find((item) => item.id === examContentId)?.title ?? null,
@@ -152,7 +200,7 @@ export function CourseContentManager({
     setTitle("");
     setAuthor("");
     setContentUrl("");
-    setOrder(String(contents.length));
+    setOrder(String(classContents.length));
     setTimestampsText("");
     setDurationAmount("");
     setDurationUnit("days");
@@ -194,6 +242,10 @@ export function CourseContentManager({
 
   function onSubmitContent(event: FormEvent) {
     event.preventDefault();
+    if (!editing && selectedClassId == null) {
+      toast.error("افتح دفعة أولاً ثم أضف دروسها");
+      return;
+    }
     startTransition(async () => {
       const trimmedDuration = durationAmount.trim();
       let duration_unit: DurationUnit | null = null;
@@ -219,6 +271,7 @@ export function CourseContentManager({
         duration_unit,
         duration_amount,
         timestamps: type === "watching" ? parseTimestamps(timestampsText) : [],
+        class_id: editing ? undefined : (selectedClassId ?? undefined),
       });
       if (!result.success) {
         toast.error(result.error);
@@ -357,20 +410,6 @@ export function CourseContentManager({
                 )}
                 {VISIBILITY_LABELS[course.visibility ?? "public"]}
               </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${
-                  course.enrollment_status === "open"
-                    ? "bg-sky-50 text-sky-800 ring-sky-200"
-                    : "bg-rose-50 text-rose-800 ring-rose-200"
-                }`}
-              >
-                {course.enrollment_status === "open" ? (
-                  <Unlock className="size-3.5" />
-                ) : (
-                  <Lock className="size-3.5" />
-                )}
-                {ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
-              </span>
             </div>
             <h1 className="font-kufam text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               {course.title}
@@ -391,69 +430,101 @@ export function CourseContentManager({
           </div>
         </div>
 
-        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Book className="size-3.5" />
-              الدروس
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {contents.filter((c) => c.type !== "exam").length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CircleHelp className="size-3.5" />
-              الاختبارات
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {contents.filter((c) => c.type === "exam").length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Users className="size-3.5" />
-              الملتحقون
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {enrollments.length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-primary/25 bg-background/50 px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CheckCircle2 className="size-3.5" />
-              أكملوا الدورة
-            </p>
-            <p className="mt-1 font-kufam text-lg text-foreground">
-              {completedCount}
-            </p>
-          </div>
-        </div>
       </header>
 
-      <CourseClassesPanel courseId={course.id} classes={classes} />
+      <CourseClassesPanel
+        courseId={course.id}
+        classes={classes}
+        selectedId={selectedClassId}
+        onSelect={setSelectedClassId}
+        summaries={classSummaries}
+      />
+
+      <div className="space-y-8 rounded-3xl border border-border/70 bg-background/40 p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-kufam text-2xl font-semibold text-foreground">
+              {selectedClass ? `الدفعة ${selectedClassNumber}` : "اختر دفعة"}
+            </h2>
+            {selectedClass && isClassOpen(selectedClass) && (
+              <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200">
+                التسجيل مفتوح
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {selectedClass
+              ? `التسجيل ${formatClassDate(selectedClass.registration_opens_on)} · بداية التعلم ${formatClassDate(selectedClass.learning_starts_at)}`
+              : "الدروس والملتحقون يتبعون الدفعة المحددة."}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Book className="size-3.5" />
+            الدروس
+          </p>
+          <p className="mt-1 font-kufam text-lg text-foreground">
+            {classContents.filter((c) => c.type !== "exam").length}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CircleHelp className="size-3.5" />
+            الاختبارات
+          </p>
+          <p className="mt-1 font-kufam text-lg text-foreground">
+            {classContents.filter((c) => c.type === "exam").length}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Users className="size-3.5" />
+            الملتحقون
+          </p>
+          <p className="mt-1 font-kufam text-lg text-foreground">
+            {classEnrollments.length}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CheckCircle2 className="size-3.5" />
+            أكملوا
+          </p>
+          <p className="mt-1 font-kufam text-lg text-foreground">
+            {completedCount}
+          </p>
+        </div>
+      </div>
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-baseline gap-3">
-            <h2 className="font-kufam text-2xl font-semibold text-foreground">
-              دروس الدورة
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {contents.length} عنصر
-            </span>
+          <div className="flex flex-wrap items-baseline gap-3">
+            <div>
+              <h3 className="font-kufam text-xl font-semibold text-foreground">
+                الدروس
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                تظهر فقط لمن التحق بهذه الدفعة.
+              </p>
+            </div>
           </div>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="size-4" />
-            درس جديد
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={openCreate} className="gap-2" disabled={classes.length === 0}>
+              <Plus className="size-4" />
+              درس جديد
+            </Button>
+          </div>
         </div>
 
-        {contents.length > 0 ? (
+        {classContents.length > 0 ? (
           <ol className="rounded-3xl border border-border/70 bg-background/70 shadow-[0_4px_24px_-18px_color-mix(in_oklch,var(--foreground)_12%,transparent)]">
-            {contents.map((content, index) => {
+            {classContents.map((content, index) => {
               const Icon = CONTENT_TYPE_ICON[content.type];
-              const openUpward = index >= contents.length - 2;
+              const openUpward = index >= classContents.length - 2;
               return (
                 <li
                   key={content.id}
@@ -469,9 +540,14 @@ export function CourseContentManager({
                       <Icon className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-lg font-medium text-foreground">
-                        {content.title}
-                      </p>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="truncate text-lg font-medium text-foreground">
+                          {content.title}
+                        </p>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          {CONTENT_TYPE_LABELS[content.type]}
+                        </span>
+                      </div>
                       {content.author && (
                         <p className="truncate text-sm text-muted-foreground">
                           {content.author}
@@ -569,31 +645,32 @@ export function CourseContentManager({
           </ol>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-16 text-center">
-            <p className="font-kufam text-lg text-foreground">لا دروس بعد</p>
+            <p className="font-kufam text-lg text-foreground">لا دروس في هذه الدفعة</p>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              أضف دروس مشاهدة أو استماع أو قراءة أو اختباراً لهذه الدورة.
+              أضف مشاهدة أو استماع أو قراءة أو اختباراً. الدروس لا تظهر إلا لملتحقي هذه الدفعة.
             </p>
-            <Button onClick={openCreate} className="mt-6 gap-2">
-              <Plus className="size-4" />
-              درس جديد
-            </Button>
           </div>
         )}
       </section>
 
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="font-kufam text-2xl font-semibold text-foreground">
-            الملتحقون بالدورة
-          </h2>
+          <div>
+            <h3 className="font-kufam text-xl font-semibold text-foreground">
+              الملتحقون
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              من انضم خلال فترة تسجيل هذه الدفعة.
+            </p>
+          </div>
           <span className="text-sm text-muted-foreground">
-            {enrollments.length} عضو
+            {classEnrollments.length} عضو
           </span>
         </div>
 
-        {enrollments.length > 0 ? (
+        {classEnrollments.length > 0 ? (
           <ul className="overflow-hidden rounded-3xl border border-border/70 bg-background/70 shadow-[0_4px_24px_-18px_color-mix(in_oklch,var(--foreground)_12%,transparent)]">
-            {enrollments.map((enrollment) => {
+            {classEnrollments.map((enrollment) => {
               const done =
                 enrollment.status === "completed" ||
                 enrollment.progress_percentage >= 100;
@@ -651,11 +728,12 @@ export function CourseContentManager({
           <div className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
             <Users className="mx-auto mb-3 size-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              لا يوجد ملتحقون بهذه الدورة بعد.
+              لا يوجد ملتحقون بهذه الدفعة بعد.
             </p>
           </div>
         )}
       </section>
+      </div>
 
       {examContentId && (
         <FormDialog

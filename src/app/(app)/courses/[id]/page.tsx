@@ -7,7 +7,11 @@ import {
   getCourseContents,
   getEnrollment,
 } from "@/lib/courses";
-import { pickJoinClass } from "@/lib/course-schedule";
+import {
+  hasLearningStarted,
+  pickOpenClass,
+  pickUpcomingClass,
+} from "@/lib/course-schedule";
 import {
   getMemberForSession,
   isMemberProfileComplete,
@@ -34,8 +38,7 @@ export default async function CourseDetailPage({
   if (!course || !course.is_published) notFound();
 
   const member = await getMemberForSession(session);
-  const [contents, enrollment, acl, classes] = await Promise.all([
-    getCourseContents(id),
+  const [enrollment, acl, classes] = await Promise.all([
     member ? getEnrollment(member.id, id) : Promise.resolve(null),
     getCourseAcl(id),
     getCourseClasses(id),
@@ -45,9 +48,20 @@ export default async function CourseDetailPage({
     notFound();
   }
 
-  if (enrollment) redirect(`/courses/${id}/learn`);
-
-  const joinClass = pickJoinClass(classes);
+  const enrolledClass = enrollment
+    ? (classes.find((item) => item.id === enrollment.class_id) ?? null)
+    : null;
+  const openClass = pickOpenClass(classes);
+  const upcomingClass = pickUpcomingClass(classes);
+  const previewClass = enrolledClass ?? openClass ?? upcomingClass;
+  const previewKind = enrolledClass
+    ? "enrolled"
+    : openClass
+      ? "open"
+      : upcomingClass
+        ? "upcoming"
+        : "none";
+  const contents = await getCourseContents(id, previewClass?.id ?? null);
 
   return (
     <div className="py-10 pb-16 md:py-14">
@@ -55,7 +69,14 @@ export default async function CourseDetailPage({
         course={course}
         contents={contents}
         enrollment={enrollment}
-        joinClass={joinClass}
+        joinClass={openClass}
+        previewClass={previewClass}
+        previewKind={previewKind}
+        learningStarted={
+          enrolledClass
+            ? hasLearningStarted(enrolledClass.learning_starts_at)
+            : false
+        }
         isLoggedIn
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}

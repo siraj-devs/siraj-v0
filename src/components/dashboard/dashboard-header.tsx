@@ -28,7 +28,7 @@ export function DashboardHeader<TKey extends string>({
   title: string;
   description: string;
   action?: ReactNode;
-  stats: DashboardStat<TKey>[];
+  stats?: DashboardStat<TKey>[];
   /** Single active key (ignored when `activeStats` is set). */
   activeStat?: TKey | null;
   /** Multi-select highlight for header stat filters. */
@@ -54,6 +54,7 @@ export function DashboardHeader<TKey extends string>({
         )}
       </div>
 
+      {stats && stats.length > 0 && (
       <div className={`relative mt-8 grid gap-3 ${statsClassName}`}>
         {stats.map((stat) => {
           const isActive = interactive
@@ -95,6 +96,7 @@ export function DashboardHeader<TKey extends string>({
           );
         })}
       </div>
+      )}
     </header>
   );
 }

@@ -8,20 +8,61 @@ export type LessonDuration = {
 export type CourseClass = {
   id: number;
   course_id: number;
+  registration_opens_on: string;
   learning_starts_at: string;
   created_at: string;
 };
 
-export function pickJoinClass(
+export function todayDateOnly(timeZone = "Africa/Casablanca") {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+export function isClassOpen(courseClass: CourseClass, today = todayDateOnly()) {
+  return (
+    courseClass.registration_opens_on <= today &&
+    today <= courseClass.learning_starts_at
+  );
+}
+
+export function classRangesOverlap(a: CourseClass, b: CourseClass) {
+  return (
+    a.registration_opens_on <= b.learning_starts_at &&
+    b.registration_opens_on <= a.learning_starts_at
+  );
+}
+
+/** The single class whose registration-to-start window contains today. */
+export function pickOpenClass(
   classes: readonly CourseClass[],
+  today = todayDateOnly(),
+): CourseClass | null {
+  return classes.find((courseClass) => isClassOpen(courseClass, today)) ?? null;
+}
+
+/** The next class whose registration has not opened yet. */
+export function pickUpcomingClass(
+  classes: readonly CourseClass[],
+  today = todayDateOnly(),
 ): CourseClass | null {
   return (
-    [...classes].sort((a, b) => {
-      const byStart = b.learning_starts_at.localeCompare(a.learning_starts_at);
-      if (byStart !== 0) return byStart;
-      return b.created_at.localeCompare(a.created_at);
-    })[0] ?? null
+    classes
+      .filter((courseClass) => courseClass.registration_opens_on > today)
+      .sort((a, b) =>
+        a.registration_opens_on.localeCompare(b.registration_opens_on),
+      )[0] ?? null
   );
+}
+
+export function hasLearningStarted(
+  learningStartsAt: string,
+  today = todayDateOnly(),
+) {
+  return learningStartsAt.slice(0, 10) <= today;
 }
 
 export function nextOpenLesson<T extends { id: number }>(

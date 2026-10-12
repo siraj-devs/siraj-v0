@@ -1,6 +1,5 @@
 import type { MemberRole } from "@/lib/member-role";
 
-export type CourseEnrollmentStatus = "open" | "closed";
 export type CourseVisibility = "public" | "private";
 
 /** Member option shown in the course ACL picker (dashboard course form). */
@@ -32,7 +31,6 @@ export type Course = {
   description: string | null;
   thumbnail_url: string | null;
   is_published: boolean;
-  enrollment_status: CourseEnrollmentStatus;
   visibility: CourseVisibility;
   owner_id: number | null;
   rating_avg: number;
@@ -58,6 +56,7 @@ export type CourseWithMeta = Course & {
 export type CourseContent = {
   id: number;
   course_id: number;
+  class_id: number | null;
   type: CourseContentType;
   title: string;
   author: string | null;
@@ -117,14 +116,6 @@ export const CONTENT_TYPE_LABELS: Record<CourseContentType, string> = {
   listening: "استماع",
   reading: "قراءة",
   exam: "اختبار",
-};
-
-export const ENROLLMENT_STATUS_LABELS: Record<
-  CourseEnrollmentStatus,
-  string
-> = {
-  open: "مفتوح",
-  closed: "مغلق",
 };
 
 export const VISIBILITY_LABELS: Record<CourseVisibility, string> = {

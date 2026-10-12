@@ -10,7 +10,7 @@ import {
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { CourseWithMeta } from "@/lib/course-types";
-import { ENROLLMENT_STATUS_LABELS, VISIBILITY_LABELS } from "@/lib/course-types";
+import { VISIBILITY_LABELS } from "@/lib/course-types";
 import {
   BookOpen,
   CircleHelp,
@@ -18,12 +18,10 @@ import {
   EyeOff,
   Globe,
   ListVideo,
-  Lock,
   Pencil,
   Plus,
   Shield,
   Trash2,
-  Unlock,
   Users,
 } from "lucide-react";
 import Image from "next/image";
@@ -61,18 +59,6 @@ function CourseStatusBadges({
           )
         }
         label={VISIBILITY_LABELS[course.visibility ?? "public"]}
-        size={size}
-      />
-      <StatusBadge
-        tone={course.enrollment_status === "open" ? "sky" : "rose"}
-        icon={
-          course.enrollment_status === "open" ? (
-            <Unlock className={icon} />
-          ) : (
-            <Lock className={icon} />
-          )
-        }
-        label={ENROLLMENT_STATUS_LABELS[course.enrollment_status]}
         size={size}
       />
     </>
