@@ -87,7 +87,13 @@ export async function submitJoinForm(formData: JoinFormData) {
     }
 
     const providerLabel =
-      provider === "42" ? "42" : provider === "discord" ? "ديسكورد" : "غير معروف";
+      provider === "42"
+        ? "42"
+        : provider === "discord"
+          ? "ديسكورد"
+          : provider === "google"
+            ? "Google"
+            : "غير معروف";
     const teamLabel = getSubmissionTeamLabel(formData.team);
     const availabilityLabel = getSubmissionAvailabilityLabel(
       formData.availability,

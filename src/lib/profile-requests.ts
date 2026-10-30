@@ -10,6 +10,7 @@ export type ProfileChangeRequest = {
   member_id: number | null;
   ft_connection: number | null;
   dc_connection: string | null;
+  google_connection: string | null;
   requested_name: string;
   requested_email: string;
   requested_phone: string;
@@ -22,7 +23,7 @@ export type ProfileChangeRequest = {
 };
 
 const PROFILE_REQUEST_COLUMNS =
-  "id, member_id, ft_connection, dc_connection, requested_name, requested_email, requested_phone, status, reviewed_by, reviewed_at, rejection_note, created_at";
+  "id, member_id, ft_connection, dc_connection, google_connection, requested_name, requested_email, requested_phone, status, reviewed_by, reviewed_at, rejection_note, created_at";
 
 function mapProfileRequest(row: Record<string, unknown>): ProfileChangeRequest {
   return {
@@ -30,6 +31,7 @@ function mapProfileRequest(row: Record<string, unknown>): ProfileChangeRequest {
     member_id: (row.member_id as number | null) ?? null,
     ft_connection: (row.ft_connection as number | null) ?? null,
     dc_connection: (row.dc_connection as string | null) ?? null,
+    google_connection: (row.google_connection as string | null) ?? null,
     requested_name: row.requested_name as string,
     requested_email: row.requested_email as string,
     requested_phone: row.requested_phone as string,
@@ -69,15 +71,16 @@ export async function getPendingProfileRequestForSession(
   }
 
   const supabase = await createClient();
-  const isDiscord = session.provider === "discord";
   let query = supabase
     .from("profile_change_requests")
     .select(PROFILE_REQUEST_COLUMNS)
     .eq("status", "pending")
     .is("member_id", null);
 
-  if (isDiscord) {
+  if (session.provider === "discord") {
     query = query.eq("dc_connection", session.user.id);
+  } else if (session.provider === "google") {
+    query = query.eq("google_connection", session.user.id);
   } else {
     const ftId = Number(session.user.id);
     if (!Number.isFinite(ftId)) return null;

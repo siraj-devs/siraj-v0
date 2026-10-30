@@ -34,7 +34,7 @@ interface SessionData {
     image?: string | null
   }
   accessToken: string
-  provider?: "42" | "discord"
+  provider?: "42" | "discord" | "google"
 }
 
 type MemberRole = "owner" | "admin" | "participant" | "veteran" | "newcomer"
@@ -44,6 +44,7 @@ interface AppMember {
   name: string
   ft_connection: number | null
   dc_connection: string | null
+  google_connection: string | null
   role: MemberRole
 }
 

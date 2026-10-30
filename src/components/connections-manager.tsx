@@ -24,29 +24,27 @@ export type DcConnectionRow = {
   authorized_at: string | null;
 };
 
-type ProviderFilter = "42" | "discord";
+export type GoogleConnectionRow = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+  access_at: string | null;
+  authorized_at: string | null;
+};
 
-type UnifiedConnection =
-  | {
-      key: string;
-      provider: "42";
-      title: string;
-      subtitle: string;
-      href: string | null;
-      avatar: string | null;
-      access_at: string | null;
-      authorized_at: string | null;
-    }
-  | {
-      key: string;
-      provider: "discord";
-      title: string;
-      subtitle: string;
-      href: null;
-      avatar: string | null;
-      access_at: string | null;
-      authorized_at: string | null;
-    };
+type ProviderFilter = "42" | "discord" | "google";
+
+type UnifiedConnection = {
+  key: string;
+  provider: ProviderFilter;
+  title: string;
+  subtitle: string;
+  href: string | null;
+  avatar: string | null;
+  access_at: string | null;
+  authorized_at: string | null;
+};
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
@@ -73,12 +71,16 @@ function accessTime(value: string | null) {
 export function ConnectionsManager({
   ftConnections,
   dcConnections,
+  googleConnections,
 }: {
   ftConnections: FtConnectionRow[];
   dcConnections: DcConnectionRow[];
+  googleConnections: GoogleConnectionRow[];
 }) {
   const [query, setQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<ProviderFilter[]>([]);
+  const total =
+    ftConnections.length + dcConnections.length + googleConnections.length;
 
   const mixed = useMemo(() => {
     const rows: UnifiedConnection[] = [
@@ -106,12 +108,24 @@ export function ConnectionsManager({
           authorized_at: c.authorized_at,
         }),
       ),
+      ...googleConnections.map(
+        (c): UnifiedConnection => ({
+          key: `google-${c.id}`,
+          provider: "google",
+          title: c.name ?? c.email ?? c.id,
+          subtitle: c.email ?? "بدون بريد",
+          href: null,
+          avatar: c.avatar,
+          access_at: c.access_at,
+          authorized_at: c.authorized_at,
+        }),
+      ),
     ];
 
     return rows.sort(
       (a, b) => accessTime(b.access_at) - accessTime(a.access_at),
     );
-  }, [ftConnections, dcConnections]);
+  }, [ftConnections, dcConnections, googleConnections]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -134,16 +148,15 @@ export function ConnectionsManager({
             الاتصالات
           </h1>
           <p className="max-w-lg text-foreground/65">
-            عرض كل من سجّل الدخول عبر 42 أو ديسكورد، مع آخر وصول وتاريخ التفويض.
+            عرض كل من سجّل الدخول عبر 42 أو ديسكورد أو Google، مع آخر وصول وتاريخ
+            التفويض.
           </p>
         </div>
 
-        <div className="relative mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">الإجمالي</p>
-            <p className="mt-1 font-kufam text-2xl text-foreground">
-              {ftConnections.length + dcConnections.length}
-            </p>
+            <p className="mt-1 font-kufam text-2xl text-foreground">{total}</p>
           </div>
           <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
             <p className="text-xs text-muted-foreground">42</p>
@@ -155,6 +168,12 @@ export function ConnectionsManager({
             <p className="text-xs text-muted-foreground">ديسكورد</p>
             <p className="mt-1 font-kufam text-2xl text-foreground">
               {dcConnections.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-transparent bg-background/50 px-4 py-3">
+            <p className="text-xs text-muted-foreground">Google</p>
+            <p className="mt-1 font-kufam text-2xl text-foreground">
+              {googleConnections.length}
             </p>
           </div>
         </div>
@@ -174,6 +193,7 @@ export function ConnectionsManager({
             options: [
               { key: "42", label: "42", tone: "sky", icon: <GraduationCap /> },
               { key: "discord", label: "ديسكورد", tone: "violet", icon: <MessageCircle /> },
+              { key: "google", label: "Google", tone: "emerald", icon: <Search /> },
             ],
           },
         ]}
@@ -189,6 +209,7 @@ export function ConnectionsManager({
                 width={48}
                 height={48}
                 className="size-12 rounded-xl object-cover"
+                unoptimized
               />
             ) : (
               <div className="flex size-12 items-center justify-center rounded-xl bg-foreground font-kufam text-sm text-background">
@@ -224,10 +245,16 @@ export function ConnectionsManager({
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
                           row.provider === "42"
                             ? "bg-primary/15 text-[#7a5a08] ring-primary/25"
-                            : "bg-sky-500/10 text-sky-800 ring-sky-500/20"
+                            : row.provider === "discord"
+                              ? "bg-sky-500/10 text-sky-800 ring-sky-500/20"
+                              : "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20"
                         }`}
                       >
-                        {row.provider === "42" ? "42" : "ديسكورد"}
+                        {row.provider === "42"
+                          ? "42"
+                          : row.provider === "discord"
+                            ? "ديسكورد"
+                            : "Google"}
                       </span>
                     </div>
                     {row.href ? (
@@ -272,7 +299,7 @@ export function ConnectionsManager({
           </div>
           <p className="font-kufam text-lg text-foreground">لا نتائج</p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            {ftConnections.length + dcConnections.length === 0
+            {total === 0
               ? "لا توجد اتصالات بعد. ستظهر هنا بعد أول تسجيل دخول."
               : "جرّب تغيير البحث أو فلتر المزود."}
           </p>

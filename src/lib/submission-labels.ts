@@ -23,7 +23,7 @@ export function getSubmissionAvailabilityLabel(value: string) {
 export type SubmissionRow = {
   id: number;
   connection_id: string;
-  provider: "42" | "discord" | null;
+  provider: "42" | "discord" | "google" | null;
   name: string;
   email: string;
   tel: string;

@@ -1,6 +1,7 @@
 import {
   getAvailableDcConnections,
   getAvailableFtConnections,
+  getAvailableGoogleConnections,
   getClubMembers,
 } from "@/app/actions/members";
 import { MembersManager } from "@/components/members-manager";
@@ -23,12 +24,13 @@ export default async function MembersPage() {
     ...member,
     role: roleVisibleTo(current?.role, member.role),
   }));
-  const [ftConnections, dcConnections] = canManage
+  const [ftConnections, dcConnections, googleConnections] = canManage
     ? await Promise.all([
         getAvailableFtConnections(),
         getAvailableDcConnections(),
+        getAvailableGoogleConnections(),
       ])
-    : [[], []];
+    : [[], [], []];
 
   return (
     <div className="py-6 md:py-10">
@@ -36,6 +38,7 @@ export default async function MembersPage() {
         members={members}
         ftConnections={ftConnections}
         dcConnections={dcConnections}
+        googleConnections={googleConnections}
         canManage={canManage}
         viewerRole={current?.role ?? null}
         currentMemberId={current?.id ?? null}

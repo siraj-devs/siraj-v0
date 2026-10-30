@@ -150,7 +150,11 @@ export function SubmissionsManager({
                   ? submission.connection_username
                     ? `@${submission.connection_username}`
                     : submission.connection_id
-                  : submission.connection_id;
+                  : submission.provider === "google"
+                    ? submission.connection_login ??
+                      submission.connection_name ??
+                      submission.connection_id
+                    : submission.connection_id;
             const profileHref =
               submission.provider === "42" && submission.connection_login
                 ? `https://profile.intra.42.fr/users/${submission.connection_login}`
@@ -202,7 +206,9 @@ export function SubmissionsManager({
                             ? "42"
                             : submission.provider === "discord"
                               ? "ديسكورد"
-                              : "اتصال"}
+                              : submission.provider === "google"
+                                ? "Google"
+                                : "اتصال"}
                         </span>
                       )}
                       <span

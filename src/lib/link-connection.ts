@@ -1,6 +1,7 @@
 import {
   getMemberByDcConnectionId,
   getMemberByFtConnectionId,
+  getMemberByGoogleConnectionId,
   getMemberForSession,
 } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
@@ -17,10 +18,15 @@ export type LinkConnectionResult =
         | "update_failed";
     };
 
+type LinkProvider =
+  | { provider: "42"; id: number }
+  | { provider: "discord"; id: string }
+  | { provider: "google"; id: string };
+
 /** Attach a newly authorized OAuth connection to the current session's member. */
 export async function linkConnectionToSessionMember(
   session: SessionData | null | undefined,
-  connection: { provider: "42"; id: number } | { provider: "discord"; id: string },
+  connection: LinkProvider,
 ): Promise<LinkConnectionResult> {
   if (!session?.user?.id) {
     return { success: false, code: "unauthenticated" };
@@ -58,11 +64,38 @@ export async function linkConnectionToSessionMember(
     return { success: true };
   }
 
-  if (member.dc_connection) {
+  if (connection.provider === "discord") {
+    if (member.dc_connection) {
+      return { success: false, code: "already_linked" };
+    }
+
+    const taken = await getMemberByDcConnectionId(connection.id);
+    if (taken && taken.id !== member.id) {
+      return { success: false, code: "connection_taken" };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("members")
+      .update({ dc_connection: connection.id })
+      .eq("id", member.id);
+
+    if (error) {
+      console.error("Error linking dc_connection:", error);
+      if (error.code === "23505") {
+        return { success: false, code: "connection_taken" };
+      }
+      return { success: false, code: "update_failed" };
+    }
+
+    return { success: true };
+  }
+
+  if (member.google_connection) {
     return { success: false, code: "already_linked" };
   }
 
-  const taken = await getMemberByDcConnectionId(connection.id);
+  const taken = await getMemberByGoogleConnectionId(connection.id);
   if (taken && taken.id !== member.id) {
     return { success: false, code: "connection_taken" };
   }
@@ -70,11 +103,11 @@ export async function linkConnectionToSessionMember(
   const supabase = await createClient();
   const { error } = await supabase
     .from("members")
-    .update({ dc_connection: connection.id })
+    .update({ google_connection: connection.id })
     .eq("id", member.id);
 
   if (error) {
-    console.error("Error linking dc_connection:", error);
+    console.error("Error linking google_connection:", error);
     if (error.code === "23505") {
       return { success: false, code: "connection_taken" };
     }
@@ -94,7 +127,7 @@ export type UnlinkConnectionResult =
 /** Remove the non-session connection from the current member. */
 export async function unlinkMemberConnection(
   session: SessionData | null | undefined,
-  provider: "42" | "discord",
+  provider: "42" | "discord" | "google",
 ): Promise<UnlinkConnectionResult> {
   if (!session?.user?.id) {
     return { success: false, error: "يجب تسجيل الدخول أولاً" };
@@ -130,16 +163,31 @@ export async function unlinkMemberConnection(
     return { success: true };
   }
 
-  if (!member.dc_connection) {
-    return { success: false, error: "حساب ديسكورد غير مربوط" };
+  if (provider === "discord") {
+    if (!member.dc_connection) {
+      return { success: false, error: "حساب ديسكورد غير مربوط" };
+    }
+    const { error } = await supabase
+      .from("members")
+      .update({ dc_connection: null })
+      .eq("id", member.id);
+    if (error) {
+      console.error("Error unlinking dc_connection:", error);
+      return { success: false, error: "تعذر إلغاء ربط حساب ديسكورد" };
+    }
+    return { success: true };
+  }
+
+  if (!member.google_connection) {
+    return { success: false, error: "حساب Google غير مربوط" };
   }
   const { error } = await supabase
     .from("members")
-    .update({ dc_connection: null })
+    .update({ google_connection: null })
     .eq("id", member.id);
   if (error) {
-    console.error("Error unlinking dc_connection:", error);
-    return { success: false, error: "تعذر إلغاء ربط حساب ديسكورد" };
+    console.error("Error unlinking google_connection:", error);
+    return { success: false, error: "تعذر إلغاء ربط حساب Google" };
   }
   return { success: true };
 }

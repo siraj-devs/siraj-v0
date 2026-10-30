@@ -33,6 +33,15 @@ function readSessionCookie(request: NextRequest): SessionData | null {
     }
   }
 
+  const google = request.cookies.get("google-session");
+  if (google) {
+    try {
+      return { ...JSON.parse(google.value), provider: "google" as const };
+    } catch {
+      return null;
+    }
+  }
+
   return null;
 }
 

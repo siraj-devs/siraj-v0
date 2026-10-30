@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
       maxAge: expires_in,
     });
     response.cookies.delete("dc-session");
+    response.cookies.delete("google-session");
     return response;
   } catch (error) {
     console.error("[42] callback", error);

@@ -19,6 +19,9 @@ const env = createEnv({
     DISCORD_GUILD_ID: z.string().regex(/^\d+$/),
     DISCORD_BOT_TOKEN: z.string().min(1),
 
+    GOOGLE_CLIENT_ID: z.string().min(1),
+    GOOGLE_CLIENT_SECRET: z.string().min(1),
+
     SUPABASE_SECRET_KEY: z.string().min(1),
 
     NODE_ENV: z.enum(["development", "test", "production"]),

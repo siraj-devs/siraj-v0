@@ -13,6 +13,11 @@ export async function getSession(): Promise<SessionData | null> {
       return { ...JSON.parse(dcSession.value), provider: "discord" };
     }
 
+    const googleSession = cookieStore.get("google-session");
+    if (googleSession) {
+      return { ...JSON.parse(googleSession.value), provider: "google" };
+    }
+
     return null;
   } catch (error) {
     console.error("Error getting session:", error);
@@ -24,4 +29,5 @@ export async function signOut() {
   const cookieStore = await cookies();
   cookieStore.delete("42-session");
   cookieStore.delete("dc-session");
+  cookieStore.delete("google-session");
 }

@@ -44,6 +44,11 @@ const nextConfig: NextConfig = {
         hostname: "cdn.discordapp.com",
         pathname: "/embed/avatars/**",
       },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        pathname: "/**",
+      },
       ...(supabasePattern ? [supabasePattern] : []),
     ],
     dangerouslyAllowLocalIP: true,

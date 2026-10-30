@@ -56,7 +56,7 @@ export function profileLinkErrorUrl(
 
 export function profileLinkedUrl(
   requestUrl: string,
-  provider: "42" | "discord",
+  provider: "42" | "discord" | "google",
   redirect = "/profile",
 ): URL {
   const url = new URL(redirect, requestUrl);

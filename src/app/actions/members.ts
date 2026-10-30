@@ -20,6 +20,8 @@ export type MemberProfile = AppMember & {
   avatar: string | null;
   dc_username: string | null;
   dc_avatar: string | null;
+  google_email: string | null;
+  google_avatar: string | null;
   page_permissions: PageGrant[];
 };
 
@@ -34,6 +36,13 @@ export type DcConnectionOption = {
   id: string;
   username: string;
   email: string | null;
+  avatar: string | null;
+};
+
+export type GoogleConnectionOption = {
+  id: string;
+  email: string | null;
+  name: string | null;
   avatar: string | null;
 };
 
@@ -63,7 +72,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
   const { data, error } = await supabase
     .from("members")
     .select(
-      "id, name, email, phone, role, ft_connection, dc_connection, ft_connections(login, avatar), dc_connections(username, avatar)",
+      "id, name, email, phone, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)",
     )
     .order("name", { ascending: true });
 
@@ -84,6 +93,9 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
       const dc = Array.isArray(row.dc_connections)
         ? row.dc_connections[0]
         : row.dc_connections;
+      const google = Array.isArray(row.google_connections)
+        ? row.google_connections[0]
+        : row.google_connections;
 
       return {
         id: row.id,
@@ -93,10 +105,13 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
         role: row.role as MemberRole,
         ft_connection: row.ft_connection,
         dc_connection: row.dc_connection,
+        google_connection: row.google_connection,
         login: ft?.login ?? null,
-        avatar: ft?.avatar ?? dc?.avatar ?? null,
+        avatar: ft?.avatar ?? dc?.avatar ?? google?.avatar ?? null,
         dc_username: dc?.username ?? null,
         dc_avatar: dc?.avatar ?? null,
+        google_email: google?.email ?? null,
+        google_avatar: google?.avatar ?? null,
         page_permissions: permissionsByMember.get(row.id) ?? [],
       };
     })
@@ -193,11 +208,56 @@ export async function getAvailableDcConnections(
     }));
 }
 
+export async function getAvailableGoogleConnections(
+  currentConnectionId?: string | null,
+): Promise<GoogleConnectionOption[]> {
+  await requireOwner();
+  const supabase = await createClient();
+
+  const { data: members, error: membersError } = await supabase
+    .from("members")
+    .select("google_connection")
+    .not("google_connection", "is", null);
+
+  if (membersError) {
+    console.error("Error fetching linked google connections:", membersError);
+    throw new Error("تعذر جلب اتصالات Google");
+  }
+
+  const linkedIds = new Set(
+    (members ?? [])
+      .map((m) => m.google_connection as string | null)
+      .filter(
+        (id): id is string => id != null && id !== currentConnectionId,
+      ),
+  );
+
+  const { data: connections, error } = await supabase
+    .from("google_connections")
+    .select("id, email, name, avatar")
+    .order("email", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching google_connections:", error);
+    throw new Error("تعذر جلب اتصالات Google");
+  }
+
+  return (connections ?? [])
+    .filter((c) => !linkedIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      email: c.email,
+      name: c.name,
+      avatar: c.avatar,
+    }));
+}
+
 export async function createMember(input: {
   name: string;
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
+  google_connection?: string | null;
   page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -207,6 +267,7 @@ export async function createMember(input: {
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
     const dc_connection = input.dc_connection?.trim() || null;
+    const google_connection = input.google_connection?.trim() || null;
 
     if (!name) return { success: false, error: "الاسم مطلوب" };
     if (!ROLE_VALUES.includes(role))
@@ -220,6 +281,7 @@ export async function createMember(input: {
         role,
         ft_connection,
         dc_connection,
+        google_connection,
       })
       .select("id")
       .single();
@@ -250,6 +312,7 @@ export async function updateMember(input: {
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
+  google_connection?: string | null;
   page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -260,6 +323,7 @@ export async function updateMember(input: {
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
     const dc_connection = input.dc_connection?.trim() || null;
+    const google_connection = input.google_connection?.trim() || null;
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
@@ -277,7 +341,7 @@ export async function updateMember(input: {
     const supabase = await createClient();
     const { error } = await supabase
       .from("members")
-      .update({ name, role, ft_connection, dc_connection })
+      .update({ name, role, ft_connection, dc_connection, google_connection })
       .eq("id", id);
 
     if (error) {

@@ -36,12 +36,20 @@ export type MemberDcConnection = {
   avatar: string | null;
 };
 
+export type MemberGoogleConnection = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar: string | null;
+};
+
 export async function getMyMemberProfile(): Promise<{
   member: AppMember | null;
   pendingRequest: ProfileChangeRequest | null;
   complete: boolean;
   ftConnection: MemberFtConnection | null;
   dcConnection: MemberDcConnection | null;
+  googleConnection: MemberGoogleConnection | null;
 }> {
   const empty = {
     member: null,
@@ -49,6 +57,7 @@ export async function getMyMemberProfile(): Promise<{
     complete: false,
     ftConnection: null,
     dcConnection: null,
+    googleConnection: null,
   };
 
   const session = await getSession();
@@ -65,7 +74,7 @@ export async function getMyMemberProfile(): Promise<{
   }
 
   const supabase = await createClient();
-  const [ftRes, dcRes] = await Promise.all([
+  const [ftRes, dcRes, googleRes] = await Promise.all([
     member.ft_connection
       ? supabase
           .from("ft_connections")
@@ -80,6 +89,13 @@ export async function getMyMemberProfile(): Promise<{
           .eq("id", member.dc_connection)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    member.google_connection
+      ? supabase
+          .from("google_connections")
+          .select("id, email, name, avatar")
+          .eq("id", member.google_connection)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   return {
@@ -88,6 +104,7 @@ export async function getMyMemberProfile(): Promise<{
     complete: isMemberProfileComplete(member),
     ftConnection: (ftRes.data as MemberFtConnection | null) ?? null,
     dcConnection: (dcRes.data as MemberDcConnection | null) ?? null,
+    googleConnection: (googleRes.data as MemberGoogleConnection | null) ?? null,
   };
 }
 
@@ -133,8 +150,14 @@ export async function submitProfileChangeRequest(input: {
     }
 
     const isDiscord = session.provider === "discord";
-    const ftConnectionId = isDiscord ? null : Number(session.user.id);
-    if (!isDiscord && (!ftConnectionId || !Number.isFinite(ftConnectionId))) {
+    const isGoogle = session.provider === "google";
+    const ftConnectionId =
+      isDiscord || isGoogle ? null : Number(session.user.id);
+    if (
+      !isDiscord &&
+      !isGoogle &&
+      (!ftConnectionId || !Number.isFinite(ftConnectionId))
+    ) {
       return { success: false, error: "جلسة الدخول غير صالحة" };
     }
 
@@ -143,6 +166,7 @@ export async function submitProfileChangeRequest(input: {
       member_id: member?.id ?? null,
       ft_connection: member ? null : ftConnectionId,
       dc_connection: member ? null : isDiscord ? session.user.id : null,
+      google_connection: member ? null : isGoogle ? session.user.id : null,
       requested_name: name,
       requested_email: email,
       requested_phone: phone,
@@ -190,7 +214,7 @@ export async function reviewProfileChangeRequest(input: {
     const { data: request, error: fetchError } = await supabase
       .from("profile_change_requests")
       .select(
-        "id, member_id, ft_connection, dc_connection, requested_name, requested_email, requested_phone, status",
+        "id, member_id, ft_connection, dc_connection, google_connection, requested_name, requested_email, requested_phone, status",
       )
       .eq("id", input.id)
       .maybeSingle();
@@ -232,6 +256,7 @@ export async function reviewProfileChangeRequest(input: {
             role: "newcomer",
             ft_connection: request.ft_connection,
             dc_connection: request.dc_connection,
+            google_connection: request.google_connection,
           })
           .select("id")
           .single();
@@ -278,7 +303,7 @@ export async function reviewProfileChangeRequest(input: {
 }
 
 export async function unlinkMyConnection(
-  provider: "42" | "discord",
+  provider: "42" | "discord" | "google",
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const session = await getSession();

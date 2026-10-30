@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
       maxAge: expires_in,
     });
     response.cookies.delete("42-session");
+    response.cookies.delete("google-session");
     return response;
   } catch {
     return NextResponse.redirect(

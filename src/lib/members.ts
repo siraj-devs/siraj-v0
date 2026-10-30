@@ -16,11 +16,12 @@ export type AppMember = {
   phone: string | null;
   ft_connection: number | null;
   dc_connection: string | null;
+  google_connection: string | null;
   role: MemberRole;
 };
 
 const MEMBER_COLUMNS =
-  "id, name, email, phone, ft_connection, dc_connection, role";
+  "id, name, email, phone, ft_connection, dc_connection, google_connection, role";
 
 export function isMemberProfileComplete(
   member: Pick<AppMember, "name" | "email" | "phone"> | null | undefined,
@@ -69,6 +70,24 @@ export async function getMemberByDcConnectionId(
   return (data as AppMember | null) ?? null;
 }
 
+export async function getMemberByGoogleConnectionId(
+  googleConnectionId: string,
+): Promise<AppMember | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("members")
+    .select(MEMBER_COLUMNS)
+    .eq("google_connection", googleConnectionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching member by google_connection:", error);
+    return null;
+  }
+
+  return (data as AppMember | null) ?? null;
+}
+
 export async function getMemberForSession(
   session: SessionData | null | undefined,
 ): Promise<AppMember | null> {
@@ -76,6 +95,10 @@ export async function getMemberForSession(
 
   if (session.provider === "discord") {
     return getMemberByDcConnectionId(session.user.id);
+  }
+
+  if (session.provider === "google") {
+    return getMemberByGoogleConnectionId(session.user.id);
   }
 
   return getMemberByFtConnectionId(session.user.id);

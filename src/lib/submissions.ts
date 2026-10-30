@@ -28,38 +28,53 @@ export async function getSubmissions(): Promise<SubmissionRow[]> {
     .map((id) => Number(id))
     .filter((id) => Number.isFinite(id));
 
-  const [{ data: ftConnections }, { data: dcConnections }] = await Promise.all([
-    numericIds.length
-      ? supabase
-          .from("ft_connections")
-          .select("id, login, name, avatar")
-          .in("id", numericIds)
-      : Promise.resolve({
-          data: [] as {
-            id: number;
-            login: string;
-            name: string | null;
-            avatar: string | null;
-          }[],
-        }),
-    connectionIds.length
-      ? supabase
-          .from("dc_connections")
-          .select("id, username, avatar")
-          .in("id", connectionIds)
-      : Promise.resolve({
-          data: [] as {
-            id: string;
-            username: string;
-            avatar: string | null;
-          }[],
-        }),
-  ]);
+  const [{ data: ftConnections }, { data: dcConnections }, { data: googleConnections }] =
+    await Promise.all([
+      numericIds.length
+        ? supabase
+            .from("ft_connections")
+            .select("id, login, name, avatar")
+            .in("id", numericIds)
+        : Promise.resolve({
+            data: [] as {
+              id: number;
+              login: string;
+              name: string | null;
+              avatar: string | null;
+            }[],
+          }),
+      connectionIds.length
+        ? supabase
+            .from("dc_connections")
+            .select("id, username, avatar")
+            .in("id", connectionIds)
+        : Promise.resolve({
+            data: [] as {
+              id: string;
+              username: string;
+              avatar: string | null;
+            }[],
+          }),
+      connectionIds.length
+        ? supabase
+            .from("google_connections")
+            .select("id, email, name, avatar")
+            .in("id", connectionIds)
+        : Promise.resolve({
+            data: [] as {
+              id: string;
+              email: string | null;
+              name: string | null;
+              avatar: string | null;
+            }[],
+          }),
+    ]);
 
   const ftMap = new Map(
     (ftConnections ?? []).map((c) => [String(c.id), c]),
   );
   const dcMap = new Map((dcConnections ?? []).map((c) => [c.id, c]));
+  const googleMap = new Map((googleConnections ?? []).map((c) => [c.id, c]));
 
   return rows.map((row) => {
     const ft = ftMap.get(row.connection_id);
@@ -83,6 +98,18 @@ export async function getSubmissions(): Promise<SubmissionRow[]> {
         connection_username: dc.username,
         connection_avatar: dc.avatar,
         connection_name: null,
+      };
+    }
+
+    const google = googleMap.get(row.connection_id);
+    if (google) {
+      return {
+        ...row,
+        provider: "google" as const,
+        connection_login: google.email,
+        connection_username: null,
+        connection_avatar: google.avatar,
+        connection_name: google.name,
       };
     }
 

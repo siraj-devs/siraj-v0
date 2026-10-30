@@ -6,6 +6,7 @@ import {
   updateMember,
   type DcConnectionOption,
   type FtConnectionOption,
+  type GoogleConnectionOption,
   type MemberProfile,
 } from "@/app/actions/members";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
@@ -95,6 +96,7 @@ type MemberFormState = {
   role: MemberRole;
   ft_connection: string;
   dc_connection: string;
+  google_connection: string;
   page_permissions: PageGrant[];
 };
 
@@ -152,6 +154,7 @@ const emptyForm: MemberFormState = {
   role: "newcomer",
   ft_connection: "",
   dc_connection: "",
+  google_connection: "",
   page_permissions: [],
 };
 
@@ -168,6 +171,7 @@ export function MembersManager({
   members,
   ftConnections,
   dcConnections,
+  googleConnections,
   canManage,
   viewerRole,
   currentMemberId,
@@ -175,6 +179,7 @@ export function MembersManager({
   members: MemberProfile[];
   ftConnections: FtConnectionOption[];
   dcConnections: DcConnectionOption[];
+  googleConnections: GoogleConnectionOption[];
   canManage: boolean;
   viewerRole: MemberRole | null;
   currentMemberId: number | null;
@@ -229,7 +234,8 @@ export function MembersManager({
       return (
         m.name.toLowerCase().includes(q) ||
         (m.login?.toLowerCase().includes(q) ?? false) ||
-        (m.dc_username?.toLowerCase().includes(q) ?? false)
+        (m.dc_username?.toLowerCase().includes(q) ?? false) ||
+        (m.google_email?.toLowerCase().includes(q) ?? false)
       );
     });
   }, [members, query, roleFilter]);
@@ -270,6 +276,27 @@ export function MembersManager({
         ].sort((a, b) => a.username.localeCompare(b.username))
       : dcConnections;
 
+  const googleOptions =
+    modal === "edit" && editingMember?.google_connection
+      ? [
+          ...googleConnections.filter(
+            (c) => c.id !== editingMember.google_connection,
+          ),
+          ...(editingMember.google_connection
+            ? [
+                {
+                  id: editingMember.google_connection,
+                  email: editingMember.google_email,
+                  name: editingMember.name,
+                  avatar: editingMember.google_avatar,
+                } satisfies GoogleConnectionOption,
+              ]
+            : []),
+        ].sort((a, b) =>
+          (a.email ?? a.id).localeCompare(b.email ?? b.id),
+        )
+      : googleConnections;
+
   function openCreate() {
     if (!canManage) return;
     setForm(emptyForm);
@@ -285,6 +312,7 @@ export function MembersManager({
       role: member.role,
       ft_connection: member.ft_connection ? String(member.ft_connection) : "",
       dc_connection: member.dc_connection ?? "",
+      google_connection: member.google_connection ?? "",
       page_permissions: member.page_permissions ?? [],
     });
     setEditingId(member.id);
@@ -307,6 +335,7 @@ export function MembersManager({
       role: form.role,
       ft_connection: form.ft_connection ? Number(form.ft_connection) : null,
       dc_connection: form.dc_connection || null,
+      google_connection: form.google_connection || null,
       page_permissions: form.page_permissions,
     };
 
@@ -485,6 +514,11 @@ export function MembersManager({
                   <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
                     <DiscordIcon className="size-3.5 shrink-0 text-[#5865F2]" />
                     {member.dc_username}
+                  </span>
+                )}
+                {member.google_email && (
+                  <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                    {member.google_email}
                   </span>
                 )}
               </div>
@@ -764,6 +798,29 @@ export function MembersManager({
                 <option key={c.id} value={c.id}>
                   {c.username}
                   {c.email ? ` — ${c.email}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="member-google">حساب Google</Label>
+            <select
+              id="member-google"
+              value={form.google_connection}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  google_connection: e.target.value,
+                }))
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <option value="">بدون ربط</option>
+              {googleOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.email ?? c.id}
+                  {c.name ? ` — ${c.name}` : ""}
                 </option>
               ))}
             </select>
