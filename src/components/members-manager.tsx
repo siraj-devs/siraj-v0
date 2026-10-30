@@ -558,6 +558,7 @@ export function MembersManager({
                     ? `size-20 ring-4 ring-background ${styles.ring}`
                     : `size-14 ring-2 ring-background ${styles.ring}`
                 }`}
+                unoptimized
               />
             ) : (
               <div

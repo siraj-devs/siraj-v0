@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import Image from "next/image";
 
 function EntryAvatar({
   entry,
@@ -36,11 +37,14 @@ function EntryAvatar({
   const size = className ?? "size-14";
   if (entry.avatar && !failed) {
     return (
-      <img
+      <Image
         src={entry.avatar}
         alt={entry.name}
         className={`${size} shrink-0 rounded-2xl object-cover`}
         onError={() => setFailed(true)}
+        width={48}
+        height={48}
+        unoptimized
       />
     );
   }
