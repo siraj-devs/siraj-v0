@@ -4,8 +4,8 @@ import type { ListProfileCard } from "@/app/actions/lists";
 import { Button } from "@/components/ui/button";
 import { campusLabelAr } from "@/lib/network-labels";
 import { Calendar, MapPin, X } from "lucide-react";
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { RemoteAvatar } from "@/components/remote-avatar";
+import { useEffect } from "react";
 
 export function ProfileResultModal({
   open,
@@ -22,11 +22,6 @@ export function ProfileResultModal({
   onClose: () => void;
   onConfirm?: () => void;
 }) {
-  const [avatarFailed, setAvatarFailed] = useState(false);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [profile?.login, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -96,20 +91,16 @@ export function ProfileResultModal({
               confirming ? "bg-muted/40" : added ? "bg-emerald-50" : "bg-amber-50"
             }`}
           >
-            {profile.avatar && !avatarFailed ? (
-              <Image
-                src={profile.avatar}
-                alt={profile.name}
-                width={144}
-                height={144}
-                className="size-36 rounded-full object-cover ring-4 ring-background shadow-lg"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : (
-              <div className="flex size-36 items-center justify-center rounded-full bg-foreground font-kufam text-4xl text-background ring-4 ring-background shadow-lg">
-                {profile.name.slice(0, 1)}
-              </div>
-            )}
+            <RemoteAvatar
+              src={profile.avatar}
+              alt={profile.name}
+              className="size-36 rounded-full object-cover ring-4 ring-background shadow-lg"
+              fallback={
+                <div className="flex size-36 items-center justify-center rounded-full bg-foreground font-kufam text-4xl text-background ring-4 ring-background shadow-lg">
+                  {profile.name.slice(0, 1)}
+                </div>
+              }
+            />
 
             <p className="mt-5 font-kufam text-xl text-foreground">
               {profile.name}

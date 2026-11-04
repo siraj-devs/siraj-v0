@@ -35,7 +35,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -205,26 +205,20 @@ function Avatar({
   profile: NetworkProfile;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(profile.avatar == null);
-
   return (
     <div
       className={`relative overflow-hidden rounded-full bg-muted/30 ${className ?? "size-14"}`}
     >
-      {!failed ? (
-        <Image
-          src={profile.avatar!}
-          alt={profile.name}
-          fill
-          sizes="96px"
-          className="object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div className="flex size-full items-center justify-center text-primary/35">
-          <Rosette className="size-1/2" />
-        </div>
-      )}
+      <RemoteAvatar
+        src={profile.avatar}
+        alt={profile.name}
+        className="size-full object-cover"
+        fallback={
+          <div className="flex size-full items-center justify-center text-primary/35">
+            <Rosette className="size-1/2" />
+          </div>
+        }
+      />
     </div>
   );
 }

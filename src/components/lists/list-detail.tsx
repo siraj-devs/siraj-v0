@@ -24,7 +24,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 
 function EntryAvatar({
   entry,
@@ -33,27 +33,20 @@ function EntryAvatar({
   entry: ListEntry;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
   const size = className ?? "size-14";
-  if (entry.avatar && !failed) {
-    return (
-      <Image
-        src={entry.avatar}
-        alt={entry.name}
-        className={`${size} shrink-0 rounded-2xl object-cover`}
-        onError={() => setFailed(true)}
-        width={48}
-        height={48}
-        unoptimized
-      />
-    );
-  }
   return (
-    <div
-      className={`flex ${size} shrink-0 items-center justify-center rounded-2xl bg-foreground font-kufam text-background`}
-    >
-      {entry.name.slice(0, 1)}
-    </div>
+    <RemoteAvatar
+      src={entry.avatar}
+      alt={entry.name}
+      className={`${size} shrink-0 rounded-2xl object-cover`}
+      fallback={
+        <div
+          className={`flex ${size} shrink-0 items-center justify-center rounded-2xl bg-foreground font-kufam text-background`}
+        >
+          {entry.name.slice(0, 1)}
+        </div>
+      }
+    />
   );
 }
 

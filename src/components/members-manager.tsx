@@ -46,7 +46,7 @@ import {
   UserRoundCheck,
   type LucideIcon,
 } from "lucide-react";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
@@ -547,29 +547,27 @@ export function MembersManager({
                 })}
               </div>
             );
-            const avatar = member.avatar ? (
-              <Image
+            const avatar = (
+              <RemoteAvatar
                 src={member.avatar}
                 alt={member.name}
-                width={isGrid ? 80 : 56}
-                height={isGrid ? 80 : 56}
                 className={`rounded-2xl object-cover ${
                   isGrid
                     ? `size-20 ring-4 ring-background ${styles.ring}`
                     : `size-14 ring-2 ring-background ${styles.ring}`
                 }`}
-                unoptimized
+                fallback={
+                  <div
+                    className={`flex items-center justify-center rounded-2xl bg-foreground font-kufam text-background ${
+                      isGrid
+                        ? `size-20 text-xl ring-4 ring-background ${styles.ring}`
+                        : `size-14 text-base ring-2 ring-background ${styles.ring}`
+                    }`}
+                  >
+                    {initials(member.name)}
+                  </div>
+                }
               />
-            ) : (
-              <div
-                className={`flex items-center justify-center rounded-2xl bg-foreground font-kufam text-background ${
-                  isGrid
-                    ? `size-20 text-xl ring-4 ring-background ${styles.ring}`
-                    : `size-14 text-base ring-2 ring-background ${styles.ring}`
-                }`}
-              >
-                {initials(member.name)}
-              </div>
             );
 
             return (

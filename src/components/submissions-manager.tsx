@@ -15,7 +15,7 @@ import {
   MessageCircle,
   Users,
 } from "lucide-react";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -170,19 +170,16 @@ export function SubmissionsManager({
                   onClick={() => setOpenId(open ? null : submission.id)}
                   className="flex w-full items-center gap-4 p-4 text-right transition hover:bg-muted/40 sm:px-5"
                 >
-                  {submission.connection_avatar ? (
-                    <Image
-                      src={submission.connection_avatar}
-                      alt=""
-                      width={48}
-                      height={48}
-                      className="size-12 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted font-kufam text-lg text-muted-foreground">
-                      {submission.name.charAt(0)}
-                    </div>
-                  )}
+                  <RemoteAvatar
+                    src={submission.connection_avatar}
+                    alt=""
+                    className="size-12 shrink-0 rounded-full object-cover"
+                    fallback={
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted font-kufam text-lg text-muted-foreground">
+                        {submission.name.charAt(0)}
+                      </div>
+                    }
+                  />
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">

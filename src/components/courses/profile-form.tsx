@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import type { AppMember } from "@/lib/members";
 import { encodeOAuthState } from "@/lib/oauth-state";
 import type { ProfileChangeRequest } from "@/lib/profile-requests";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -256,18 +256,13 @@ export function ProfileForm({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
-                  {ftConnection?.avatar ? (
-                    <Image
-                      src={ftConnection.avatar}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="size-10 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <FortyTwoIcon className="size-5" />
-                  )}
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-foreground">
+                  <RemoteAvatar
+                    src={ftConnection?.avatar}
+                    alt=""
+                    className="size-10 rounded-xl object-cover"
+                    fallback={<FortyTwoIcon className="size-5" />}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">حساب 42</p>
@@ -304,18 +299,13 @@ export function ProfileForm({
 
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
-                  {dcConnection?.avatar ? (
-                    <Image
-                      src={dcConnection.avatar}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="size-10 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <DiscordIcon className="size-5" />
-                  )}
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-foreground">
+                  <RemoteAvatar
+                    src={dcConnection?.avatar}
+                    alt=""
+                    className="size-10 rounded-xl object-cover"
+                    fallback={<DiscordIcon className="size-5" />}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">ديسكورد</p>
@@ -352,18 +342,13 @@ export function ProfileForm({
 
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
-                  {googleConnection?.avatar ? (
-                    <Image
-                      src={googleConnection.avatar}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="size-10 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <GoogleIcon className="size-5" />
-                  )}
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-foreground">
+                  <RemoteAvatar
+                    src={googleConnection?.avatar}
+                    alt=""
+                    className="size-10 rounded-xl object-cover"
+                    fallback={<GoogleIcon className="size-5" />}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Google</p>

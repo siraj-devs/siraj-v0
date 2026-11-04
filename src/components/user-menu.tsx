@@ -24,7 +24,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -91,19 +91,16 @@ export function UserMenu({
         aria-label="قائمة المستخدم"
         aria-expanded={isOpen}
       >
-        {avatarSrc ? (
-          <Image
-            src={avatarSrc}
-            alt=""
-            width={40}
-            height={40}
-            className="size-full object-cover"
-          />
-        ) : (
-          <span className="flex size-full items-center justify-center bg-muted text-sm font-medium text-muted-foreground">
-            {(user?.name ?? user?.login ?? "?").charAt(0)}
-          </span>
-        )}
+        <RemoteAvatar
+          src={avatarSrc}
+          alt=""
+          className="size-full object-cover"
+          fallback={
+            <span className="flex size-full items-center justify-center bg-muted text-sm font-medium text-muted-foreground">
+              {(user?.name ?? user?.login ?? "?").charAt(0)}
+            </span>
+          }
+        />
       </button>
 
       {isOpen && (

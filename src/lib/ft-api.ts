@@ -62,7 +62,7 @@ type FtUserResponse = {
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 /** App-level Intra token (client credentials). Cached until near expiry. */
-async function getClientCredentialsToken(): Promise<string> {
+export async function getClientCredentialsToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now + 30_000) {
     return cachedToken.value;

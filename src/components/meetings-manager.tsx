@@ -29,7 +29,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import Image from "next/image";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
@@ -433,19 +433,16 @@ export function MeetingsManager({
                       className="flex items-center gap-2 rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs"
                       title={a.kind === "guest" ? "ضيف" : "عضو"}
                     >
-                      {a.avatar ? (
-                        <Image
-                          src={a.avatar}
-                          alt=""
-                          width={20}
-                          height={20}
-                          className="size-5 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px]">
-                          {a.name.charAt(0)}
-                        </span>
-                      )}
+                      <RemoteAvatar
+                        src={a.avatar}
+                        alt=""
+                        className="size-5 rounded-full object-cover"
+                        fallback={
+                          <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px]">
+                            {a.name.charAt(0)}
+                          </span>
+                        }
+                      />
                       <span className="max-w-24 truncate">{a.name}</span>
                     </div>
                   ))}
@@ -722,19 +719,16 @@ export function MeetingsManager({
                         className="flex items-center justify-between gap-3 rounded-xl border border-border/70 px-3 py-2.5"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          {a.avatar ? (
-                            <Image
-                              src={a.avatar}
-                              alt=""
-                              width={36}
-                              height={36}
-                              className="size-9 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-sm">
-                              {a.name.charAt(0)}
-                            </div>
-                          )}
+                          <RemoteAvatar
+                            src={a.avatar}
+                            alt=""
+                            className="size-9 rounded-lg object-cover"
+                            fallback={
+                              <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-sm">
+                                {a.name.charAt(0)}
+                              </div>
+                            }
+                          />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-foreground">
                               {a.name}

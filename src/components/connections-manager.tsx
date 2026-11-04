@@ -1,8 +1,8 @@
 "use client";
 
 import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import { GraduationCap, MessageCircle, Search } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -202,19 +202,17 @@ export function ConnectionsManager({
       {filtered.length > 0 ? (
         <ul className="space-y-3">
           {filtered.map((row) => {
-            const avatar = row.avatar ? (
-              <Image
+            const avatar = (
+              <RemoteAvatar
                 src={row.avatar}
                 alt={row.title}
-                width={48}
-                height={48}
                 className="size-12 rounded-xl object-cover"
-                unoptimized
+                fallback={
+                  <div className="flex size-12 items-center justify-center rounded-xl bg-foreground font-kufam text-sm text-background">
+                    {initials(row.title)}
+                  </div>
+                }
               />
-            ) : (
-              <div className="flex size-12 items-center justify-center rounded-xl bg-foreground font-kufam text-sm text-background">
-                {initials(row.title)}
-              </div>
             );
 
             return (
