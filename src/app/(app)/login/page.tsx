@@ -66,7 +66,7 @@ export default async function Page({
       <div className="flex w-full max-w-sm flex-col gap-3">
         <LoginButton provider="42" next={safeNext} />
         <LoginButton provider="discord" next={safeNext} />
-        <LoginButton provider="google" next={safeNext} />
+        {/* <LoginButton provider="google" next={safeNext} /> */}
       </div>
     </div>
   );
