@@ -72,7 +72,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
   const { data, error } = await supabase
     .from("members")
     .select(
-      "id, name, email, phone, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)",
+      "id, name, email, phone, phone_verified_at, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)",
     )
     .order("name", { ascending: true });
 
@@ -102,6 +102,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
         name: row.name,
         email: (row.email as string | null) ?? null,
         phone: (row.phone as string | null) ?? null,
+        phone_verified_at: (row.phone_verified_at as string | null) ?? null,
         role: row.role as MemberRole,
         ft_connection: row.ft_connection,
         dc_connection: row.dc_connection,

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MemberRole } from "@/lib/member-role";
+import { isArabicName, isValidPhone } from "@/lib/profile-fields";
 
 export type { MemberRole } from "@/lib/member-role";
 export {
@@ -14,6 +15,7 @@ export type AppMember = {
   name: string;
   email: string | null;
   phone: string | null;
+  phone_verified_at: string | null;
   ft_connection: number | null;
   dc_connection: string | null;
   google_connection: string | null;
@@ -21,17 +23,22 @@ export type AppMember = {
 };
 
 const MEMBER_COLUMNS =
-  "id, name, email, phone, ft_connection, dc_connection, google_connection, role";
+  "id, name, email, phone, phone_verified_at, ft_connection, dc_connection, google_connection, role";
 
 export function isMemberProfileComplete(
-  member: Pick<AppMember, "name" | "email" | "phone"> | null | undefined,
+  member: Pick<AppMember, "name" | "phone"> | null | undefined,
 ): boolean {
   if (!member) return false;
   return (
-    member.name.trim().length > 0 &&
-    Boolean(member.email?.trim()) &&
-    Boolean(member.phone && member.phone.trim().length >= 8)
+    isArabicName(member.name) &&
+    Boolean(member.phone && isValidPhone(member.phone))
   );
+}
+
+export function isPhoneVerified(
+  member: Pick<AppMember, "phone_verified_at"> | null | undefined,
+): boolean {
+  return Boolean(member?.phone_verified_at);
 }
 
 export async function getMemberByFtConnectionId(

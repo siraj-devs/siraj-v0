@@ -20,7 +20,6 @@ import {
   type LucideIcon,
   Network,
   UserRound,
-  UserRoundCheck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -37,11 +36,6 @@ const OWNER_LINKS: {
   { href: "/dashboard/connections", label: "الاتصالات", icon: Link2 },
   { href: "/dashboard/content", label: "المحتوى", icon: FileText },
   { href: "/dashboard/courses", label: "الدورات", icon: GraduationCap },
-  {
-    href: "/dashboard/profile-requests",
-    label: "طلبات الملف",
-    icon: UserRoundCheck,
-  },
   { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
   { href: "/dashboard/events", label: "الأحداث", icon: CalendarClock },

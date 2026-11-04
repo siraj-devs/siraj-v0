@@ -80,6 +80,8 @@ export default async function CourseDetailPage({
         isLoggedIn
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}
+        profileName={member?.name ?? ""}
+        profilePhone={member?.phone ?? ""}
       />
     </div>
   );

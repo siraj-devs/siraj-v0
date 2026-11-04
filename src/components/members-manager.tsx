@@ -43,7 +43,6 @@ import {
   Sparkles,
   Trash2,
   UserRound,
-  UserRoundCheck,
   type LucideIcon,
 } from "lucide-react";
 import { RemoteAvatar } from "@/components/remote-avatar";
@@ -112,7 +111,6 @@ const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/connections": Link2,
   "/dashboard/content": FileText,
   "/dashboard/courses": GraduationCap,
-  "/dashboard/profile-requests": UserRoundCheck,
   "/dashboard/sessions": Clapperboard,
   "/dashboard/network": Network,
   "/dashboard/events": CalendarClock,
@@ -519,6 +517,26 @@ export function MembersManager({
                 {member.google_email && (
                   <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
                     {member.google_email}
+                  </span>
+                )}
+                {member.phone && (
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs ${
+                      member.phone_verified_at
+                        ? "text-emerald-700"
+                        : "text-amber-800"
+                    }`}
+                  >
+                    {member.phone}
+                    <span
+                      className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ${
+                        member.phone_verified_at
+                          ? "bg-emerald-500/10 ring-emerald-500/25"
+                          : "bg-amber-500/10 ring-amber-500/25"
+                      }`}
+                    >
+                      {member.phone_verified_at ? "موثّق" : "غير موثّق"}
+                    </span>
                   </span>
                 )}
               </div>

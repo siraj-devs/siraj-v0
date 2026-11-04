@@ -452,14 +452,14 @@ export async function enrollInCourse(
     if (!member) {
       return {
         success: false,
-        error: "أكمل ملفك الشخصي (بانتظار موافقة المالك) قبل الالتحاق",
+        error: "أكمل ملفك الشخصي قبل الالتحاق",
         code: "incomplete_profile",
       };
     }
     if (!isMemberProfileComplete(member)) {
       return {
         success: false,
-        error: "أكمل ملفك الشخصي (بانتظار موافقة المالك) قبل الالتحاق",
+        error: "أكمل ملفك الشخصي قبل الالتحاق",
         code: "incomplete_profile",
       };
     }

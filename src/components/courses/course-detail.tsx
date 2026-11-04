@@ -2,6 +2,7 @@
 
 import { enrollInCourse, unenrollFromCourse } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { EnrollProfileModal } from "@/components/courses/enroll-profile-modal";
 import {
   CONTENT_TYPE_ICON,
   MetaChip,
@@ -17,6 +18,7 @@ import {
   hasLearningStarted,
   type CourseClass,
 } from "@/lib/course-schedule";
+import { isArabicName } from "@/lib/profile-fields";
 import {
   BookOpen,
   HelpCircle,
@@ -44,6 +46,8 @@ export function CourseDetail({
   isLoggedIn,
   isMember,
   hasCompleteProfile,
+  profileName = "",
+  profilePhone = "",
 }: {
   course: CourseWithMeta;
   contents: CourseContent[];
@@ -55,11 +59,14 @@ export function CourseDetail({
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
+  profileName?: string;
+  profilePhone?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmUnenroll, setConfirmUnenroll] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const examCount = contents.filter((item) => item.type === "exam").length;
   const lessonCount = contents.length - examCount;
@@ -84,7 +91,7 @@ export function CourseDetail({
       return;
     }
     if (!isMember || !hasCompleteProfile) {
-      router.push(`/profile?next=/courses/${course.id}`);
+      setProfileModalOpen(true);
       return;
     }
 
@@ -93,15 +100,14 @@ export function CourseDetail({
       if (!result.success) {
         if (
           result.code === "incomplete_profile" ||
-          result.code === "not_member" ||
-          result.code === "forbidden"
+          result.code === "not_member"
         ) {
+          setProfileModalOpen(true);
+          return;
+        }
+        if (result.code === "forbidden") {
           toast.error(result.error);
-          if (result.code === "forbidden") {
-            router.push("/courses");
-            return;
-          }
-          router.push(`/profile?next=/courses/${course.id}`);
+          router.push("/courses");
           return;
         }
         if (result.code === "unauthenticated") {
@@ -384,6 +390,18 @@ export function CourseDetail({
           </div>
         )}
       </section>
+
+      <EnrollProfileModal
+        key={`${profileModalOpen}-${profileName}-${profilePhone}`}
+        open={profileModalOpen}
+        courseId={course.id}
+        initialName={isArabicName(profileName) ? profileName : ""}
+        initialPhone={profilePhone}
+        learningStarted={
+          Boolean(joinClass && hasLearningStarted(joinClass.learning_starts_at))
+        }
+        onClose={() => setProfileModalOpen(false)}
+      />
 
       <ConfirmDeleteModal
         open={confirmUnenroll}

@@ -4,15 +4,15 @@ import {
   type MemberDcConnection,
   type MemberFtConnection,
   type MemberGoogleConnection,
-  submitProfileChangeRequest,
+  saveMyProfile,
   unlinkMyConnection,
 } from "@/app/actions/profiles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AppMember } from "@/lib/members";
+import { isArabicName, isValidPhone } from "@/lib/profile-fields";
 import { encodeOAuthState } from "@/lib/oauth-state";
-import type { ProfileChangeRequest } from "@/lib/profile-requests";
 import { RemoteAvatar } from "@/components/remote-avatar";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
@@ -96,7 +96,7 @@ function RequiredLabel({
 
 const LINK_ERROR_MESSAGES: Record<string, string> = {
   unauthenticated: "يجب تسجيل الدخول أولاً لربط الحساب",
-  not_member: "أكمل ملفك وانتظر الموافقة قبل ربط حساب إضافي",
+  not_member: "أكمل ملفك قبل ربط حساب إضافي",
   already_linked: "هذا النوع من الحساب مربوط مسبقاً",
   connection_taken: "هذا الحساب مرتبط بعضو آخر",
   update_failed: "تعذر ربط الحساب",
@@ -108,7 +108,6 @@ const LINK_ERROR_MESSAGES: Record<string, string> = {
 
 export function ProfileForm({
   member,
-  pendingRequest,
   complete,
   ftConnection,
   dcConnection,
@@ -119,7 +118,6 @@ export function ProfileForm({
   linkError,
 }: {
   member: AppMember | null;
-  pendingRequest: ProfileChangeRequest | null;
   complete: boolean;
   ftConnection: MemberFtConnection | null;
   dcConnection: MemberDcConnection | null;
@@ -131,15 +129,8 @@ export function ProfileForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [name, setName] = useState(
-    pendingRequest?.requested_name ?? member?.name ?? "",
-  );
-  const [email, setEmail] = useState(
-    pendingRequest?.requested_email ?? member?.email ?? "",
-  );
-  const [phone, setPhone] = useState(
-    pendingRequest?.requested_phone ?? member?.phone ?? "",
-  );
+  const [name, setName] = useState(member?.name ?? "");
+  const [phone, setPhone] = useState(member?.phone ?? "");
 
   useEffect(() => {
     if (linkedProvider) {
@@ -161,40 +152,37 @@ export function ProfileForm({
 
   const canSubmit = useMemo(() => {
     const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
     const trimmedPhone = phone.trim();
 
-    if (!trimmedName || !trimmedEmail || !trimmedPhone) return false;
-    if (trimmedPhone.length < 8) return false;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return false;
+    if (!isArabicName(trimmedName) || !isValidPhone(trimmedPhone)) return false;
 
     if (member) {
       const sameAsCurrent =
         trimmedName === member.name.trim() &&
-        trimmedEmail.toLowerCase() ===
-          (member.email ?? "").trim().toLowerCase() &&
         trimmedPhone === (member.phone ?? "").trim();
       if (sameAsCurrent) return false;
     }
 
     return true;
-  }, [name, email, phone, member]);
+  }, [name, phone, member]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (pendingRequest || !canSubmit) return;
+    if (!canSubmit) return;
 
     startTransition(async () => {
-      const result = await submitProfileChangeRequest({ name, email, phone });
+      const result = await saveMyProfile({ name, phone });
       if (!result.success) {
         toast.error(result.error);
         return;
       }
-      toast.success("تم إرسال الطلب — بانتظار موافقة المالك");
+      toast.success("تم حفظ الملف");
       router.refresh();
       if (redirectTo) router.push(redirectTo);
     });
   }
+
+  const phoneVerified = Boolean(member?.phone_verified_at);
 
   function startLink(provider: "42" | "discord" | "google") {
     const state = encodeOAuthState({ redirect: "/profile", link: true });
@@ -234,9 +222,8 @@ export function ProfileForm({
             الملف الشخصي
           </h1>
           <p className="max-w-lg text-foreground/65">
-            {member
-              ? "أي تعديل على الاسم أو البريد أو الهاتف يُرسل كطلب ويُطبَّق بعد موافقة المالك."
-              : "أكمل بياناتك وأرسل طلباً للمراجعة. بعد الموافقة تُحفظ عضويتك في النادي."}
+            الاسم بالعربية ورقم الهاتف كافيان لاستخدام الدورات. توثيق الهاتف عبر
+            واتساب سيأتي لاحقاً.
           </p>
         </div>
       </header>
@@ -392,42 +379,38 @@ export function ProfileForm({
         onSubmit={onSubmit}
         className="space-y-5 rounded-3xl border border-border/80 bg-background/70 p-6 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] sm:p-8"
       >
-        {pendingRequest && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-            لديك طلب قيد المراجعة منذ{" "}
-            {new Date(pendingRequest.created_at).toLocaleDateString("ar")}. لا
-            يمكن إرسال طلب جديد حتى تتم المراجعة.
-          </div>
-        )}
-
         <div className="space-y-2">
-          <RequiredLabel htmlFor="profile-name">الاسم</RequiredLabel>
+          <RequiredLabel htmlFor="profile-name">الاسم بالعربية</RequiredLabel>
           <Input
             id="profile-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            disabled={Boolean(pendingRequest) || pending}
+            disabled={pending}
             autoFocus
+            placeholder="مثال: أحمد محمد"
+            dir="rtl"
           />
+          {name.trim() && !isArabicName(name) ? (
+            <p className="text-xs text-destructive">الاسم يجب أن يكون بالعربية فقط</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <RequiredLabel htmlFor="profile-email">
-            البريد الإلكتروني
-          </RequiredLabel>
-          <Input
-            id="profile-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={Boolean(pendingRequest) || pending}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <RequiredLabel htmlFor="profile-phone">رقم الهاتف</RequiredLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            <RequiredLabel htmlFor="profile-phone">رقم الهاتف</RequiredLabel>
+            {member ? (
+              <span
+                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                  phoneVerified
+                    ? "bg-emerald-500/10 text-emerald-800 ring-emerald-500/25"
+                    : "bg-amber-500/10 text-amber-900 ring-amber-500/25"
+                }`}
+              >
+                {phoneVerified ? "موثّق" : "غير موثّق"}
+              </span>
+            ) : null}
+          </div>
           <Input
             id="profile-phone"
             type="tel"
@@ -436,19 +419,22 @@ export function ProfileForm({
             onChange={(e) => setPhone(e.target.value)}
             required
             minLength={8}
-            disabled={Boolean(pendingRequest) || pending}
+            disabled={pending}
           />
+          {member && !phoneVerified ? (
+            <p className="text-xs text-muted-foreground">
+              توثيق الرقم عبر واتساب سيُفعَّل لاحقاً. يمكنك استخدام الدورات الآن.
+            </p>
+          ) : null}
         </div>
 
-        {!pendingRequest && (
-          <Button
-            type="submit"
-            disabled={pending || !canSubmit}
-            className="w-full sm:w-auto"
-          >
-            {pending ? "جاري الإرسال…" : "إرسال طلب التحديث"}
-          </Button>
-        )}
+        <Button
+          type="submit"
+          disabled={pending || !canSubmit}
+          className="w-full sm:w-auto"
+        >
+          {pending ? "جاري الحفظ…" : member ? "حفظ التعديلات" : "حفظ الملف"}
+        </Button>
       </form>
     </div>
   );

@@ -5,13 +5,8 @@ import {
   isMemberProfileComplete,
   type AppMember,
 } from "@/lib/members";
-import {
-  getPendingProfileRequestForSession,
-  getProfileRequestsForDashboard,
-  type ProfileChangeRequest,
-} from "@/lib/profile-requests";
+import { isArabicName, isValidPhone } from "@/lib/profile-fields";
 import { getSession } from "@/lib/session";
-import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { unlinkMemberConnection } from "@/lib/link-connection";
 import { revalidatePath } from "next/cache";
@@ -19,7 +14,6 @@ import { revalidatePath } from "next/cache";
 function revalidateProfilePaths() {
   revalidatePath("/profile");
   revalidatePath("/courses");
-  revalidatePath("/dashboard/profile-requests");
   revalidatePath("/dashboard/members");
 }
 
@@ -45,7 +39,6 @@ export type MemberGoogleConnection = {
 
 export async function getMyMemberProfile(): Promise<{
   member: AppMember | null;
-  pendingRequest: ProfileChangeRequest | null;
   complete: boolean;
   ftConnection: MemberFtConnection | null;
   dcConnection: MemberDcConnection | null;
@@ -53,7 +46,6 @@ export async function getMyMemberProfile(): Promise<{
 }> {
   const empty = {
     member: null,
-    pendingRequest: null,
     complete: false,
     ftConnection: null,
     dcConnection: null,
@@ -64,13 +56,9 @@ export async function getMyMemberProfile(): Promise<{
   if (!session) return empty;
 
   const member = await getMemberForSession(session);
-  const pendingRequest = await getPendingProfileRequestForSession(session);
 
   if (!member) {
-    return {
-      ...empty,
-      pendingRequest,
-    };
+    return empty;
   }
 
   const supabase = await createClient();
@@ -100,7 +88,6 @@ export async function getMyMemberProfile(): Promise<{
 
   return {
     member,
-    pendingRequest,
     complete: isMemberProfileComplete(member),
     ftConnection: (ftRes.data as MemberFtConnection | null) ?? null,
     dcConnection: (dcRes.data as MemberDcConnection | null) ?? null,
@@ -108,9 +95,8 @@ export async function getMyMemberProfile(): Promise<{
   };
 }
 
-export async function submitProfileChangeRequest(input: {
+export async function saveMyProfile(input: {
   name: string;
-  email: string;
   phone: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -118,35 +104,47 @@ export async function submitProfileChangeRequest(input: {
     if (!session) return { success: false, error: "يجب تسجيل الدخول أولاً" };
 
     const name = input.name.trim();
-    const email = input.email.trim().toLowerCase();
     const phone = input.phone.trim();
 
-    if (!name) return { success: false, error: "الاسم مطلوب" };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { success: false, error: "البريد الإلكتروني غير صالح" };
+    if (!isArabicName(name)) {
+      return {
+        success: false,
+        error: "الاسم يجب أن يكون بالعربية",
+      };
     }
-    if (phone.length < 8) {
+    if (!isValidPhone(phone)) {
       return { success: false, error: "رقم الهاتف غير صالح" };
     }
 
     const member = await getMemberForSession(session);
+    const supabase = await createClient();
+
     if (member) {
       const sameAsCurrent =
         name === member.name.trim() &&
-        email === (member.email ?? "").trim().toLowerCase() &&
         phone === (member.phone ?? "").trim();
 
       if (sameAsCurrent) {
-        return { success: false, error: "لا توجد تغييرات لإرسالها" };
+        return { success: true };
       }
-    }
 
-    const existing = await getPendingProfileRequestForSession(session);
-    if (existing) {
-      return {
-        success: false,
-        error: "لديك طلباً قيد المراجعة بالفعل. انتظر موافقة المالك",
-      };
+      const phoneChanged = phone !== (member.phone ?? "").trim();
+      const { error } = await supabase
+        .from("members")
+        .update({
+          name,
+          phone,
+          ...(phoneChanged ? { phone_verified_at: null } : {}),
+        })
+        .eq("id", member.id);
+
+      if (error) {
+        console.error("Error updating member profile:", error);
+        return { success: false, error: "تعذر حفظ الملف" };
+      }
+
+      revalidateProfilePaths();
+      return { success: true };
     }
 
     const isDiscord = session.provider === "discord";
@@ -161,144 +159,31 @@ export async function submitProfileChangeRequest(input: {
       return { success: false, error: "جلسة الدخول غير صالحة" };
     }
 
-    const supabase = await createClient();
-    const { error } = await supabase.from("profile_change_requests").insert({
-      member_id: member?.id ?? null,
-      ft_connection: member ? null : ftConnectionId,
-      dc_connection: member ? null : isDiscord ? session.user.id : null,
-      google_connection: member ? null : isGoogle ? session.user.id : null,
-      requested_name: name,
-      requested_email: email,
-      requested_phone: phone,
-      status: "pending",
+    const { error } = await supabase.from("members").insert({
+      name,
+      phone,
+      role: "newcomer",
+      ft_connection: ftConnectionId,
+      dc_connection: isDiscord ? session.user.id : null,
+      google_connection: isGoogle ? session.user.id : null,
+      phone_verified_at: null,
     });
 
     if (error) {
-      console.error("Error creating profile change request:", error);
+      console.error("Error creating member profile:", error);
       if (error.code === "23505") {
         return {
           success: false,
-          error: "لديك طلباً قيد المراجعة بالفعل",
+          error: "هذا الحساب مرتبط بعضو آخر",
         };
       }
-      return { success: false, error: "تعذر إرسال الطلب" };
+      return { success: false, error: "تعذر حفظ الملف" };
     }
 
     revalidateProfilePaths();
     return { success: true };
   } catch {
     return { success: false, error: "حدث خطأ غير متوقع" };
-  }
-}
-
-export async function listProfileChangeRequests(): Promise<
-  ProfileChangeRequest[]
-> {
-  await requirePageAccess("/dashboard/profile-requests");
-  return getProfileRequestsForDashboard();
-}
-
-export async function reviewProfileChangeRequest(input: {
-  id: number;
-  decision: "approved" | "rejected";
-  rejection_note?: string;
-}): Promise<{ success: true } | { success: false; error: string }> {
-  try {
-    const { member: owner } = await requirePageEdit("/dashboard/profile-requests");
-
-    if (!input.id || !Number.isFinite(input.id)) {
-      return { success: false, error: "معرّف غير صالح" };
-    }
-
-    const supabase = await createClient();
-    const { data: request, error: fetchError } = await supabase
-      .from("profile_change_requests")
-      .select(
-        "id, member_id, ft_connection, dc_connection, google_connection, requested_name, requested_email, requested_phone, status",
-      )
-      .eq("id", input.id)
-      .maybeSingle();
-
-    if (fetchError || !request) {
-      return { success: false, error: "الطلب غير موجود" };
-    }
-    if (request.status !== "pending") {
-      return { success: false, error: "تمت مراجعة هذا الطلب مسبقاً" };
-    }
-
-    let memberId = request.member_id as number | null;
-
-    if (input.decision === "approved") {
-      if (memberId) {
-        const { error: updateMemberError } = await supabase
-          .from("members")
-          .update({
-            name: request.requested_name,
-            email: request.requested_email,
-            phone: request.requested_phone,
-          })
-          .eq("id", memberId);
-
-        if (updateMemberError) {
-          console.error(
-            "Error updating member from request:",
-            updateMemberError,
-          );
-          return { success: false, error: "تعذر تحديث بيانات العضو" };
-        }
-      } else {
-        const { data: created, error: createError } = await supabase
-          .from("members")
-          .insert({
-            name: request.requested_name,
-            email: request.requested_email,
-            phone: request.requested_phone,
-            role: "newcomer",
-            ft_connection: request.ft_connection,
-            dc_connection: request.dc_connection,
-            google_connection: request.google_connection,
-          })
-          .select("id")
-          .single();
-
-        if (createError || !created) {
-          console.error("Error creating member from request:", createError);
-          if (createError?.code === "23505") {
-            return {
-              success: false,
-              error: "هذا الحساب مرتبط بعضو آخر",
-            };
-          }
-          return { success: false, error: "تعذر إنشاء العضو" };
-        }
-
-        memberId = created.id;
-      }
-    }
-
-    const { error: reviewError } = await supabase
-      .from("profile_change_requests")
-      .update({
-        status: input.decision,
-        member_id: memberId,
-        reviewed_by: owner.id,
-        reviewed_at: new Date().toISOString(),
-        rejection_note:
-          input.decision === "rejected"
-            ? input.rejection_note?.trim() || null
-            : null,
-      })
-      .eq("id", input.id);
-
-    if (reviewError) {
-      console.error("Error reviewing profile request:", reviewError);
-      return { success: false, error: "تعذر حفظ قرار المراجعة" };
-    }
-
-    revalidateProfilePaths();
-    return { success: true };
-  } catch {
-    return { success: false, error: "غير مصرح" };
   }
 }
 

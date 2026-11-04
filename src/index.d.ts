@@ -42,6 +42,7 @@ type MemberRole = "owner" | "admin" | "participant" | "veteran" | "newcomer"
 interface AppMember {
   id: number
   name: string
+  phone_verified_at: string | null
   ft_connection: number | null
   dc_connection: string | null
   google_connection: string | null

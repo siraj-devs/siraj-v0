@@ -4,7 +4,6 @@ export const GRANTABLE_DASHBOARD_PAGES = [
   { path: "/dashboard/connections", label: "الاتصالات" },
   { path: "/dashboard/content", label: "المحتوى" },
   { path: "/dashboard/courses", label: "الدورات" },
-  { path: "/dashboard/profile-requests", label: "طلبات الملف" },
   { path: "/dashboard/sessions", label: "الأمسيات" },
   { path: "/dashboard/network", label: "الشبكة" },
   { path: "/dashboard/events", label: "الأحداث" },

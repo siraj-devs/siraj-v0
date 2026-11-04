@@ -17,7 +17,6 @@ export default async function ProfilePage({
 
   const {
     member,
-    pendingRequest,
     complete,
     ftConnection,
     dcConnection,
@@ -40,7 +39,6 @@ export default async function ProfilePage({
     <div className="py-10 pb-16 md:py-14">
       <ProfileForm
         member={member}
-        pendingRequest={pendingRequest}
         complete={complete}
         ftConnection={ftConnection}
         dcConnection={dcConnection}
