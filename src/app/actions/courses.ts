@@ -30,7 +30,6 @@ import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
 import { getSession } from "@/lib/session";
 import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import {
-  classRangesOverlap,
   hasLearningStarted,
   parseDateOnly,
   pickOpenClass,
@@ -253,6 +252,8 @@ export async function upsertCourseContent(input: {
   order_sequence?: number;
   duration_unit?: DurationUnit | null;
   duration_amount?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
   timestamps?: VideoTimestamp[];
   class_id?: number;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
@@ -267,12 +268,29 @@ export async function upsertCourseContent(input: {
       duration_unit && input.duration_amount && input.duration_amount > 0
         ? Math.floor(input.duration_amount)
         : null;
+    const startRaw = input.start_date?.trim() || "";
+    const endRaw = input.end_date?.trim() || "";
+    const start_date = startRaw ? parseDateOnly(startRaw) : null;
+    const end_date = endRaw ? parseDateOnly(endRaw) : null;
+
     if (!title) return { success: false, error: "عنوان الدرس مطلوب" };
     if (input.type !== "exam" && !content_url) {
       return { success: false, error: "رابط المحتوى مطلوب" };
     }
     if (duration_unit && !duration_amount) {
       return { success: false, error: "أدخل مدة الدرس" };
+    }
+    if (startRaw && !start_date) {
+      return { success: false, error: "تاريخ بداية الدرس غير صالح" };
+    }
+    if (endRaw && !end_date) {
+      return { success: false, error: "تاريخ نهاية الدرس غير صالح" };
+    }
+    if (start_date && end_date && start_date > end_date) {
+      return {
+        success: false,
+        error: "تاريخ بداية الدرس يجب أن يسبق تاريخ النهاية أو يساويه",
+      };
     }
 
     const metadata =
@@ -292,6 +310,8 @@ export async function upsertCourseContent(input: {
           order_sequence: input.order_sequence ?? 0,
           duration_unit: duration_amount ? duration_unit : null,
           duration_amount,
+          start_date,
+          end_date,
           metadata,
           updated_at: new Date().toISOString(),
         })
@@ -321,6 +341,8 @@ export async function upsertCourseContent(input: {
         order_sequence: input.order_sequence ?? 0,
         duration_unit: duration_amount ? duration_unit : null,
         duration_amount,
+        start_date,
+        end_date,
         metadata,
       })
       .select("id")
@@ -780,52 +802,46 @@ export async function rateCourse(
 
 function parseClassWindow(input: {
   registration_opens_on: string;
+  registration_closes_on: string;
   learning_starts_at: string;
 }):
-  | { ok: true; registrationOpensOn: string; learningStartsAt: string }
+  | {
+      ok: true;
+      registrationOpensOn: string;
+      registrationClosesOn: string;
+      learningStartsAt: string;
+    }
   | { ok: false; error: string } {
   const registrationOpensOn = parseDateOnly(input.registration_opens_on);
+  const registrationClosesOn = parseDateOnly(input.registration_closes_on);
   const learningStartsAt = parseDateOnly(input.learning_starts_at);
   if (!registrationOpensOn) {
-    return { ok: false, error: "تاريخ التسجيل غير صالح" };
+    return { ok: false, error: "تاريخ فتح التسجيل غير صالح" };
+  }
+  if (!registrationClosesOn) {
+    return { ok: false, error: "تاريخ إغلاق التسجيل غير صالح" };
   }
   if (!learningStartsAt) {
     return { ok: false, error: "تاريخ بداية التعلم غير صالح" };
   }
-  if (registrationOpensOn >= learningStartsAt) {
+  if (registrationOpensOn > registrationClosesOn) {
     return {
       ok: false,
-      error: "تاريخ التسجيل يجب أن يكون قبل بداية التعلم",
+      error: "تاريخ فتح التسجيل يجب أن يسبق تاريخ الإغلاق أو يساويه",
     };
   }
-  return { ok: true, registrationOpensOn, learningStartsAt };
-}
-
-async function assertClassWindowFree(
-  courseId: number,
-  registrationOpensOn: string,
-  learningStartsAt: string,
-  ignoreId?: number,
-) {
-  const existing = await getCourseClasses(courseId);
-  const candidate = {
-    id: ignoreId ?? 0,
-    course_id: courseId,
-    registration_opens_on: registrationOpensOn,
-    learning_starts_at: learningStartsAt,
-    created_at: "",
+  return {
+    ok: true,
+    registrationOpensOn,
+    registrationClosesOn,
+    learningStartsAt,
   };
-  const overlaps = existing.some(
-    (courseClass) =>
-      courseClass.id !== ignoreId && classRangesOverlap(candidate, courseClass),
-  );
-  if (!overlaps) return null;
-  return "هذه الفترة تتداخل مع دفعة أخرى. اختر تواريخ لا تتقاطع مع التسجيل أو بداية التعلم لدفعة قائمة";
 }
 
 export async function createCourseClass(input: {
   course_id: number;
   registration_opens_on: string;
+  registration_closes_on: string;
   learning_starts_at: string;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
@@ -833,14 +849,8 @@ export async function createCourseClass(input: {
 
     const dates = parseClassWindow(input);
     if (!dates.ok) return { success: false, error: dates.error };
-    const { registrationOpensOn, learningStartsAt } = dates;
-
-    const overlap = await assertClassWindowFree(
-      input.course_id,
-      registrationOpensOn,
-      learningStartsAt,
-    );
-    if (overlap) return { success: false, error: overlap };
+    const { registrationOpensOn, registrationClosesOn, learningStartsAt } =
+      dates;
 
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -848,6 +858,7 @@ export async function createCourseClass(input: {
       .insert({
         course_id: input.course_id,
         registration_opens_on: registrationOpensOn,
+        registration_closes_on: registrationClosesOn,
         learning_starts_at: learningStartsAt,
       })
       .select("id")
@@ -855,12 +866,6 @@ export async function createCourseClass(input: {
 
     if (error || !data) {
       console.error("Error creating course class:", error);
-      if (error?.code === "23P01") {
-        return {
-          success: false,
-          error: "هذه الفترة تتداخل مع دفعة أخرى",
-        };
-      }
       return { success: false, error: "تعذر فتح الدفعة" };
     }
 
@@ -875,6 +880,7 @@ export async function updateCourseClass(input: {
   id: number;
   course_id: number;
   registration_opens_on: string;
+  registration_closes_on: string;
   learning_starts_at: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -882,21 +888,15 @@ export async function updateCourseClass(input: {
 
     const dates = parseClassWindow(input);
     if (!dates.ok) return { success: false, error: dates.error };
-    const { registrationOpensOn, learningStartsAt } = dates;
-
-    const overlap = await assertClassWindowFree(
-      input.course_id,
-      registrationOpensOn,
-      learningStartsAt,
-      input.id,
-    );
-    if (overlap) return { success: false, error: overlap };
+    const { registrationOpensOn, registrationClosesOn, learningStartsAt } =
+      dates;
 
     const supabase = await createClient();
     const { error } = await supabase
       .from("course_classes")
       .update({
         registration_opens_on: registrationOpensOn,
+        registration_closes_on: registrationClosesOn,
         learning_starts_at: learningStartsAt,
       })
       .eq("id", input.id)
@@ -904,9 +904,6 @@ export async function updateCourseClass(input: {
 
     if (error) {
       console.error("Error updating course class:", error);
-      if (error.code === "23P01") {
-        return { success: false, error: "هذه الفترة تتداخل مع دفعة أخرى" };
-      }
       return { success: false, error: "تعذر تعديل الدفعة" };
     }
 

@@ -14,7 +14,9 @@ import type { CourseWithMeta, Enrollment } from "@/lib/course-types";
 import { type CourseContent } from "@/lib/course-types";
 import {
   formatClassDate,
+  formatLessonDateRange,
   formatLessonDuration,
+  formatRegistrationWindow,
   hasLearningStarted,
   type CourseClass,
 } from "@/lib/course-schedule";
@@ -241,21 +243,22 @@ export function CourseDetail({
             </div>
             {previewClass && previewKind === "open" && (
               <p className="text-sm text-muted-foreground">
-                التسجيل من{" "}
+                التسجيل مفتوح{" "}
                 <span className="text-foreground">
-                  {formatClassDate(previewClass.registration_opens_on)}
+                  {formatRegistrationWindow(previewClass)}
                 </span>
-                {" حتى بداية التعلم "}
+                {" · يبدأ التعلم "}
                 <span className="text-foreground">
                   {formatClassDate(previewClass.learning_starts_at)}
                 </span>
+                .
               </p>
             )}
             {previewClass && previewKind === "upcoming" && (
               <p className="text-sm text-muted-foreground">
-                لا توجد فترة تسجيل مفتوحة اليوم. التسجيل القادم يبدأ{" "}
+                لا يوجد تسجيل مفتوح اليوم. فترة التسجيل القادمة{" "}
                 <span className="text-foreground">
-                  {formatClassDate(previewClass.registration_opens_on)}
+                  {formatRegistrationWindow(previewClass)}
                 </span>
                 {" ويبدأ التعلم "}
                 <span className="text-foreground">
@@ -340,6 +343,11 @@ export function CourseDetail({
                         {item.author}
                       </span>
                     )}
+                    {formatLessonDateRange(item) && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        الفترة: {formatLessonDateRange(item)}
+                      </span>
+                    )}
                     {formatLessonDuration(item) && (
                       <span className="block truncate text-xs text-muted-foreground">
                         المدة: {formatLessonDuration(item)}
@@ -382,7 +390,7 @@ export function CourseDetail({
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {previewKind === "upcoming" && previewClass
-                ? `تبدأ فترة التسجيل ${formatClassDate(previewClass.registration_opens_on)}.`
+                ? `تبدأ فترة التسجيل ${formatRegistrationWindow(previewClass)}.`
                 : previewKind === "none"
                   ? "عند فتح فترة تسجيل ستظهر دروس تلك الدفعة هنا."
                   : "ستظهر الدروس هنا عند إضافتها لهذه الفترة."}

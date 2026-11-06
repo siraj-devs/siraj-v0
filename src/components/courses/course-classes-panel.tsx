@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   formatClassDate,
+  formatRegistrationWindow,
   isClassOpen,
   type CourseClass,
 } from "@/lib/course-schedule";
@@ -42,11 +43,13 @@ export function CourseClassesPanel({
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<CourseClass | null>(null);
   const [registrationOpensOn, setRegistrationOpensOn] = useState("");
+  const [registrationClosesOn, setRegistrationClosesOn] = useState("");
   const [learningStartsAt, setLearningStartsAt] = useState("");
 
   function openCreate() {
     setEditing(null);
     setRegistrationOpensOn("");
+    setRegistrationClosesOn("");
     setLearningStartsAt("");
     setOpen(true);
   }
@@ -54,6 +57,7 @@ export function CourseClassesPanel({
   function openEdit(courseClass: CourseClass) {
     setEditing(courseClass);
     setRegistrationOpensOn(courseClass.registration_opens_on.slice(0, 10));
+    setRegistrationClosesOn(courseClass.registration_closes_on.slice(0, 10));
     setLearningStartsAt(courseClass.learning_starts_at.slice(0, 10));
     setOpen(true);
   }
@@ -72,6 +76,7 @@ export function CourseClassesPanel({
           id: editing.id,
           course_id: courseId,
           registration_opens_on: registrationOpensOn,
+          registration_closes_on: registrationClosesOn,
           learning_starts_at: learningStartsAt,
         });
         if (!result.success) {
@@ -82,6 +87,7 @@ export function CourseClassesPanel({
         const result = await createCourseClass({
           course_id: courseId,
           registration_opens_on: registrationOpensOn,
+          registration_closes_on: registrationClosesOn,
           learning_starts_at: learningStartsAt,
         });
         if (!result.success) {
@@ -119,8 +125,8 @@ export function CourseClassesPanel({
             الدفعات
           </h2>
           <p className="max-w-xl text-sm text-foreground/65">
-            اختر دفعة لعرض دروسها وملتحقيها. تاريخ التسجيل يسبق بداية التعلم،
-            والفترات لا تتداخل.
+            اختر دفعة لعرض دروسها وملتحقيها. التسجيل مفتوح بين تاريخ الفتح
+            والإغلاق، وبداية التعلم منفصلة.
           </p>
         </div>
         <Button onClick={openCreate} className="shrink-0 gap-2">
@@ -159,7 +165,7 @@ export function CourseClassesPanel({
                     <p className="text-sm text-muted-foreground">
                       التسجيل{" "}
                       <span className="text-foreground">
-                        {formatClassDate(courseClass.registration_opens_on)}
+                        {formatRegistrationWindow(courseClass)}
                       </span>
                       {" · بداية التعلم "}
                       <span className="text-foreground">
@@ -208,20 +214,37 @@ export function CourseClassesPanel({
       {open && (
         <FormDialog
           title={editing ? "تعديل الدفعة" : "دفعة جديدة"}
-          description="تاريخ التسجيل قبل بداية التعلم، وبلا تداخل مع دفعة أخرى."
+          description="حدد فترة التسجيل وبداية التعلم."
           onClose={closeForm}
           onSubmit={onSubmit}
           pending={pending}
           submitLabel={editing ? "حفظ" : "فتح الدفعة"}
         >
           <div className="space-y-2">
-            <Label htmlFor="class-registration">تاريخ التسجيل</Label>
+            <Label htmlFor="class-registration-opens">فتح التسجيل</Label>
             <Input
-              id="class-registration"
+              id="class-registration-opens"
               type="date"
               required
               value={registrationOpensOn}
-              onChange={(event) => setRegistrationOpensOn(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setRegistrationOpensOn(value);
+                if (!registrationClosesOn || registrationClosesOn < value) {
+                  setRegistrationClosesOn(value);
+                }
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="class-registration-closes">إغلاق التسجيل</Label>
+            <Input
+              id="class-registration-closes"
+              type="date"
+              required
+              value={registrationClosesOn}
+              min={registrationOpensOn || undefined}
+              onChange={(event) => setRegistrationClosesOn(event.target.value)}
             />
           </div>
           <div className="space-y-2">

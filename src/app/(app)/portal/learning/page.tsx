@@ -2,7 +2,11 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Rosette } from "@/components/islamic-motif";
 import { ProgressRing } from "@/components/courses/course-ui";
 import { getMemberLearning } from "@/lib/courses";
-import { formatClassDate, hasLearningStarted } from "@/lib/course-schedule";
+import {
+  formatClassDate,
+  formatRegistrationWindow,
+  hasLearningStarted,
+} from "@/lib/course-schedule";
 import {
   getMemberForSession,
   isMemberProfileComplete,
@@ -74,7 +78,7 @@ export default async function PortalLearningPage() {
                   {item.courseClass ? (
                     <p className="text-sm text-muted-foreground">
                       التسجيل{" "}
-                      {formatClassDate(item.courseClass.registration_opens_on)}
+                      {formatRegistrationWindow(item.courseClass)}
                       {" · بداية التعلم "}
                       {formatClassDate(item.courseClass.learning_starts_at)}
                     </p>

@@ -26,7 +26,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   formatClassDate,
+  formatLessonDateRange,
   formatLessonDuration,
+  formatRegistrationWindow,
   isClassOpen,
 } from "@/lib/course-schedule";
 import type { CourseClass, DurationUnit } from "@/lib/course-schedule";
@@ -105,6 +107,8 @@ export function CourseContentManager({
   const [timestampsText, setTimestampsText] = useState("");
   const [durationAmount, setDurationAmount] = useState("");
   const [durationUnit, setDurationUnit] = useState<DurationUnit>("days");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [selectedClassId, setSelectedClassId] = useState<number | null>(
     classes[0]?.id ?? null,
   );
@@ -204,6 +208,8 @@ export function CourseContentManager({
     setTimestampsText("");
     setDurationAmount("");
     setDurationUnit("days");
+    setStartDate("");
+    setEndDate("");
     setModal(true);
   }
 
@@ -223,6 +229,8 @@ export function CourseContentManager({
       content.duration_amount ? String(content.duration_amount) : "",
     );
     setDurationUnit(content.duration_unit ?? "days");
+    setStartDate(content.start_date ?? "");
+    setEndDate(content.end_date ?? "");
     setModal(true);
   }
 
@@ -270,6 +278,8 @@ export function CourseContentManager({
         order_sequence: Number(order) || 0,
         duration_unit,
         duration_amount,
+        start_date: startDate || null,
+        end_date: endDate || null,
         timestamps: type === "watching" ? parseTimestamps(timestampsText) : [],
         class_id: editing ? undefined : (selectedClassId ?? undefined),
       });
@@ -455,7 +465,7 @@ export function CourseContentManager({
           </div>
           <p className="text-sm text-muted-foreground">
             {selectedClass
-              ? `التسجيل ${formatClassDate(selectedClass.registration_opens_on)} · بداية التعلم ${formatClassDate(selectedClass.learning_starts_at)}`
+              ? `التسجيل ${formatRegistrationWindow(selectedClass)} · بداية التعلم ${formatClassDate(selectedClass.learning_starts_at)}`
               : "الدروس والملتحقون يتبعون الدفعة المحددة."}
           </p>
         </div>
@@ -551,6 +561,11 @@ export function CourseContentManager({
                       {content.author && (
                         <p className="truncate text-sm text-muted-foreground">
                           {content.author}
+                        </p>
+                      )}
+                      {formatLessonDateRange(content) && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          الفترة: {formatLessonDateRange(content)}
                         </p>
                       )}
                       {formatLessonDuration(content) && (
@@ -990,6 +1005,26 @@ export function CourseContentManager({
               onChange={(e) => setAuthor(e.target.value)}
               placeholder="اختياري"
             />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="lesson-start-date">تاريخ البداية</Label>
+              <Input
+                id="lesson-start-date"
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lesson-end-date">تاريخ النهاية</Label>
+              <Input
+                id="lesson-end-date"
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="lesson-duration">مدة الدرس</Label>

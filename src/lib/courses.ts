@@ -27,6 +27,8 @@ function mapContent(row: {
   order_sequence: number;
   duration_unit: string | null;
   duration_amount: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
   metadata: CourseContentMetadata | null;
 }): CourseContent {
   const durationUnit =
@@ -48,6 +50,8 @@ function mapContent(row: {
     order_sequence: Number(row.order_sequence) || 0,
     duration_unit: durationAmount ? durationUnit : null,
     duration_amount: durationAmount,
+    start_date: row.start_date?.slice(0, 10) || null,
+    end_date: row.end_date?.slice(0, 10) || null,
     metadata: row.metadata ?? {},
   };
 }
@@ -341,7 +345,7 @@ export async function getCourseClasses(courseId: number): Promise<CourseClass[]>
   const { data, error } = await supabase
     .from("course_classes")
     .select(
-      "id, course_id, registration_opens_on, learning_starts_at, created_at",
+      "id, course_id, registration_opens_on, registration_closes_on, learning_starts_at, created_at",
     )
     .eq("course_id", courseId)
     .order("learning_starts_at", { ascending: true });
@@ -363,7 +367,9 @@ export async function getCourseIdsWithClasses(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("course_classes")
-    .select("course_id, registration_opens_on, learning_starts_at")
+    .select(
+      "course_id, registration_opens_on, registration_closes_on, learning_starts_at",
+    )
     .in("course_id", courseIds);
 
   if (error) {
@@ -374,7 +380,9 @@ export async function getCourseIdsWithClasses(
   for (const row of data ?? []) {
     const courseClass = row as Pick<
       CourseClass,
-      "registration_opens_on" | "learning_starts_at"
+      | "registration_opens_on"
+      | "registration_closes_on"
+      | "learning_starts_at"
     > & { course_id: number };
     if (
       isClassOpen({
@@ -382,6 +390,7 @@ export async function getCourseIdsWithClasses(
         course_id: courseClass.course_id,
         created_at: "",
         registration_opens_on: courseClass.registration_opens_on,
+        registration_closes_on: courseClass.registration_closes_on,
         learning_starts_at: courseClass.learning_starts_at,
       })
     ) {
@@ -402,7 +411,7 @@ export async function getCourseContents(
   let query = supabase
     .from("course_contents")
     .select(
-      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
+      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, start_date, end_date, metadata",
     )
     .eq("course_id", courseId)
     .order("order_sequence", { ascending: true })
@@ -427,7 +436,7 @@ export async function getCourseContentById(
   const { data, error } = await supabase
     .from("course_contents")
     .select(
-      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, metadata",
+      "id, course_id, class_id, type, title, author, content_url, order_sequence, duration_unit, duration_amount, start_date, end_date, metadata",
     )
     .eq("id", contentId)
     .maybeSingle();
@@ -545,7 +554,7 @@ export async function getMemberLearning(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, courses ( id, title, description, thumbnail_url ), course_classes ( id, course_id, registration_opens_on, learning_starts_at, created_at )",
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, courses ( id, title, description, thumbnail_url ), course_classes ( id, course_id, registration_opens_on, registration_closes_on, learning_starts_at, created_at )",
     )
     .eq("member_id", memberId)
     .order("created_at", { ascending: false });
@@ -584,6 +593,9 @@ export async function getMemberLearning(
               id: classRaw.id as number,
               course_id: classRaw.course_id as number,
               registration_opens_on: classRaw.registration_opens_on as string,
+              registration_closes_on:
+                (classRaw.registration_closes_on as string | null) ??
+                (classRaw.registration_opens_on as string),
               learning_starts_at: classRaw.learning_starts_at as string,
               created_at: classRaw.created_at as string,
             }

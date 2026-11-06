@@ -18,7 +18,10 @@ import type {
   CourseWithMeta,
   Enrollment,
 } from "@/lib/course-types";
-import { formatLessonDuration } from "@/lib/course-schedule";
+import {
+  formatLessonDateRange,
+  formatLessonDuration,
+} from "@/lib/course-schedule";
 import {
   Check,
   ChevronLeft,
@@ -139,6 +142,11 @@ export function CourseLearnShell({
                 {item.author && (
                   <span className="block truncate text-xs text-muted-foreground">
                     {item.author}
+                  </span>
+                )}
+                {formatLessonDateRange(item) && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    الفترة: {formatLessonDateRange(item)}
                   </span>
                 )}
                 {formatLessonDuration(item) && (

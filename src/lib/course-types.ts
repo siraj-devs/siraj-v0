@@ -64,6 +64,8 @@ export type CourseContent = {
   order_sequence: number;
   duration_unit: import("@/lib/course-schedule").DurationUnit | null;
   duration_amount: number | null;
+  start_date: string | null;
+  end_date: string | null;
   metadata: CourseContentMetadata;
 };
 

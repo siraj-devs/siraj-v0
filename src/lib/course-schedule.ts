@@ -9,6 +9,7 @@ export type CourseClass = {
   id: number;
   course_id: number;
   registration_opens_on: string;
+  registration_closes_on: string;
   learning_starts_at: string;
   created_at: string;
 };
@@ -22,26 +23,24 @@ export function todayDateOnly(timeZone = "Africa/Casablanca") {
   }).format(new Date());
 }
 
+/** Open from registration_opens_on through registration_closes_on (inclusive). */
 export function isClassOpen(courseClass: CourseClass, today = todayDateOnly()) {
   return (
     courseClass.registration_opens_on <= today &&
-    today <= courseClass.learning_starts_at
+    today <= courseClass.registration_closes_on
   );
 }
 
-export function classRangesOverlap(a: CourseClass, b: CourseClass) {
-  return (
-    a.registration_opens_on <= b.learning_starts_at &&
-    b.registration_opens_on <= a.learning_starts_at
-  );
-}
-
-/** The single class whose registration-to-start window contains today. */
+/** The open class with the latest registration open date (or first if tied). */
 export function pickOpenClass(
   classes: readonly CourseClass[],
   today = todayDateOnly(),
 ): CourseClass | null {
-  return classes.find((courseClass) => isClassOpen(courseClass, today)) ?? null;
+  const open = classes.filter((courseClass) => isClassOpen(courseClass, today));
+  if (open.length === 0) return null;
+  return open.sort((a, b) =>
+    b.registration_opens_on.localeCompare(a.registration_opens_on),
+  )[0];
 }
 
 /** The next class whose registration has not opened yet. */
@@ -91,6 +90,13 @@ export function formatClassDate(isoDate: string) {
   });
 }
 
+export function formatRegistrationWindow(courseClass: CourseClass) {
+  if (courseClass.registration_opens_on === courseClass.registration_closes_on) {
+    return formatClassDate(courseClass.registration_opens_on);
+  }
+  return `${formatClassDate(courseClass.registration_opens_on)} – ${formatClassDate(courseClass.registration_closes_on)}`;
+}
+
 export function formatLessonDuration(lesson: LessonDuration) {
   const amount = lesson.duration_amount;
   if (!lesson.duration_unit || !amount) return null;
@@ -102,6 +108,21 @@ export function formatLessonDuration(lesson: LessonDuration) {
   if (amount === 1) return "ساعة";
   if (amount === 2) return "ساعتان";
   return `${amount} ساعات`;
+}
+
+export function formatLessonDateRange(lesson: {
+  start_date: string | null;
+  end_date: string | null;
+}) {
+  if (!lesson.start_date && !lesson.end_date) return null;
+  if (lesson.start_date && lesson.end_date) {
+    if (lesson.start_date === lesson.end_date) {
+      return formatClassDate(lesson.start_date);
+    }
+    return `${formatClassDate(lesson.start_date)} – ${formatClassDate(lesson.end_date)}`;
+  }
+  if (lesson.start_date) return `من ${formatClassDate(lesson.start_date)}`;
+  return `حتى ${formatClassDate(lesson.end_date!)}`;
 }
 
 export function parseDateOnly(value: string): string | null {

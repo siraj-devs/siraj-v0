@@ -9,6 +9,7 @@ import {
 } from "@/lib/courses";
 import {
   formatClassDate,
+  formatRegistrationWindow,
   hasLearningStarted,
   nextOpenLesson,
 } from "@/lib/course-schedule";
@@ -70,7 +71,7 @@ export default async function PortalCoursePage({
           <p className="font-kufam text-xl text-foreground">اختر درساً للبدء</p>
           {courseClass && (
             <p className="mt-2 text-sm text-muted-foreground">
-              التسجيل {formatClassDate(courseClass.registration_opens_on)}
+              التسجيل {formatRegistrationWindow(courseClass)}
               {" · بداية التعلم "}
               {formatClassDate(courseClass.learning_starts_at)}
             </p>
