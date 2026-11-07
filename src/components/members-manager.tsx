@@ -609,7 +609,8 @@ export function MembersManager({
                       : "relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                   }
                 >
-                  <div
+                  <Link
+                    href={`/dashboard/members/${member.id}`}
                     className={
                       isGrid
                         ? "flex flex-col items-center"
@@ -631,23 +632,21 @@ export function MembersManager({
                             : "truncate text-lg space-x-2"
                         }`}
                       >
-                        <span>{member.name}</span> 
+                        <span>{member.name}</span>
                         {!isGrid && (
                           <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge} ${
-                            isGrid ? "mb-4" : ""
-                          }`}
-                        >
-                          {ROLE_LABELS[member.role]}
-                        </span>
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}
+                          >
+                            {ROLE_LABELS[member.role]}
+                          </span>
                         )}
                       </h3>
                       {isGrid && (
                         <span
-                        className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}
-                      >
-                        {ROLE_LABELS[member.role]}
-                      </span>
+                          className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}
+                        >
+                          {ROLE_LABELS[member.role]}
+                        </span>
                       )}
                       <div
                         className={`flex flex-col gap-2 ${
@@ -658,7 +657,7 @@ export function MembersManager({
                         {permissions}
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
                   {canManage && (
                     <div

@@ -21,6 +21,7 @@ import {
 import { ReadingViewer } from "@/components/courses/reading-viewer";
 import { VideoViewer } from "@/components/courses/video-viewer";
 import { Rosette } from "@/components/islamic-motif";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,10 @@ import {
   VISIBILITY_LABELS,
 } from "@/lib/course-types";
 import {
+  MEMBER_ROLE_LABELS,
+  type MemberRole,
+} from "@/lib/member-role";
+import {
   CalendarDays,
   Clock,
   BookOpen,
@@ -69,12 +74,12 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: "مالك",
-  admin: "مشرف",
-  participant: "مشارك",
-  veteran: "مخضرم",
-  newcomer: "وافد",
+const ROLE_STYLES: Record<MemberRole, string> = {
+  owner: "bg-rose-500/10 text-rose-800 ring-rose-500/20",
+  admin: "bg-primary/15 text-[#7a5a08] ring-primary/25",
+  participant: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20",
+  veteran: "bg-sky-500/10 text-sky-800 ring-sky-500/20",
+  newcomer: "bg-violet-500/10 text-violet-800 ring-violet-500/20",
 };
 
 export function CourseContentManager({
@@ -689,52 +694,74 @@ export function CourseContentManager({
               const done =
                 enrollment.status === "completed" ||
                 enrollment.progress_percentage >= 100;
+              const role = enrollment.member.role;
               return (
                 <li
                   key={enrollment.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 sm:gap-4 sm:px-6"
+                  className="border-b border-border/60 last:border-b-0"
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 font-kufam text-sm text-primary">
-                    {enrollment.member.name.trim().charAt(0) || "؟"}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-kufam text-lg text-foreground">
-                      {enrollment.member.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {ROLE_LABELS[enrollment.member.role] ??
-                        enrollment.member.role}
-                      {enrollment.member.email
-                        ? ` · ${enrollment.member.email}`
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {ratingsByMember[enrollment.member_id] && (
-                      <StarRating
-                        value={ratingsByMember[enrollment.member_id]}
-                      />
-                    )}
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                      {Math.round(enrollment.progress_percentage)}%
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-                        done
-                          ? "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30"
-                          : "bg-sky-500/15 text-sky-800 ring-sky-500/30"
-                      }`}
-                    >
-                      {done ? (
-                        <>
-                          <CheckCircle2 className="size-3.5" />
-                          مكتمل
-                        </>
-                      ) : (
-                        "قيد التعلم"
+                  <Link
+                    href={`/dashboard/members/${enrollment.member.id}`}
+                    className="flex flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6"
+                  >
+                    <RemoteAvatar
+                      src={enrollment.member.avatar}
+                      alt={enrollment.member.name}
+                      className="size-11 shrink-0 rounded-2xl object-cover"
+                      fallback={
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/8 font-kufam text-sm text-primary">
+                          {enrollment.member.name.trim().charAt(0) || "؟"}
+                        </div>
+                      }
+                    />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="truncate font-kufam text-lg text-foreground">
+                          {enrollment.member.name}
+                        </p>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${ROLE_STYLES[role]}`}
+                        >
+                          {MEMBER_ROLE_LABELS[role]}
+                        </span>
+                      </div>
+                      {(enrollment.member.phone ||
+                        enrollment.member.login) && (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {enrollment.member.phone ??
+                            (enrollment.member.login
+                              ? `@${enrollment.member.login}`
+                              : "")}
+                        </p>
                       )}
-                    </span>
-                  </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {ratingsByMember[enrollment.member_id] && (
+                        <StarRating
+                          value={ratingsByMember[enrollment.member_id]}
+                        />
+                      )}
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                        {Math.round(enrollment.progress_percentage)}%
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+                          done
+                            ? "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30"
+                            : "bg-sky-500/15 text-sky-800 ring-sky-500/30"
+                        }`}
+                      >
+                        {done ? (
+                          <>
+                            <CheckCircle2 className="size-3.5" />
+                            مكتمل
+                          </>
+                        ) : (
+                          "قيد التعلم"
+                        )}
+                      </span>
+                    </div>
+                  </Link>
                 </li>
               );
             })}

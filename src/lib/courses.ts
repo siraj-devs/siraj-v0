@@ -632,7 +632,7 @@ export async function getCourseEnrollments(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, role )",
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, phone, role, ft_connections ( login, avatar ), dc_connections ( username, avatar ), google_connections ( email, avatar ) )",
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -646,6 +646,23 @@ export async function getCourseEnrollments(
     const memberRaw = row.members;
     const member = Array.isArray(memberRaw) ? memberRaw[0] : memberRaw;
     if (!member) return [];
+
+    const ftRaw = (member as { ft_connections?: unknown }).ft_connections;
+    const dcRaw = (member as { dc_connections?: unknown }).dc_connections;
+    const googleRaw = (member as { google_connections?: unknown })
+      .google_connections;
+    const ft = Array.isArray(ftRaw) ? ftRaw[0] : ftRaw;
+    const dc = Array.isArray(dcRaw) ? dcRaw[0] : dcRaw;
+    const google = Array.isArray(googleRaw) ? googleRaw[0] : googleRaw;
+    const ftRow = ft as { login?: string | null; avatar?: string | null } | null;
+    const dcRow = dc as {
+      username?: string | null;
+      avatar?: string | null;
+    } | null;
+    const googleRow = google as {
+      email?: string | null;
+      avatar?: string | null;
+    } | null;
 
     return [
       {
@@ -661,7 +678,11 @@ export async function getCourseEnrollments(
           id: member.id as number,
           name: member.name as string,
           email: (member.email as string | null) ?? null,
-          role: member.role as string,
+          phone: (member.phone as string | null) ?? null,
+          role: member.role as CourseEnrollmentWithMember["member"]["role"],
+          avatar:
+            ftRow?.avatar ?? dcRow?.avatar ?? googleRow?.avatar ?? null,
+          login: ftRow?.login ?? null,
         },
       },
     ];

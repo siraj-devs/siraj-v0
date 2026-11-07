@@ -100,7 +100,10 @@ export type CourseEnrollmentWithMember = Enrollment & {
     id: number;
     name: string;
     email: string | null;
-    role: string;
+    phone: string | null;
+    role: import("@/lib/member-role").MemberRole;
+    avatar: string | null;
+    login: string | null;
   };
 };
 

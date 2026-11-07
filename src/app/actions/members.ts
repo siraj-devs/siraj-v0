@@ -59,6 +59,49 @@ function revalidateMembers() {
   revalidatePath("/", "layout");
 }
 
+const MEMBER_PROFILE_SELECT =
+  "id, name, email, phone, phone_verified_at, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)";
+
+function mapMemberProfileRow(
+  row: Record<string, unknown>,
+  pagePermissions: PageGrant[] = [],
+): MemberProfile {
+  const ftRaw = row.ft_connections;
+  const dcRaw = row.dc_connections;
+  const googleRaw = row.google_connections;
+  const ft = Array.isArray(ftRaw) ? ftRaw[0] : ftRaw;
+  const dc = Array.isArray(dcRaw) ? dcRaw[0] : dcRaw;
+  const google = Array.isArray(googleRaw) ? googleRaw[0] : googleRaw;
+  const ftRow = ft as { login?: string | null; avatar?: string | null } | null;
+  const dcRow = dc as {
+    username?: string | null;
+    avatar?: string | null;
+  } | null;
+  const googleRow = google as {
+    email?: string | null;
+    avatar?: string | null;
+  } | null;
+
+  return {
+    id: row.id as number,
+    name: row.name as string,
+    email: (row.email as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
+    phone_verified_at: (row.phone_verified_at as string | null) ?? null,
+    role: row.role as MemberRole,
+    ft_connection: (row.ft_connection as number | null) ?? null,
+    dc_connection: (row.dc_connection as string | null) ?? null,
+    google_connection: (row.google_connection as string | null) ?? null,
+    login: ftRow?.login ?? null,
+    avatar: ftRow?.avatar ?? dcRow?.avatar ?? googleRow?.avatar ?? null,
+    dc_username: dcRow?.username ?? null,
+    dc_avatar: dcRow?.avatar ?? null,
+    google_email: googleRow?.email ?? null,
+    google_avatar: googleRow?.avatar ?? null,
+    page_permissions: pagePermissions,
+  };
+}
+
 export async function getClubMembers(): Promise<MemberProfile[]> {
   let includePermissions = false;
   try {
@@ -71,9 +114,7 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
 
   const { data, error } = await supabase
     .from("members")
-    .select(
-      "id, name, email, phone, phone_verified_at, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)",
-    )
+    .select(MEMBER_PROFILE_SELECT)
     .order("name", { ascending: true });
 
   if (error) {
@@ -86,41 +127,50 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
     : new Map<number, PageGrant[]>();
 
   return (data ?? [])
-    .map((row) => {
-      const ft = Array.isArray(row.ft_connections)
-        ? row.ft_connections[0]
-        : row.ft_connections;
-      const dc = Array.isArray(row.dc_connections)
-        ? row.dc_connections[0]
-        : row.dc_connections;
-      const google = Array.isArray(row.google_connections)
-        ? row.google_connections[0]
-        : row.google_connections;
-
-      return {
-        id: row.id,
-        name: row.name,
-        email: (row.email as string | null) ?? null,
-        phone: (row.phone as string | null) ?? null,
-        phone_verified_at: (row.phone_verified_at as string | null) ?? null,
-        role: row.role as MemberRole,
-        ft_connection: row.ft_connection,
-        dc_connection: row.dc_connection,
-        google_connection: row.google_connection,
-        login: ft?.login ?? null,
-        avatar: ft?.avatar ?? dc?.avatar ?? google?.avatar ?? null,
-        dc_username: dc?.username ?? null,
-        dc_avatar: dc?.avatar ?? null,
-        google_email: google?.email ?? null,
-        google_avatar: google?.avatar ?? null,
-        page_permissions: permissionsByMember.get(row.id) ?? [],
-      };
-    })
+    .map((row) =>
+      mapMemberProfileRow(
+        row as Record<string, unknown>,
+        permissionsByMember.get(row.id as number) ?? [],
+      ),
+    )
     .sort((a, b) => {
       const byRole = memberRoleRank(a.role) - memberRoleRank(b.role);
       if (byRole !== 0) return byRole;
       return a.name.localeCompare(b.name, "ar");
     });
+}
+
+export async function getClubMemberById(
+  id: number,
+): Promise<MemberProfile | null> {
+  if (!Number.isFinite(id)) return null;
+
+  let includePermissions = false;
+  try {
+    const { member } = await requireDashboardMember();
+    includePermissions = canManageMembers(member?.role);
+  } catch {
+    await requirePageAccess("/dashboard/courses");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("members")
+    .select(MEMBER_PROFILE_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching member:", error);
+    return null;
+  }
+  if (!data) return null;
+
+  const permissions = includePermissions
+    ? (await getPagePermissionsByMember()).get(id) ?? []
+    : [];
+
+  return mapMemberProfileRow(data as Record<string, unknown>, permissions);
 }
 
 export async function getAvailableFtConnections(
