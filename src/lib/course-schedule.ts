@@ -64,10 +64,32 @@ export function hasLearningStarted(
   return learningStartsAt.slice(0, 10) <= today;
 }
 
-export function nextOpenLesson<T extends { id: number }>(
-  contents: readonly T[],
+/** Lessons without start_date are available immediately. */
+export function hasLessonStarted(
+  lesson: { start_date: string | null },
+  today = todayDateOnly(),
+) {
+  if (!lesson.start_date) return true;
+  return lesson.start_date.slice(0, 10) <= today;
+}
+
+export function isLessonLocked(
+  contents: readonly { id: number; start_date: string | null }[],
+  index: number,
   completedIds: ReadonlySet<number>,
-): T | null {
+  today = todayDateOnly(),
+) {
+  const item = contents[index];
+  if (!item) return true;
+  if (!hasLessonStarted(item, today)) return true;
+  if (index > 0 && !completedIds.has(contents[index - 1]!.id)) return true;
+  return false;
+}
+
+export function nextOpenLesson<
+  T extends { id: number; start_date: string | null },
+>(contents: readonly T[], completedIds: ReadonlySet<number>): T | null {
+  const today = todayDateOnly();
   for (let index = 0; index < contents.length; index += 1) {
     const item = contents[index];
     if (completedIds.has(item.id)) continue;
@@ -75,6 +97,7 @@ export function nextOpenLesson<T extends { id: number }>(
       .slice(0, index)
       .every((earlier) => completedIds.has(earlier.id));
     if (!previousDone) return null;
+    if (!hasLessonStarted(item, today)) return null;
     return item;
   }
   return null;

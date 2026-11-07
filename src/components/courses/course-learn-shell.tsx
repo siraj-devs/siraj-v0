@@ -21,6 +21,8 @@ import type {
 import {
   formatLessonDateRange,
   formatLessonDuration,
+  hasLessonStarted,
+  isLessonLocked,
 } from "@/lib/course-schedule";
 import {
   Check,
@@ -69,12 +71,14 @@ export function CourseLearnShell({
       : null;
   const activeContent = activeIndex >= 0 ? contents[activeIndex] : null;
   const nextUnlocked = Boolean(
-    next && activeContent && completed.has(activeContent.id),
+    next &&
+      activeContent &&
+      completed.has(activeContent.id) &&
+      hasLessonStarted(next),
   );
 
   function isLocked(index: number) {
-    const earlier = contents[index - 1];
-    return index > 0 && !completed.has(earlier.id);
+    return isLessonLocked(contents, index, completed);
   }
 
   function onComplete() {

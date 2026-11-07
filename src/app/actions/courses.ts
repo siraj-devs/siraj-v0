@@ -31,6 +31,7 @@ import { getSession } from "@/lib/session";
 import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import {
   hasLearningStarted,
+  hasLessonStarted,
   parseDateOnly,
   pickOpenClass,
   type DurationUnit,
@@ -647,6 +648,9 @@ export async function markContentComplete(
     }
     const blocked = await learningBlockedReason(enrollment);
     if (blocked) return { success: false, error: blocked };
+    if (!hasLessonStarted(content)) {
+      return { success: false, error: "هذا الدرس لم يبدأ بعد" };
+    }
 
     const supabase = await createClient();
     const { error } = await supabase.from("content_completions").upsert(
@@ -696,6 +700,9 @@ export async function submitExam(
     }
     const blocked = await learningBlockedReason(enrollment);
     if (blocked) return { success: false, error: blocked };
+    if (!hasLessonStarted(content)) {
+      return { success: false, error: "هذا الاختبار لم يبدأ بعد" };
+    }
 
     const questions = await getExamQuestions(contentId);
     if (questions.length === 0) {

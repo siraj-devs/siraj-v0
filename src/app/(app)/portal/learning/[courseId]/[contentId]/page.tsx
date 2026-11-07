@@ -13,7 +13,11 @@ import {
   getExamQuestionsForLearner,
   getMyCourseRating,
 } from "@/lib/courses";
-import { hasLearningStarted, nextOpenLesson } from "@/lib/course-schedule";
+import {
+  hasLearningStarted,
+  hasLessonStarted,
+  nextOpenLesson,
+} from "@/lib/course-schedule";
 import {
   getMemberForSession,
   isMemberProfileComplete,
@@ -73,7 +77,8 @@ export default async function PortalLessonPage({
   const sequentialLocked = contents
     .slice(0, Math.max(0, activeIndex))
     .some((item) => !completed.has(item.id));
-  if (sequentialLocked) {
+  const dateLocked = !hasLessonStarted(content);
+  if (sequentialLocked || dateLocked) {
     const resumeTarget = nextOpenLesson(contents, completed);
     redirect(
       resumeTarget && resumeTarget.id !== contentId
