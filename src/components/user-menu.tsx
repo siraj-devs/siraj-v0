@@ -25,13 +25,33 @@ import {
 } from "lucide-react";
 import { RemoteAvatar } from "@/components/remote-avatar";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-const OWNER_LINKS: {
+const DASHBOARD_LINKS: {
   href: string;
   label: string;
   icon: LucideIcon;
+  viewerDefault?: boolean;
 }[] = [
+  { href: "/dashboard/members", label: "الأعضاء", icon: Users, viewerDefault: true },
+  {
+    href: "/dashboard/calendar",
+    label: "التقويم",
+    icon: CalendarDays,
+    viewerDefault: true,
+  },
+  {
+    href: "/dashboard/finance",
+    label: "المالية",
+    icon: Wallet,
+    viewerDefault: true,
+  },
+  {
+    href: "/dashboard/meetings",
+    label: "اللقاءات",
+    icon: Handshake,
+    viewerDefault: true,
+  },
   { href: "/dashboard/submissions", label: "التقديمات", icon: ClipboardList },
   { href: "/dashboard/connections", label: "الاتصالات", icon: Link2 },
   { href: "/dashboard/content", label: "المحتوى", icon: FileText },
@@ -40,17 +60,6 @@ const OWNER_LINKS: {
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
   { href: "/dashboard/events", label: "الأحداث", icon: CalendarClock },
   { href: "/dashboard/lists", label: "اللوائح", icon: ListChecks },
-];
-
-const VIEWER_LINKS: {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-}[] = [
-  { href: "/dashboard/members", label: "الأعضاء", icon: Users },
-  { href: "/dashboard/calendar", label: "التقويم", icon: CalendarDays },
-  { href: "/dashboard/finance", label: "المالية", icon: Wallet },
-  { href: "/dashboard/meetings", label: "اللقاءات", icon: Handshake },
 ];
 
 export function UserMenu({
@@ -67,15 +76,19 @@ export function UserMenu({
   const [isOpen, setIsOpen] = useState(false);
   const avatarSrc = user?.image || null;
   const isOwner = user?.role === "owner";
-  const showViewerLinks =
+  const hasViewerRole =
     user?.role === "owner" ||
     user?.role === "admin" ||
     user?.role === "participant";
-  const grantedLinks = isOwner
-    ? OWNER_LINKS
-    : OWNER_LINKS.filter((link) =>
-        (user?.pagePermissions ?? []).some((grant) => grant.path === link.href),
-      );
+  const permissions = user?.pagePermissions ?? [];
+
+  const dashboardLinks = useMemo(() => {
+    return DASHBOARD_LINKS.filter((link) => {
+      if (isOwner) return true;
+      if (link.viewerDefault && hasViewerRole) return true;
+      return permissions.some((grant) => grant.path === link.href);
+    });
+  }, [isOwner, hasViewerRole, permissions]);
 
   return (
     <div className="relative">
@@ -127,39 +140,23 @@ export function UserMenu({
               <GraduationCap className="size-4 shrink-0 text-muted-foreground" />
               تعلّمي
             </Link>
+            {dashboardLinks.length > 0 && (
+              <>
+                <hr className="border-border" />
+                {dashboardLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <link.icon className="size-4 shrink-0 text-muted-foreground" />
+                    {link.label}
+                  </Link>
+                ))}
+              </>
+            )}
             <hr className="border-border" />
-            {showViewerLinks && (
-              <>
-                {VIEWER_LINKS.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <link.icon className="size-4 shrink-0 text-muted-foreground" />
-                    {link.label}
-                  </Link>
-                ))}
-                <hr className="border-border" />
-              </>
-            )}
-            {grantedLinks.length > 0 && (
-              <>
-                {grantedLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-muted"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <link.icon className="size-4 shrink-0 text-muted-foreground" />
-                    {link.label}
-                  </Link>
-                ))}
-                <hr className="border-border" />
-              </>
-            )}
 
             <Link
               href="/profile"

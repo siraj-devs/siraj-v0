@@ -27,11 +27,13 @@ import {
 } from "@/lib/page-permissions";
 import {
   CalendarClock,
+  CalendarDays,
   Clapperboard,
   ClipboardList,
   Crown,
   FileText,
   GraduationCap,
+  Handshake,
   Link2,
   ListChecks,
   Medal,
@@ -43,6 +45,8 @@ import {
   Sparkles,
   Trash2,
   UserRound,
+  Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { RemoteAvatar } from "@/components/remote-avatar";
@@ -107,6 +111,10 @@ const PAGE_ACCESS_OPTIONS: { value: PageAccessLevel | "none"; label: string }[] 
   ];
 
 const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
+  "/dashboard/members": Users,
+  "/dashboard/calendar": CalendarDays,
+  "/dashboard/finance": Wallet,
+  "/dashboard/meetings": Handshake,
   "/dashboard/submissions": ClipboardList,
   "/dashboard/connections": Link2,
   "/dashboard/content": FileText,
@@ -842,7 +850,7 @@ export function MembersManager({
             </select>
           </div>
 
-          {canManage && (
+          {canManage && viewerRole === "owner" && (
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium leading-none">
                 صلاحيات الصفحات

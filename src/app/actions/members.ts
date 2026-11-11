@@ -1,7 +1,8 @@
 "use server";
 
-import { requireDashboardMember, requireOwner, requirePageAccess } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import {
+  getMemberPagePermissions,
   getPagePermissionsByMember,
   setMemberPagePermissions,
 } from "@/lib/member-permissions";
@@ -11,9 +12,11 @@ import {
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
-import type { PageGrant } from "@/lib/page-permissions";
+import { hasPageEdit, type PageGrant } from "@/lib/page-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+
+const MEMBERS_PATH = "/dashboard/members" as const;
 
 export type MemberProfile = AppMember & {
   login: string | null;
@@ -102,14 +105,23 @@ function mapMemberProfileRow(
   };
 }
 
+async function canViewMemberPermissionGrants(memberId: number, role: MemberRole) {
+  if (canManageMembers(role)) return true;
+  const grants = await getMemberPagePermissions(memberId);
+  return hasPageEdit(grants, MEMBERS_PATH);
+}
+
 export async function getClubMembers(): Promise<MemberProfile[]> {
-  let includePermissions = false;
+  let member;
   try {
-    const { member } = await requireDashboardMember();
-    includePermissions = canManageMembers(member?.role);
+    ({ member } = await requirePageAccess(MEMBERS_PATH));
   } catch {
-    await requirePageAccess("/dashboard/courses");
+    ({ member } = await requirePageAccess("/dashboard/courses"));
   }
+  const includePermissions = await canViewMemberPermissionGrants(
+    member.id,
+    member.role,
+  );
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -145,13 +157,11 @@ export async function getClubMemberById(
 ): Promise<MemberProfile | null> {
   if (!Number.isFinite(id)) return null;
 
-  let includePermissions = false;
-  try {
-    const { member } = await requireDashboardMember();
-    includePermissions = canManageMembers(member?.role);
-  } catch {
-    await requirePageAccess("/dashboard/courses");
-  }
+  const { member } = await requirePageAccess(MEMBERS_PATH);
+  const includePermissions = await canViewMemberPermissionGrants(
+    member.id,
+    member.role,
+  );
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -176,7 +186,7 @@ export async function getClubMemberById(
 export async function getAvailableFtConnections(
   currentConnectionId?: number | null,
 ): Promise<FtConnectionOption[]> {
-  await requireOwner();
+  await requirePageEdit(MEMBERS_PATH);
   const supabase = await createClient();
 
   const { data: members, error: membersError } = await supabase
@@ -218,7 +228,7 @@ export async function getAvailableFtConnections(
 export async function getAvailableDcConnections(
   currentConnectionId?: string | null,
 ): Promise<DcConnectionOption[]> {
-  await requireOwner();
+  await requirePageEdit(MEMBERS_PATH);
   const supabase = await createClient();
 
   const { data: members, error: membersError } = await supabase
@@ -262,7 +272,7 @@ export async function getAvailableDcConnections(
 export async function getAvailableGoogleConnections(
   currentConnectionId?: string | null,
 ): Promise<GoogleConnectionOption[]> {
-  await requireOwner();
+  await requirePageEdit(MEMBERS_PATH);
   const supabase = await createClient();
 
   const { data: members, error: membersError } = await supabase
@@ -312,7 +322,7 @@ export async function createMember(input: {
   page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    const { member: current } = await requirePageEdit(MEMBERS_PATH);
 
     const name = input.name?.trim();
     const role = input.role;
@@ -344,11 +354,13 @@ export async function createMember(input: {
       return { success: false, error: "تعذر إنشاء العضو" };
     }
 
-    const saved = await setMemberPagePermissions(
-      data.id,
-      input.page_permissions ?? [],
-    );
-    if (!saved.success) return saved;
+    if (canManageMembers(current.role)) {
+      const saved = await setMemberPagePermissions(
+        data.id,
+        input.page_permissions ?? [],
+      );
+      if (!saved.success) return saved;
+    }
 
     revalidateMembers();
     return { success: true };
@@ -367,7 +379,7 @@ export async function updateMember(input: {
   page_permissions?: PageGrant[];
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const { member: current } = await requireOwner();
+    const { member: current } = await requirePageEdit(MEMBERS_PATH);
 
     const id = Number(input.id);
     const name = input.name?.trim();
@@ -382,7 +394,7 @@ export async function updateMember(input: {
     if (!ROLE_VALUES.includes(role))
       return { success: false, error: "الدور غير صالح" };
 
-    if (current?.id === id && role !== "owner") {
+    if (current.id === id && role !== "owner") {
       return {
         success: false,
         error: "لا يمكنك إزالة دور المالك عن نفسك",
@@ -402,11 +414,13 @@ export async function updateMember(input: {
       return { success: false, error: "تعذر تحديث العضو" };
     }
 
-    const saved = await setMemberPagePermissions(
-      id,
-      input.page_permissions ?? [],
-    );
-    if (!saved.success) return saved;
+    if (canManageMembers(current.role)) {
+      const saved = await setMemberPagePermissions(
+        id,
+        input.page_permissions ?? [],
+      );
+      if (!saved.success) return saved;
+    }
 
     revalidateMembers();
     return { success: true };
@@ -419,7 +433,7 @@ export async function deleteMember(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const { member: current } = await requireOwner();
+    const { member: current } = await requirePageEdit(MEMBERS_PATH);
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };

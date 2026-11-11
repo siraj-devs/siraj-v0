@@ -1,8 +1,10 @@
 "use server";
 
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+
+const FINANCE_PATH = "/dashboard/finance" as const;
 
 export type TransactionType = "income" | "expense";
 
@@ -15,7 +17,7 @@ export type ClubTransaction = {
 };
 
 export async function getTransactions(): Promise<ClubTransaction[]> {
-  await requireDashboardMember();
+  await requirePageAccess(FINANCE_PATH);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -45,7 +47,7 @@ export async function createTransaction(input: {
   note: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(FINANCE_PATH);
 
     const due_at = input.due_at?.trim();
     const note = input.note?.trim() ?? "";
@@ -84,7 +86,7 @@ export async function deleteTransaction(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(FINANCE_PATH);
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };

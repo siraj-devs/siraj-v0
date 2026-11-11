@@ -4,22 +4,13 @@ import {
   getMeetings,
 } from "@/app/actions/meetings";
 import { MeetingsManager } from "@/components/meetings-manager";
-import {
-  canManageMembers,
-  getMemberForSession,
-} from "@/lib/members";
-import { getSession } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { gateDashboardPage } from "@/lib/dashboard-gate";
 
 export default async function MeetingsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
-  const current = await getMemberForSession(session);
-  const canManage = canManageMembers(current?.role);
+  const { canEdit } = await gateDashboardPage("/dashboard/meetings");
 
   const meetings = await getMeetings();
-  const [members, ftConnections] = canManage
+  const [members, ftConnections] = canEdit
     ? await Promise.all([getMeetingMemberOptions(), getMeetingFtOptions()])
     : [[], []];
 
@@ -29,7 +20,7 @@ export default async function MeetingsPage() {
         meetings={meetings}
         members={members}
         ftConnections={ftConnections}
-        canManage={canManage}
+        canManage={canEdit}
       />
     </div>
   );

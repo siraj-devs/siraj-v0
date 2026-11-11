@@ -1,8 +1,10 @@
 "use server";
 
-import { requireDashboardMember, requireOwner } from "@/lib/auth-guards";
+import { requirePageAccess, requirePageEdit } from "@/lib/auth-guards";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+
+const MEETINGS_PATH = "/dashboard/meetings" as const;
 
 export type MeetingAttendee = {
   id: number;
@@ -125,7 +127,7 @@ function mapAttendee(row: {
 }
 
 export async function getMeetings(): Promise<ClubMeeting[]> {
-  await requireDashboardMember();
+  await requirePageAccess(MEETINGS_PATH);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -160,7 +162,7 @@ export async function getMeetings(): Promise<ClubMeeting[]> {
 }
 
 export async function getMeetingMemberOptions(): Promise<MeetingMemberOption[]> {
-  await requireOwner();
+  await requirePageEdit(MEETINGS_PATH);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -186,7 +188,7 @@ export async function getMeetingMemberOptions(): Promise<MeetingMemberOption[]> 
 }
 
 export async function getMeetingFtOptions(): Promise<MeetingFtOption[]> {
-  await requireOwner();
+  await requirePageEdit(MEETINGS_PATH);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -214,7 +216,7 @@ export async function createMeeting(input: {
   end_time: string;
 }): Promise<{ success: true; id: number } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     const name = input.name?.trim();
     const date = input.date?.trim();
@@ -257,7 +259,7 @@ export async function updateMeeting(input: {
   end_time: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     const id = Number(input.id);
     const name = input.name?.trim();
@@ -297,7 +299,7 @@ export async function deleteMeeting(
   id: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
@@ -322,7 +324,7 @@ export async function addMeetingMember(input: {
   member_id: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     const meeting_id = Number(input.meeting_id);
     const member_id = Number(input.member_id);
@@ -357,7 +359,7 @@ export async function addMeetingGuest(input: {
   ft_connection?: number | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     const meeting_id = Number(input.meeting_id);
     const name = input.name?.trim();
@@ -423,7 +425,7 @@ export async function removeMeetingAttendee(
   attendeeId: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requireOwner();
+    await requirePageEdit(MEETINGS_PATH);
 
     if (!attendeeId || !Number.isFinite(attendeeId))
       return { success: false, error: "معرّف غير صالح" };

@@ -3,6 +3,7 @@ import {
   canAccessDashboard,
   canManageMembers,
   getMemberForSession,
+  VIEWER_DASHBOARD_PATHS,
   type AppMember,
 } from "@/lib/members";
 import {
@@ -61,6 +62,16 @@ export async function requirePageAccess(
 ): Promise<OwnerGuardContext> {
   const ctx = await requireSessionMember();
   if (canManageMembers(ctx.member.role)) return ctx;
+
+  // Admin / participant keep built-in view access to the classic member pages.
+  if (
+    canAccessDashboard(ctx.member.role) &&
+    VIEWER_DASHBOARD_PATHS.some(
+      (allowed) => path === allowed || path.startsWith(`${allowed}/`),
+    )
+  ) {
+    return ctx;
+  }
 
   const permissions = await getMemberPagePermissions(ctx.member.id);
   if (!hasPagePermission(permissions, path)) throw new Error("غير مصرح");

@@ -1,10 +1,6 @@
 "use server";
 
-import {
-  requireDashboardMember,
-  requirePageEdit,
-  requirePageAccess,
-} from "@/lib/auth-guards";
+import { requirePageEdit, requirePageAccess } from "@/lib/auth-guards";
 import {
   isEventColor,
   resolveEventColor,
@@ -101,7 +97,11 @@ export async function listEventsForRange(
   rangeStart: string | Date,
   rangeEnd: string | Date,
 ): Promise<ClubEvent[]> {
-  await requireDashboardMember();
+  try {
+    await requirePageAccess("/dashboard/calendar");
+  } catch {
+    await requirePageAccess("/dashboard/events");
+  }
 
   const start =
     typeof rangeStart === "string" ? parseIso(rangeStart) : rangeStart;

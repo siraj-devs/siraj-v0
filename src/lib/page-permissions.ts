@@ -1,5 +1,9 @@
-/** Owner-only dashboard pages that can be granted to any member. */
+/** Dashboard pages that can be granted to any member (view / edit). */
 export const GRANTABLE_DASHBOARD_PAGES = [
+  { path: "/dashboard/members", label: "الأعضاء" },
+  { path: "/dashboard/calendar", label: "التقويم" },
+  { path: "/dashboard/finance", label: "المالية" },
+  { path: "/dashboard/meetings", label: "اللقاءات" },
   { path: "/dashboard/submissions", label: "التقديمات" },
   { path: "/dashboard/connections", label: "الاتصالات" },
   { path: "/dashboard/content", label: "المحتوى" },
