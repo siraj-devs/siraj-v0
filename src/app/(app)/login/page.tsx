@@ -21,7 +21,7 @@ function loginHook(next: string) {
     return {
       title: "تابع رحلتك التعليمية",
       description:
-        "سجّل دخولك للالتحاق بالدورات ومتابعة الدروس والاختبارات من حيث توقفت.",
+        "سجّل دخولك للالتحاق بالدورات ومتابعة الدروس والتقويمات من حيث توقفت.",
     };
   }
   if (next.startsWith("/profile") || next.startsWith("/join")) {

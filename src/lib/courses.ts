@@ -7,7 +7,9 @@ import type {
   CourseVisibility,
   CourseWithMeta,
   Enrollment,
+  ExamAnswerRecord,
   ExamQuestion,
+  ExamSubmission,
   ExamOption,
 } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
@@ -62,16 +64,37 @@ function mapQuestion(row: {
   question_text: string;
   question_type: ExamQuestion["question_type"];
   options: ExamOption[] | null;
-  correct_option_id: string;
+  correct_option_id: string | null;
+  correct_option_ids?: string[] | null;
+  allow_multiple?: boolean | null;
+  is_optional?: boolean | null;
+  points?: number | null;
   order_sequence: number;
 }): ExamQuestion {
+  const fromArray = Array.isArray(row.correct_option_ids)
+    ? row.correct_option_ids.filter((id): id is string => typeof id === "string")
+    : [];
+  const correct_option_ids =
+    fromArray.length > 0
+      ? fromArray
+      : row.correct_option_id
+        ? [row.correct_option_id]
+        : [];
+
   return {
     id: row.id,
     content_id: row.content_id,
     question_text: row.question_text,
     question_type: row.question_type,
     options: Array.isArray(row.options) ? row.options : [],
-    correct_option_id: row.correct_option_id,
+    correct_option_id: row.correct_option_id ?? correct_option_ids[0] ?? null,
+    correct_option_ids,
+    allow_multiple: Boolean(row.allow_multiple) || correct_option_ids.length > 1,
+    is_optional: Boolean(row.is_optional),
+    points: (() => {
+      const raw = Number(row.points);
+      return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 1;
+    })(),
     order_sequence: Number(row.order_sequence) || 0,
   };
 }
@@ -456,7 +479,7 @@ export async function getExamQuestions(
   const { data, error } = await supabase
     .from("exam_questions")
     .select(
-      "id, content_id, question_text, question_type, options, correct_option_id, order_sequence",
+      "id, content_id, question_text, question_type, options, correct_option_id, correct_option_ids, allow_multiple, is_optional, points, order_sequence",
     )
     .eq("content_id", contentId)
     .order("order_sequence", { ascending: true })
@@ -470,12 +493,19 @@ export async function getExamQuestions(
   return (data ?? []).map(mapQuestion);
 }
 
+export type LearnerExamQuestion = Omit<
+  ExamQuestion,
+  "correct_option_id" | "correct_option_ids"
+>;
+
 /** Public exam view: strip correct answers. */
 export async function getExamQuestionsForLearner(
   contentId: number,
-): Promise<Omit<ExamQuestion, "correct_option_id">[]> {
+): Promise<LearnerExamQuestion[]> {
   const questions = await getExamQuestions(contentId);
-  return questions.map(({ correct_option_id: _, ...rest }) => rest);
+  return questions.map(
+    ({ correct_option_id: _c, correct_option_ids: _ids, ...rest }) => rest,
+  );
 }
 
 export async function getEnrollment(
@@ -726,4 +756,60 @@ export async function getCompletedContentIds(
   }
 
   return new Set((data ?? []).map((row) => row.content_id as number));
+}
+
+
+/** Submissions (answers + stored auto score) for an exam; optionally one enrollment. */
+export async function getExamSubmissions(
+  contentId: number,
+  enrollmentId?: number,
+): Promise<ExamSubmission[]> {
+  const supabase = await createClient();
+
+  let completionsQuery = supabase
+    .from("content_completions")
+    .select("enrollment_id, exam_score, completed_at")
+    .eq("content_id", contentId);
+  let answersQuery = supabase
+    .from("exam_answers")
+    .select("enrollment_id, question_id, selected_option_ids, answer_text")
+    .eq("content_id", contentId);
+
+  if (enrollmentId != null) {
+    completionsQuery = completionsQuery.eq("enrollment_id", enrollmentId);
+    answersQuery = answersQuery.eq("enrollment_id", enrollmentId);
+  }
+
+  const [completions, answers] = await Promise.all([
+    completionsQuery.order("completed_at", { ascending: false }),
+    answersQuery,
+  ]);
+
+  if (completions.error || answers.error) {
+    console.error(
+      "Error fetching exam submissions:",
+      completions.error ?? answers.error,
+    );
+    return [];
+  }
+
+  const byEnrollment = new Map<number, ExamAnswerRecord[]>();
+  for (const row of answers.data ?? []) {
+    const list = byEnrollment.get(row.enrollment_id as number) ?? [];
+    list.push({
+      question_id: row.question_id as number,
+      selected_option_ids: Array.isArray(row.selected_option_ids)
+        ? (row.selected_option_ids as string[])
+        : [],
+      answer_text: (row.answer_text as string | null) ?? null,
+    });
+    byEnrollment.set(row.enrollment_id as number, list);
+  }
+
+  return (completions.data ?? []).map((row) => ({
+    enrollment_id: row.enrollment_id as number,
+    submitted_at: row.completed_at as string,
+    score: row.exam_score == null ? null : Number(row.exam_score),
+    answers: byEnrollment.get(row.enrollment_id as number) ?? [],
+  }));
 }

@@ -108,7 +108,7 @@ export function CoursesCatalog({
                       )}
                       {course.exam_count > 0 && (
                         <MetaChip icon={HelpCircle}>
-                          الاختبارات: {course.exam_count}
+                          التقويمات: {course.exam_count}
                         </MetaChip>
                       )}
                     </div>

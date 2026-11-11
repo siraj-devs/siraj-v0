@@ -239,7 +239,7 @@ export function CourseDetail({
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
               <MetaChip icon={BookOpen}>الدروس: {lessonCount}</MetaChip>
-              <MetaChip icon={HelpCircle}>الاختبارات: {examCount}</MetaChip>
+              <MetaChip icon={HelpCircle}>التقويمات: {examCount}</MetaChip>
             </div>
             {previewClass && previewKind === "open" && (
               <p className="text-sm text-muted-foreground">

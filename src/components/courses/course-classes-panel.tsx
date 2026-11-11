@@ -137,7 +137,13 @@ export function CourseClassesPanel({
 
       {classes.length > 0 ? (
         <ol className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {classes.map((courseClass, index) => {
+          {[...classes]
+            .map((courseClass, chronologicalIndex) => ({
+              courseClass,
+              number: chronologicalIndex + 1,
+            }))
+            .reverse()
+            .map(({ courseClass, number }) => {
             const selected = courseClass.id === selectedId;
             const openNow = isClassOpen(courseClass);
             return (
@@ -155,7 +161,7 @@ export function CourseClassesPanel({
                     className="min-w-0 flex-1 text-start"
                   >
                     <p className="flex flex-wrap items-center gap-2 font-kufam text-lg text-foreground">
-                      الدفعة {index + 1}
+                      الدفعة {number}
                       {openNow && (
                         <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200">
                           التسجيل مفتوح
@@ -175,7 +181,7 @@ export function CourseClassesPanel({
                     <p className="mt-2 text-xs text-muted-foreground">
                       {summaries[courseClass.id]?.lessons ?? 0} دروس
                       {" · "}
-                      {summaries[courseClass.id]?.exams ?? 0} اختبارات
+                      {summaries[courseClass.id]?.exams ?? 0} تقويمات
                       {" · "}
                       {summaries[courseClass.id]?.participants ?? 0} ملتحقون
                     </p>

@@ -9,6 +9,7 @@ import {
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { AudioViewer } from "@/components/courses/audio-viewer";
 import { CourseClassesPanel } from "@/components/courses/course-classes-panel";
+import { ExamQuestionsDialog } from "@/components/courses/exam-questions-dialog";
 import { FormDialog } from "@/components/dashboard/form-dialog";
 import { SegmentedChoiceField } from "@/components/dashboard/segmented-choice-field";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
@@ -25,6 +26,16 @@ import { RemoteAvatar } from "@/components/remote-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   formatClassDate,
   formatLessonDateRange,
@@ -45,7 +56,10 @@ import type {
 } from "@/lib/course-types";
 import {
   CONTENT_TYPE_LABELS,
+  EXAM_QUESTION_TYPE_LABELS,
   VISIBILITY_LABELS,
+  isChoiceQuestionType,
+  isTextQuestionType,
 } from "@/lib/course-types";
 import {
   MEMBER_ROLE_LABELS,
@@ -115,15 +129,15 @@ export function CourseContentManager({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedClassId, setSelectedClassId] = useState<number | null>(
-    classes[0]?.id ?? null,
+    classes[classes.length - 1]?.id ?? null,
   );
 
-  const [examContentId, setExamContentId] = useState<number | null>(null);
-  const [questionText, setQuestionText] = useState("");
-  const [questionType, setQuestionType] =
-    useState<ExamQuestionType>("multiple_choice");
-  const [optionsText, setOptionsText] = useState("صح\nخطأ");
-  const [correctIndex, setCorrectIndex] = useState("0");
+  const [examState, setExamState] = useState<{
+    contentId: number;
+    question: ExamQuestion | null;
+  } | null>(null);
+  const [deletingQuestion, setDeletingQuestion] =
+    useState<ExamQuestion | null>(null);
 
   useEffect(() => {
     if (
@@ -132,7 +146,7 @@ export function CourseContentManager({
     ) {
       return;
     }
-    setSelectedClassId(classes[0]?.id ?? null);
+    setSelectedClassId(classes[classes.length - 1]?.id ?? null);
   }, [classes, selectedClassId]);
 
   const classContents = useMemo(
@@ -179,29 +193,43 @@ export function CourseContentManager({
   }, [classes, contents, enrollments]);
 
   const examTitle = useMemo(
-    () => contents.find((item) => item.id === examContentId)?.title ?? null,
-    [contents, examContentId],
+    () =>
+      contents.find((item) => item.id === examState?.contentId)?.title ?? null,
+    [contents, examState],
   );
 
-  function openQuestions(contentId: number) {
+  function openQuestionDialog(
+    contentId: number,
+    question: ExamQuestion | null = null,
+  ) {
     setOpenMenuId(null);
-    setExamContentId(contentId);
-    setQuestionType("multiple_choice");
-    setQuestionText("");
-    setOptionsText("الخيار أ\nالخيار ب\nالخيار ج");
-    setCorrectIndex("0");
+    setExamState({ contentId, question });
+  }
+
+  function onDeleteQuestion() {
+    if (!deletingQuestion) return;
+    startTransition(async () => {
+      const result = await deleteExamQuestion(deletingQuestion.id, course.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("تم حذف السؤال");
+      setDeletingQuestion(null);
+      router.refresh();
+    });
   }
 
   useEffect(() => {
-    if (!previewing && !examContentId) return;
+    if (!previewing && !examState) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (previewing) setPreviewing(null);
-      if (examContentId && !pending) setExamContentId(null);
+      if (examState && !pending) setExamState(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [previewing, examContentId, pending]);
+  }, [previewing, examState, pending]);
 
   function openCreate() {
     setEditing(null);
@@ -308,68 +336,6 @@ export function CourseContentManager({
       }
       toast.success("تم حذف الدرس");
       setDeleting(null);
-      router.refresh();
-    });
-  }
-
-  function onAddQuestion(event: FormEvent) {
-    event.preventDefault();
-    if (!examContentId) return;
-
-    const lines = optionsText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length < 2) {
-      toast.error("أدخل خيارين على الأقل");
-      return;
-    }
-
-    const options: ExamOption[] = lines.map((text, index) => ({
-      id: `opt_${index + 1}`,
-      text,
-    }));
-    const idx = Number(correctIndex);
-    const correct = options[idx];
-    if (!correct) {
-      toast.error("اختر إجابة صحيحة صالحة");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await upsertExamQuestion({
-        content_id: examContentId,
-        course_id: course.id,
-        question_text: questionText,
-        question_type: questionType,
-        options,
-        correct_option_id: correct.id,
-        order_sequence: (questionsByContent[examContentId] ?? []).length,
-      });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("تم إضافة السؤال");
-      setQuestionText("");
-      setOptionsText(
-        questionType === "true_false"
-          ? "صح\nخطأ"
-          : "الخيار أ\nالخيار ب\nالخيار ج",
-      );
-      setCorrectIndex("0");
-      router.refresh();
-    });
-  }
-
-  function onDeleteQuestion(id: number) {
-    startTransition(async () => {
-      const result = await deleteExamQuestion(id, course.id);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("تم حذف السؤال");
       router.refresh();
     });
   }
@@ -489,7 +455,7 @@ export function CourseContentManager({
         <div className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CircleHelp className="size-3.5" />
-            الاختبارات
+            التقويمات
           </p>
           <p className="mt-1 font-kufam text-lg text-foreground">
             {classContents.filter((c) => c.type === "exam").length}
@@ -602,9 +568,15 @@ export function CourseContentManager({
                           ? [
                               {
                                 key: "questions",
-                                label: "الأسئلة",
+                                label: "إضافة سؤال",
                                 icon: <CircleHelp className="size-3.5" />,
-                                onClick: () => openQuestions(content.id),
+                                onClick: () => openQuestionDialog(content.id),
+                              } satisfies KebabMenuItem,
+                              {
+                                key: "answers",
+                                label: "الإجابات",
+                                icon: <CheckCircle2 className="size-3.5" />,
+                                href: `/dashboard/courses/${course.id}/exams/${content.id}`,
                               } satisfies KebabMenuItem,
                             ]
                           : []),
@@ -635,29 +607,113 @@ export function CourseContentManager({
                   </div>
 
                   {content.type === "exam" && (
-                    <ul className="space-y-2 border-t border-border/60 px-4 py-3 sm:px-6">
-                      {(questionsByContent[content.id] ?? []).map((q) => (
-                        <li
-                          key={q.id}
-                          className="flex items-start justify-between gap-2 text-sm text-foreground/80"
+                    <div className="space-y-3 border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-kufam text-sm text-foreground">
+                          الأسئلة
+                          <span className="ms-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                            {(questionsByContent[content.id] ?? []).length}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          المجموع:{" "}
+                          {(questionsByContent[content.id] ?? []).reduce(
+                            (sum, q) => sum + q.points,
+                            0,
+                          )}{" "}
+                          نقطة
+                        </p>
+                      </div>
+                      {(questionsByContent[content.id] ?? []).length > 0 ? (
+                        <ol className="space-y-2">
+                          {(questionsByContent[content.id] ?? []).map(
+                            (q, index) => (
+                              <li
+                                key={q.id}
+                                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3 py-2.5 shadow-sm"
+                              >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-kufam text-xs text-primary">
+                                  {index + 1}
+                                </span>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p
+                                    dir="rtl"
+                                    className="line-clamp-2 text-start text-sm leading-6 text-foreground"
+                                  >
+                                    {q.question_text}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <span className="rounded-md border border-border px-2 py-0.5">
+                                      {EXAM_QUESTION_TYPE_LABELS[q.question_type]}
+                                    </span>
+                                    <span className="rounded-md border border-border px-2 py-0.5">
+                                      {q.points === 0
+                                        ? "بدون نقاط"
+                                        : q.points === 1
+                                          ? "نقطة"
+                                          : q.points === 2
+                                            ? "نقطتان"
+                                            : `${q.points} نقاط`}
+                                    </span>
+                                    {q.is_optional && (
+                                      <span className="rounded-md border border-border px-2 py-0.5">
+                                        اختياري
+                                      </span>
+                                    )}
+                                    {isChoiceQuestionType(q.question_type) &&
+                                      q.correct_option_ids.length === 0 && (
+                                        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-900">
+                                          بدون تصحيح آلي
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      openQuestionDialog(content.id, q)
+                                    }
+                                    aria-label="تعديل السؤال"
+                                  >
+                                    <Pencil className="size-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8 text-muted-foreground hover:text-destructive"
+                                    disabled={pending}
+                                    onClick={() => setDeletingQuestion(q)}
+                                    aria-label="حذف السؤال"
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </Button>
+                                </div>
+                              </li>
+                            ),
+                          )}
+                        </ol>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openQuestionDialog(content.id)}
+                          className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed border-border px-3 py-6 text-center transition-colors hover:border-primary/40 hover:bg-primary/4"
                         >
-                          <span>{q.question_text}</span>
-                          <button
-                            type="button"
-                            disabled={pending}
-                            onClick={() => onDeleteQuestion(q.id)}
-                            className="text-muted-foreground transition-colors hover:text-destructive"
-                          >
-                            حذف
-                          </button>
-                        </li>
-                      ))}
-                      {(questionsByContent[content.id] ?? []).length === 0 && (
-                        <li className="text-xs text-muted-foreground">
-                          لا أسئلة بعد
-                        </li>
+                          <Plus className="size-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">
+                            لا أسئلة بعد
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            اضغط لإضافة أول سؤال
+                          </span>
+                        </button>
                       )}
-                    </ul>
+                    </div>
                   )}
                 </li>
               );
@@ -667,7 +723,7 @@ export function CourseContentManager({
           <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 py-16 text-center">
             <p className="font-kufam text-lg text-foreground">لا دروس في هذه الدفعة</p>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              أضف مشاهدة أو استماع أو قراءة أو اختباراً. الدروس لا تظهر إلا لملتحقي هذه الدفعة.
+              أضف مشاهدة أو استماع أو قراءة أو تقويماً. الدروس لا تظهر إلا لملتحقي هذه الدفعة.
             </p>
           </div>
         )}
@@ -777,93 +833,29 @@ export function CourseContentManager({
       </section>
       </div>
 
-      {examContentId && (
-        <FormDialog
-          title="إضافة سؤال"
-          description={examTitle || undefined}
-          onClose={() => setExamContentId(null)}
-          onSubmit={onAddQuestion}
-          pending={pending}
-          submitLabel="إضافة السؤال"
-          cancelLabel="إغلاق"
-          maxWidthClassName="max-w-lg"
-        >
-          {(questionsByContent[examContentId] ?? []).length > 0 && (
-            <ul className="max-h-40 space-y-2 overflow-y-auto rounded-2xl border border-border/70 p-3">
-              {(questionsByContent[examContentId] ?? []).map((q, index) => (
-                <li
-                  key={q.id}
-                  className="flex items-start justify-between gap-2 text-sm text-foreground/80"
-                >
-                  <span>
-                    <span className="me-1.5 font-kufam text-xs text-muted-foreground">
-                      {index + 1}.
-                    </span>
-                    {q.question_text}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => onDeleteQuestion(q.id)}
-                    className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                  >
-                    حذف
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="space-y-2">
-            <Label>نص السؤال</Label>
-            <Input
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>النوع</Label>
-            <select
-              value={questionType}
-              onChange={(e) => {
-                const next = e.target.value as ExamQuestionType;
-                setQuestionType(next);
-                setOptionsText(
-                  next === "true_false"
-                    ? "صح\nخطأ"
-                    : "الخيار أ\nالخيار ب\nالخيار ج",
-                );
-                setCorrectIndex("0");
-              }}
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            >
-              <option value="multiple_choice">اختيار من متعدد</option>
-              <option value="true_false">صح / خطأ</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label>الخيارات (سطر لكل خيار)</Label>
-            <textarea
-              rows={4}
-              value={optionsText}
-              onChange={(e) => setOptionsText(e.target.value)}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>رقم الإجابة الصحيحة (يبدأ من 0)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={correctIndex}
-              onChange={(e) => setCorrectIndex(e.target.value)}
-              required
-            />
-          </div>
-        </FormDialog>
+      {examState && (
+        <ExamQuestionsDialog
+          key={`${examState.contentId}-${examState.question?.id ?? "new"}`}
+          courseId={course.id}
+          contentId={examState.contentId}
+          contentTitle={examTitle}
+          question={examState.question}
+          nextOrder={(questionsByContent[examState.contentId] ?? []).length}
+          onClose={() => setExamState(null)}
+        />
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(deletingQuestion)}
+        title="حذف السؤال"
+        description={
+          deletingQuestion ? `حذف «${deletingQuestion.question_text}»؟` : ""
+        }
+        confirmLabel="حذف"
+        pending={pending}
+        onCancel={() => !pending && setDeletingQuestion(null)}
+        onConfirm={onDeleteQuestion}
+      />
 
       <ConfirmDeleteModal
         open={Boolean(deleting)}
@@ -937,7 +929,7 @@ export function CourseContentManager({
               ) : previewing.type === "exam" ? (
                 <div className="space-y-4">
                   <p className="font-kufam text-lg text-foreground">
-                    أسئلة الاختبار
+                    أسئلة التقويم
                   </p>
                   {(questionsByContent[previewing.id] ?? []).length > 0 ? (
                     <ol className="space-y-3">
@@ -947,38 +939,68 @@ export function CourseContentManager({
                             key={q.id}
                             className="rounded-2xl border border-border/70 bg-background/70 p-4"
                           >
-                            <p className="font-medium text-foreground">
-                              <span className="me-2 font-kufam text-sm text-muted-foreground">
-                                {index + 1}.
-                              </span>
-                              {q.question_text}
-                            </p>
-                            <ul className="mt-3 space-y-1.5">
-                              {q.options.map((option) => (
-                                <li
-                                  key={option.id}
-                                  className={`rounded-xl border px-3 py-2 text-sm ${
-                                    option.id === q.correct_option_id
-                                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900"
-                                      : "border-border/70 text-foreground/75"
-                                  }`}
-                                >
-                                  {option.text}
-                                  {option.id === q.correct_option_id && (
-                                    <span className="ms-2 text-xs text-emerald-700">
-                                      (الإجابة الصحيحة)
-                                    </span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="font-medium text-foreground">
+                                <span className="me-2 font-kufam text-sm text-muted-foreground">
+                                  {index + 1}.
+                                </span>
+                                {q.question_text}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+                                <span className="rounded-full border border-border/70 px-2 py-0.5">
+                                  {EXAM_QUESTION_TYPE_LABELS[q.question_type]}
+                                </span>
+                                <span className="rounded-full border border-border/70 px-2 py-0.5">
+                                  {q.points}{" "}
+                                  {q.points === 1
+                                    ? "نقطة"
+                                    : q.points === 2
+                                      ? "نقطتان"
+                                      : `${q.points} نقاط`}
+                                </span>
+                              </div>
+                            </div>
+                            {isChoiceQuestionType(q.question_type) ? (
+                              <ul className="mt-3 space-y-1.5" dir="rtl">
+                                {q.options.map((option) => {
+                                  const correct =
+                                    q.correct_option_ids.includes(option.id);
+                                  return (
+                                    <li
+                                      key={option.id}
+                                      className={`rounded-xl border px-3 py-2 text-start text-sm ${
+                                        correct
+                                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900"
+                                          : "border-border/70 text-foreground/75"
+                                      }`}
+                                    >
+                                      {option.text}
+                                      {correct && (
+                                        <span className="ms-2 text-xs text-emerald-700">
+                                          (صحيحة)
+                                        </span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                                {q.correct_option_ids.length === 0 && (
+                                  <li className="text-xs text-amber-800">
+                                    بدون إجابة صحيحة — لا يُحتسب في النقاط
+                                  </li>
+                                )}
+                              </ul>
+                            ) : (
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                إجابة نصية — تُراجع يدوياً لاحقاً
+                              </p>
+                            )}
                           </li>
                         ),
                       )}
                     </ol>
                   ) : (
                     <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                      لا أسئلة بعد لهذا الاختبار.
+                      لا أسئلة بعد لهذا التقويم.
                     </p>
                   )}
                 </div>

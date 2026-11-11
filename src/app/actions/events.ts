@@ -118,7 +118,7 @@ export async function listEventsForRange(
 
   if (error) {
     console.error("Error listing events for range:", error);
-    throw new Error("تعذر جلب أحداث التقويم");
+    throw new Error("تعذر جلب أحداث الجدول");
   }
 
   const templates = (data ?? []).map(mapRow);

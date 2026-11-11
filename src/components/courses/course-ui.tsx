@@ -22,7 +22,7 @@ export const CONTENT_TYPE_HINT: Record<CourseContentType, string> = {
   watching: "درس مرئي",
   listening: "درس صوتي",
   reading: "مادة مقروءة",
-  exam: "اختبار",
+  exam: "تقويم",
 };
 
 export function StarRating({

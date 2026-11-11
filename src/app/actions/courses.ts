@@ -11,6 +11,7 @@ import {
   getCourseContents,
   getEnrollment,
   getExamQuestions,
+  getExamSubmissions,
   getMyCourseRating,
   getPublishedCourses,
   replaceCourseAcl,
@@ -24,6 +25,7 @@ import type {
   ExamQuestionType,
   VideoTimestamp,
 } from "@/lib/course-types";
+import { isChoiceQuestionType, isTextQuestionType } from "@/lib/course-types";
 import { getMemberForSession, isMemberProfileComplete } from "@/lib/members";
 import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
@@ -389,8 +391,11 @@ export async function upsertExamQuestion(input: {
   course_id: number;
   question_text: string;
   question_type: ExamQuestionType;
-  options: ExamOption[];
-  correct_option_id: string;
+  options?: ExamOption[];
+  correct_option_ids?: string[];
+  allow_multiple?: boolean;
+  is_optional?: boolean;
+  points?: number;
   order_sequence?: number;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -398,18 +403,56 @@ export async function upsertExamQuestion(input: {
 
     const question_text = input.question_text.trim();
     if (!question_text) return { success: false, error: "نص السؤال مطلوب" };
-    if (!input.options.length)
+
+    const parsedPoints = Number(input.points);
+    const points = Number.isFinite(parsedPoints)
+      ? Math.max(0, Math.floor(parsedPoints))
+      : 1;
+    const choice = isChoiceQuestionType(input.question_type);
+    const text = isTextQuestionType(input.question_type);
+    if (!choice && !text) {
+      return { success: false, error: "نوع السؤال غير صالح" };
+    }
+
+    const options = choice
+      ? (input.options ?? []).filter((o) => o.text.trim())
+      : [];
+    if (choice && options.length < 2) {
       return { success: false, error: "خيارات الإجابة مطلوبة" };
-    if (!input.correct_option_id)
-      return { success: false, error: "الإجابة الصحيحة مطلوبة" };
+    }
+
+    const optionIds = new Set(options.map((o) => o.id));
+    let correct_option_ids = (input.correct_option_ids ?? []).filter((id) =>
+      optionIds.has(id),
+    );
+
+    const allow_multiple =
+      input.question_type === "multiple_choice" &&
+      (Boolean(input.allow_multiple) || correct_option_ids.length > 1);
+
+    if (input.question_type === "true_false" && correct_option_ids.length > 1) {
+      correct_option_ids = correct_option_ids.slice(0, 1);
+    }
+
+    if (
+      !allow_multiple &&
+      input.question_type === "multiple_choice" &&
+      correct_option_ids.length > 1
+    ) {
+      correct_option_ids = correct_option_ids.slice(0, 1);
+    }
 
     const supabase = await createClient();
     const payload = {
       content_id: input.content_id,
       question_text,
       question_type: input.question_type,
-      options: input.options,
-      correct_option_id: input.correct_option_id,
+      options,
+      correct_option_id: correct_option_ids[0] ?? null,
+      correct_option_ids,
+      allow_multiple,
+      is_optional: Boolean(input.is_optional),
+      points,
       order_sequence: input.order_sequence ?? 0,
     };
 
@@ -676,12 +719,23 @@ export async function markContentComplete(
   }
 }
 
+export type ExamAnswerPayload = {
+  selected_option_ids?: string[];
+  answer_text?: string;
+};
+
+function sameIdSet(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
+}
+
 export async function submitExam(
   courseId: number,
   contentId: number,
-  answers: Record<string, string>,
+  answers: Record<string, ExamAnswerPayload>,
 ): Promise<
-  | { success: true; score: number; passed: boolean; progress: number }
+  | { success: true; progress: number }
   | { success: false; error: string }
 > {
   try {
@@ -696,33 +750,109 @@ export async function submitExam(
 
     const content = await getCourseContentById(contentId);
     if (!content || content.class_id !== enrollment.class_id) {
-      return { success: false, error: "هذا الاختبار لا ينتمي إلى دفعتك" };
+      return { success: false, error: "هذا التقويم لا ينتمي إلى دفعتك" };
+    }
+
+    const previous = await getExamSubmissions(contentId, enrollment.id);
+    if (previous.length > 0) {
+      return { success: false, error: "سبق أن أرسلت إجاباتك على هذا التقويم" };
     }
     const blocked = await learningBlockedReason(enrollment);
     if (blocked) return { success: false, error: blocked };
     if (!hasLessonStarted(content)) {
-      return { success: false, error: "هذا الاختبار لم يبدأ بعد" };
+      return { success: false, error: "هذا التقويم لم يبدأ بعد" };
     }
 
     const questions = await getExamQuestions(contentId);
     if (questions.length === 0) {
-      return { success: false, error: "لا توجد أسئلة في هذا الاختبار" };
+      return { success: false, error: "لا توجد أسئلة في هذا التقويم" };
     }
 
-    let correct = 0;
+    const answerRows: {
+      enrollment_id: number;
+      content_id: number;
+      question_id: number;
+      answer_text: string | null;
+      selected_option_ids: string[];
+      updated_at: string;
+    }[] = [];
+
+    let earned = 0;
+    let maxPoints = 0;
+
     for (const q of questions) {
-      if (answers[String(q.id)] === q.correct_option_id) correct += 1;
+      const raw = answers[String(q.id)];
+      const optionIds = new Set(q.options.map((o) => o.id));
+      const selected = (raw?.selected_option_ids ?? []).filter((id) =>
+        optionIds.has(id),
+      );
+      const answerText = (raw?.answer_text ?? "").trim();
+
+      const hasChoiceAnswer =
+        isChoiceQuestionType(q.question_type) && selected.length > 0;
+      const hasTextAnswer =
+        isTextQuestionType(q.question_type) && Boolean(answerText);
+      const answered = hasChoiceAnswer || hasTextAnswer;
+
+      if (!answered) {
+        if (q.is_optional) continue;
+        return {
+          success: false,
+          error: "أجب عن جميع الأسئلة المطلوبة قبل الإرسال",
+        };
+      }
+
+      if (
+        isChoiceQuestionType(q.question_type) &&
+        !q.allow_multiple &&
+        selected.length > 1
+      ) {
+        return { success: false, error: "اختر إجابة واحدة فقط لبعض الأسئلة" };
+      }
+
+      answerRows.push({
+        enrollment_id: enrollment.id,
+        content_id: contentId,
+        question_id: q.id,
+        answer_text: isTextQuestionType(q.question_type) ? answerText : null,
+        selected_option_ids: isChoiceQuestionType(q.question_type)
+          ? selected
+          : [],
+        updated_at: new Date().toISOString(),
+      });
+
+      const autoGradable =
+        isChoiceQuestionType(q.question_type) &&
+        q.correct_option_ids.length > 0;
+      if (!autoGradable) continue;
+
+      maxPoints += q.points;
+      if (sameIdSet(selected, q.correct_option_ids)) {
+        earned += q.points;
+      }
     }
 
-    const score = Math.round((correct / questions.length) * 10000) / 100;
-    const passed = score >= 50;
+    const score =
+      maxPoints > 0
+        ? Math.round((earned / maxPoints) * 10000) / 100
+        : null;
 
     const supabase = await createClient();
+    const { error: answersError } = await supabase
+      .from("exam_answers")
+      .insert(answerRows);
+
+    if (answersError) {
+      console.error("Error saving exam answers:", answersError);
+      return { success: false, error: "تعذر حفظ إجابات التقويم" };
+    }
+
     const { error } = await supabase.from("content_completions").upsert(
       {
         enrollment_id: enrollment.id,
         content_id: contentId,
-        completed: passed,
+        // One-time submission: counts as done; grading is reviewed later.
+        completed: true,
         exam_score: score,
         completed_at: new Date().toISOString(),
       },
@@ -731,12 +861,12 @@ export async function submitExam(
 
     if (error) {
       console.error("Error submitting exam:", error);
-      return { success: false, error: "تعذر حفظ نتيجة الاختبار" };
+      return { success: false, error: "تعذر حفظ نتيجة التقويم" };
     }
 
     const progress = await recalculateProgress(enrollment.id, courseId);
     revalidateCoursePaths(courseId);
-    return { success: true, score, passed, progress };
+    return { success: true, progress };
   } catch {
     return { success: false, error: "حدث خطأ غير متوقع" };
   }

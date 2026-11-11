@@ -61,7 +61,7 @@ export function EventFormDialog({
   return (
     <FormDialog
       title={mode === "create" ? "حدث جديد" : "تعديل الحدث"}
-      description="الاسم، المدة، التكرار، ولون الظهور في التقويم."
+      description="الاسم، المدة، التكرار، ولون الظهور في الجدول."
       onClose={onClose}
       onSubmit={onSubmit}
       pending={pending}

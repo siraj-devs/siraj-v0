@@ -11,6 +11,7 @@ import {
   getCourseContents,
   getEnrollment,
   getExamQuestionsForLearner,
+  getExamSubmissions,
   getMyCourseRating,
 } from "@/lib/courses";
 import {
@@ -101,13 +102,17 @@ export default async function PortalLessonPage({
   } else if (content.type === "reading" && content.content_url) {
     viewer = <ReadingViewer title={content.title} url={content.content_url} />;
   } else if (content.type === "exam") {
-    const questions = await getExamQuestionsForLearner(contentId);
+    const [questions, submissions] = await Promise.all([
+      getExamQuestionsForLearner(contentId),
+      getExamSubmissions(contentId, enrollment.id),
+    ]);
     viewer = (
       <ExamViewer
         title={content.title}
         courseId={courseId}
         contentId={contentId}
         questions={questions}
+        submission={submissions[0] ?? null}
       />
     );
   }

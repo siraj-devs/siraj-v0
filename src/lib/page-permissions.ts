@@ -1,7 +1,7 @@
 /** Dashboard pages that can be granted to any member (view / edit). */
 export const GRANTABLE_DASHBOARD_PAGES = [
   { path: "/dashboard/members", label: "الأعضاء" },
-  { path: "/dashboard/calendar", label: "التقويم" },
+  { path: "/dashboard/calendar", label: "جدول" },
   { path: "/dashboard/finance", label: "المالية" },
   { path: "/dashboard/meetings", label: "اللقاءات" },
   { path: "/dashboard/submissions", label: "التقديمات" },

@@ -208,7 +208,7 @@ export function CoursesManager({
       <DashboardHeader
         eyebrow="إدارة التعلم"
         title="الدورات"
-        description="أنشئ الدورات ونظّم الدروس والاختبارات وظهورها للزوار."
+        description="أنشئ الدورات ونظّم الدروس والتقويمات وظهورها للزوار."
         action={
           canManage && (
             <Button onClick={openCreate} className="gap-2">

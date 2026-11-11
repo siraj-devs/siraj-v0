@@ -14,7 +14,11 @@ export type CourseContentType =
   | "reading"
   | "exam";
 export type EnrollmentStatus = "active" | "completed" | "dropped";
-export type ExamQuestionType = "multiple_choice" | "true_false";
+export type ExamQuestionType =
+  | "multiple_choice"
+  | "true_false"
+  | "short_text"
+  | "long_text";
 
 export type VideoTimestamp = {
   label: string;
@@ -80,9 +84,43 @@ export type ExamQuestion = {
   question_text: string;
   question_type: ExamQuestionType;
   options: ExamOption[];
-  correct_option_id: string;
+  /** @deprecated Prefer correct_option_ids; kept for older rows/UI. */
+  correct_option_id: string | null;
+  correct_option_ids: string[];
+  allow_multiple: boolean;
+  is_optional: boolean;
+  points: number;
   order_sequence: number;
 };
+
+export type ExamAnswerRecord = {
+  question_id: number;
+  selected_option_ids: string[];
+  answer_text: string | null;
+};
+
+export type ExamSubmission = {
+  enrollment_id: number;
+  submitted_at: string;
+  /** Auto-graded score (0-100) over scorable questions; null when none. */
+  score: number | null;
+  answers: ExamAnswerRecord[];
+};
+
+export const EXAM_QUESTION_TYPE_LABELS: Record<ExamQuestionType, string> = {
+  multiple_choice: "اختيار من متعدد",
+  true_false: "صح / خطأ",
+  short_text: "إجابة قصيرة",
+  long_text: "إجابة طويلة",
+};
+
+export function isChoiceQuestionType(type: ExamQuestionType) {
+  return type === "multiple_choice" || type === "true_false";
+}
+
+export function isTextQuestionType(type: ExamQuestionType) {
+  return type === "short_text" || type === "long_text";
+}
 
 export type Enrollment = {
   id: number;
@@ -120,7 +158,7 @@ export const CONTENT_TYPE_LABELS: Record<CourseContentType, string> = {
   watching: "مشاهدة",
   listening: "استماع",
   reading: "قراءة",
-  exam: "اختبار",
+  exam: "تقويم",
 };
 
 export const VISIBILITY_LABELS: Record<CourseVisibility, string> = {

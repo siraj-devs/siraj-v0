@@ -36,7 +36,7 @@ const DASHBOARD_LINKS: {
   { href: "/dashboard/members", label: "الأعضاء", icon: Users, viewerDefault: true },
   {
     href: "/dashboard/calendar",
-    label: "التقويم",
+    label: "جدول",
     icon: CalendarDays,
     viewerDefault: true,
   },

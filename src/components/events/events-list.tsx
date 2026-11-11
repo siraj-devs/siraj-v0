@@ -66,7 +66,7 @@ export function EventsList({
         <p className="font-kufam text-lg text-foreground">لا نتائج</p>
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">
           {allEventsCount === 0
-            ? "أنشئ أول حدث ليظهر هنا وفي التقويم."
+            ? "أنشئ أول حدث ليظهر هنا وفي الجدول."
             : "جرّب تغيير نص البحث."}
         </p>
         {canManage && allEventsCount === 0 && (

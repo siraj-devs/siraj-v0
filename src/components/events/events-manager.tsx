@@ -260,7 +260,7 @@ export function EventsManager({
         title="حذف الحدث"
         description={
           deleting
-            ? `هل تريد حذف «${deleting.name}»؟ سيختفي من التقويم أيضاً.`
+            ? `هل تريد حذف «${deleting.name}»؟ سيختفي من الجدول أيضاً.`
             : ""
         }
         pending={pending}
