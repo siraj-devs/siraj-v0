@@ -10,6 +10,7 @@ import {
   getCourseContentById,
   getCourseContents,
   getEnrollment,
+  getExamQuestions,
   getExamQuestionsForLearner,
   getExamSubmissions,
   getMyCourseRating,
@@ -102,17 +103,19 @@ export default async function PortalLessonPage({
   } else if (content.type === "reading" && content.content_url) {
     viewer = <ReadingViewer title={content.title} url={content.content_url} />;
   } else if (content.type === "exam") {
-    const [questions, submissions] = await Promise.all([
-      getExamQuestionsForLearner(contentId),
-      getExamSubmissions(contentId, enrollment.id),
-    ]);
+    const submissions = await getExamSubmissions(contentId, enrollment.id);
+    const submission = submissions[0] ?? null;
+    // Reveal correct answers only after the grade is published.
+    const questions = submission?.graded_at
+      ? await getExamQuestions(contentId)
+      : await getExamQuestionsForLearner(contentId);
     viewer = (
       <ExamViewer
         title={content.title}
         courseId={courseId}
         contentId={contentId}
         questions={questions}
-        submission={submissions[0] ?? null}
+        submission={submission}
       />
     );
   }

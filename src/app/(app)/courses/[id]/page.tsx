@@ -5,7 +5,7 @@ import {
   getCourseById,
   getCourseClasses,
   getCourseContents,
-  getEnrollment,
+  getMemberCourseEnrollments,
 } from "@/lib/courses";
 import {
   hasLearningStarted,
@@ -38,45 +38,80 @@ export default async function CourseDetailPage({
   if (!course || !course.is_published) notFound();
 
   const member = await getMemberForSession(session);
-  const [enrollment, acl, classes] = await Promise.all([
-    member ? getEnrollment(member.id, id) : Promise.resolve(null),
+  const [enrollments, acl, classes] = await Promise.all([
+    member ? getMemberCourseEnrollments(member.id, id) : Promise.resolve([]),
     getCourseAcl(id),
     getCourseClasses(id),
   ]);
 
-  if (!enrollment && !canAccessCourse(course, member, acl)) {
+  if (enrollments.length === 0 && !canAccessCourse(course, member, acl)) {
     notFound();
   }
 
-  const enrolledClass = enrollment
-    ? (classes.find((item) => item.id === enrollment.class_id) ?? null)
-    : null;
   const openClass = pickOpenClass(classes);
   const upcomingClass = pickUpcomingClass(classes);
-  const previewClass = enrolledClass ?? openClass ?? upcomingClass;
-  const previewKind = enrolledClass
+  const openEnrollment = openClass
+    ? (enrollments.find((item) => item.class_id === openClass.id) ?? null)
+    : null;
+  const learningEnrollment =
+    enrollments.find((item) => {
+      const courseClass = classes.find((entry) => entry.id === item.class_id);
+      return (
+        courseClass != null &&
+        hasLearningStarted(courseClass.learning_starts_at)
+      );
+    }) ??
+    openEnrollment ??
+    enrollments[0] ??
+    null;
+
+  const enrolledClass = learningEnrollment
+    ? (classes.find((item) => item.id === learningEnrollment.class_id) ?? null)
+    : null;
+
+  const canEnrollInOpenClass = Boolean(openClass && !openEnrollment);
+  const previewClass = openEnrollment
+    ? openClass
+    : canEnrollInOpenClass
+      ? openClass
+      : (enrolledClass ?? upcomingClass);
+  const previewKind = openEnrollment
     ? "enrolled"
     : openClass
       ? "open"
       : upcomingClass
         ? "upcoming"
-        : "none";
+        : enrolledClass
+          ? "enrolled"
+          : "none";
+
   const contents = await getCourseContents(id, previewClass?.id ?? null);
+  const learningStarted = enrolledClass
+    ? hasLearningStarted(enrolledClass.learning_starts_at)
+    : false;
+
+  // Unenroll targets the open-class enrollment if present and not started yet.
+  const unenrollEnrollment =
+    openEnrollment &&
+    openClass &&
+    !hasLearningStarted(openClass.learning_starts_at)
+      ? openEnrollment
+      : learningEnrollment && enrolledClass && !learningStarted
+        ? learningEnrollment
+        : null;
 
   return (
     <div className="py-10 pb-16 md:py-14">
       <CourseDetail
         course={course}
         contents={contents}
-        enrollment={enrollment}
+        enrollment={learningEnrollment}
+        unenrollEnrollment={unenrollEnrollment}
         joinClass={openClass}
         previewClass={previewClass}
         previewKind={previewKind}
-        learningStarted={
-          enrolledClass
-            ? hasLearningStarted(enrolledClass.learning_starts_at)
-            : false
-        }
+        learningStarted={learningStarted}
+        canEnrollInOpenClass={canEnrollInOpenClass}
         isLoggedIn
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}

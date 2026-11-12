@@ -10,6 +10,7 @@ import {
   getCourseContentById,
   getCourseContents,
   getEnrollment,
+  getEnrollmentForClass,
   getExamQuestions,
   getExamSubmissions,
   getMyCourseRating,
@@ -25,7 +26,15 @@ import type {
   ExamQuestionType,
   VideoTimestamp,
 } from "@/lib/course-types";
-import { isChoiceQuestionType, isTextQuestionType } from "@/lib/course-types";
+import {
+  computeAutoPoints,
+  computeExamScorePercent,
+  isAutoGradableQuestion,
+  isChoiceQuestionType,
+  isTextQuestionType,
+  needsManualGrade,
+  type ExamQuestion,
+} from "@/lib/course-types";
 import { getMemberForSession, isMemberProfileComplete } from "@/lib/members";
 import type { MemberRole } from "@/lib/member-role";
 import { MEMBER_ROLE_ORDER } from "@/lib/member-role";
@@ -558,9 +567,12 @@ export async function enrollInCourse(
       };
     }
 
-    const existing = await getEnrollment(member.id, courseId);
-    if (existing) {
-      return { success: true, enrollment: existing };
+    const existingInClass = await getEnrollmentForClass(
+      member.id,
+      joinClass.id,
+    );
+    if (existingInClass) {
+      return { success: true, enrollment: existingInClass };
     }
 
     const supabase = await createClient();
@@ -724,18 +736,12 @@ export type ExamAnswerPayload = {
   answer_text?: string;
 };
 
-function sameIdSet(a: string[], b: string[]) {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((id) => set.has(id));
-}
-
 export async function submitExam(
   courseId: number,
   contentId: number,
   answers: Record<string, ExamAnswerPayload>,
 ): Promise<
-  | { success: true; progress: number }
+  | { success: true; progress: number; graded: boolean }
   | { success: false; error: string }
 > {
   try {
@@ -768,17 +774,19 @@ export async function submitExam(
       return { success: false, error: "لا توجد أسئلة في هذا التقويم" };
     }
 
+    const now = new Date().toISOString();
     const answerRows: {
       enrollment_id: number;
       content_id: number;
       question_id: number;
       answer_text: string | null;
       selected_option_ids: string[];
+      points_awarded: number | null;
+      graded_at: string | null;
       updated_at: string;
     }[] = [];
 
-    let earned = 0;
-    let maxPoints = 0;
+    let needsManual = false;
 
     for (const q of questions) {
       const raw = answers[String(q.id)];
@@ -810,6 +818,16 @@ export async function submitExam(
         return { success: false, error: "اختر إجابة واحدة فقط لبعض الأسئلة" };
       }
 
+      const auto = isAutoGradableQuestion(q);
+      const manual = needsManualGrade(q);
+      // Zero-point answers need no teacher grade.
+      const points_awarded = auto
+        ? computeAutoPoints(q, selected)
+        : q.points <= 0
+          ? 0
+          : null;
+      if (manual) needsManual = true;
+
       answerRows.push({
         enrollment_id: enrollment.id,
         content_id: contentId,
@@ -818,24 +836,21 @@ export async function submitExam(
         selected_option_ids: isChoiceQuestionType(q.question_type)
           ? selected
           : [],
-        updated_at: new Date().toISOString(),
+        points_awarded,
+        graded_at: auto || q.points <= 0 ? now : null,
+        updated_at: now,
       });
-
-      const autoGradable =
-        isChoiceQuestionType(q.question_type) &&
-        q.correct_option_ids.length > 0;
-      if (!autoGradable) continue;
-
-      maxPoints += q.points;
-      if (sameIdSet(selected, q.correct_option_ids)) {
-        earned += q.points;
-      }
     }
 
-    const score =
-      maxPoints > 0
-        ? Math.round((earned / maxPoints) * 10000) / 100
-        : null;
+    const score = needsManual
+      ? null
+      : computeExamScorePercent(
+          questions,
+          answerRows.map((row) => ({
+            question_id: row.question_id,
+            points_awarded: row.points_awarded,
+          })),
+        );
 
     const supabase = await createClient();
     const { error: answersError } = await supabase
@@ -851,10 +866,11 @@ export async function submitExam(
       {
         enrollment_id: enrollment.id,
         content_id: contentId,
-        // One-time submission: counts as done; grading is reviewed later.
         completed: true,
         exam_score: score,
-        completed_at: new Date().toISOString(),
+        exam_feedback: null,
+        exam_graded_at: needsManual ? null : now,
+        completed_at: now,
       },
       { onConflict: "enrollment_id,content_id" },
     );
@@ -866,9 +882,156 @@ export async function submitExam(
 
     const progress = await recalculateProgress(enrollment.id, courseId);
     revalidateCoursePaths(courseId);
-    return { success: true, progress };
+    return { success: true, progress, graded: !needsManual };
   } catch {
     return { success: false, error: "حدث خطأ غير متوقع" };
+  }
+}
+
+async function recomputeExamScore(
+  contentId: number,
+  enrollmentId: number,
+  questions: ExamQuestion[],
+) {
+  const submissions = await getExamSubmissions(contentId, enrollmentId);
+  const submission = submissions[0];
+  if (!submission) return null;
+  return computeExamScorePercent(questions, submission.answers);
+}
+
+export async function gradeExamAnswer(input: {
+  course_id: number;
+  content_id: number;
+  enrollment_id: number;
+  question_id: number;
+  points: number;
+}): Promise<{ success: true; score: number | null } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const questions = await getExamQuestions(input.content_id);
+    const question = questions.find((q) => q.id === input.question_id);
+    if (!question || question.content_id !== input.content_id) {
+      return { success: false, error: "السؤال غير موجود" };
+    }
+    if (isAutoGradableQuestion(question)) {
+      return { success: false, error: "هذا السؤال يُصحَّح تلقائياً" };
+    }
+    if (question.points <= 0) {
+      return { success: false, error: "هذا السؤال بلا نقاط ولا يحتاج تصحيحاً" };
+    }
+
+    const parsed = Number(input.points);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return { success: false, error: "درجة غير صالحة" };
+    }
+    const points = Math.min(
+      question.points,
+      Math.round(parsed * 100) / 100,
+    );
+
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("exam_answers")
+      .update({
+        points_awarded: points,
+        graded_at: now,
+        updated_at: now,
+      })
+      .eq("enrollment_id", input.enrollment_id)
+      .eq("question_id", input.question_id);
+
+    if (error) {
+      console.error("Error grading exam answer:", error);
+      return { success: false, error: "تعذر حفظ الدرجة" };
+    }
+
+    // Keep published score in sync only after publish; clear graded_at if re-grading.
+    await supabase
+      .from("content_completions")
+      .update({ exam_graded_at: null, exam_score: null })
+      .eq("enrollment_id", input.enrollment_id)
+      .eq("content_id", input.content_id);
+
+    const score = await recomputeExamScore(
+      input.content_id,
+      input.enrollment_id,
+      questions,
+    );
+
+    revalidateCoursePaths(input.course_id);
+    revalidatePath(
+      `/dashboard/courses/${input.course_id}/exams/${input.content_id}`,
+    );
+    return { success: true, score };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function publishExamGrade(input: {
+  course_id: number;
+  content_id: number;
+  enrollment_id: number;
+  feedback?: string;
+}): Promise<
+  | { success: true; score: number | null }
+  | { success: false; error: string }
+> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const questions = await getExamQuestions(input.content_id);
+    const submissions = await getExamSubmissions(
+      input.content_id,
+      input.enrollment_id,
+    );
+    const submission = submissions[0];
+    if (!submission) {
+      return { success: false, error: "لا يوجد تسليم لهذا العضو" };
+    }
+
+    const pending = submission.answers.filter((answer) => {
+      const question = questions.find((q) => q.id === answer.question_id);
+      if (!question) return false;
+      return needsManualGrade(question) && answer.points_awarded == null;
+    });
+    if (pending.length > 0) {
+      return {
+        success: false,
+        error: "أكمل تصحيح جميع الإجابات قبل النشر",
+      };
+    }
+
+    const score = computeExamScorePercent(questions, submission.answers);
+    const feedback = (input.feedback ?? "").trim() || null;
+    const now = new Date().toISOString();
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("content_completions")
+      .update({
+        exam_score: score,
+        exam_feedback: feedback,
+        exam_graded_at: now,
+      })
+      .eq("enrollment_id", input.enrollment_id)
+      .eq("content_id", input.content_id);
+
+    if (error) {
+      console.error("Error publishing exam grade:", error);
+      return { success: false, error: "تعذر نشر النتيجة" };
+    }
+
+    revalidateCoursePaths(input.course_id);
+    revalidatePath(
+      `/dashboard/courses/${input.course_id}/exams/${input.content_id}`,
+    );
+    revalidatePath(`/portal/learning/${input.course_id}/${input.content_id}`);
+    return { success: true, score };
+  } catch {
+    return { success: false, error: "غير مصرح" };
   }
 }
 

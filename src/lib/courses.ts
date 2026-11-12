@@ -14,7 +14,12 @@ import type {
 } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
 import type { DurationUnit } from "@/lib/course-schedule";
-import { isClassOpen, type CourseClass } from "@/lib/course-schedule";
+import {
+  hasLearningStarted,
+  isClassOpen,
+  pickOpenClass,
+  type CourseClass,
+} from "@/lib/course-schedule";
 import type { MemberRole } from "@/lib/member-role";
 import { createClient } from "@/lib/supabase/server";
 
@@ -508,10 +513,24 @@ export async function getExamQuestionsForLearner(
   );
 }
 
-export async function getEnrollment(
+function mapEnrollmentRow(data: Record<string, unknown>): Enrollment {
+  return {
+    id: data.id as number,
+    member_id: data.member_id as number,
+    course_id: data.course_id as number,
+    class_id: (data.class_id as number | null) ?? null,
+    progress_percentage: Number(data.progress_percentage) || 0,
+    status: data.status as Enrollment["status"],
+    created_at: data.created_at as string,
+    updated_at: data.updated_at as string,
+  };
+}
+
+/** All enrollments for a member in a course (newest first). */
+export async function getMemberCourseEnrollments(
   memberId: number,
   courseId: number,
-): Promise<Enrollment | null> {
+): Promise<Enrollment[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("enrollments")
@@ -520,19 +539,66 @@ export async function getEnrollment(
     )
     .eq("member_id", memberId)
     .eq("course_id", courseId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching course enrollments:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapEnrollmentRow(row as Record<string, unknown>));
+}
+
+export async function getEnrollmentForClass(
+  memberId: number,
+  classId: number,
+): Promise<Enrollment | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select(
+      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
+    )
+    .eq("member_id", memberId)
+    .eq("class_id", classId)
     .maybeSingle();
 
   if (error) {
-    console.error("Error fetching enrollment:", error);
+    console.error("Error fetching class enrollment:", error);
     return null;
   }
 
-  if (!data) return null;
-  return {
-    ...(data as Enrollment),
-    class_id: (data.class_id as number | null) ?? null,
-    progress_percentage: Number(data.progress_percentage) || 0,
-  };
+  return data ? mapEnrollmentRow(data as Record<string, unknown>) : null;
+}
+
+/**
+ * Primary enrollment for learning/portal: prefer the open class if enrolled,
+ * else an enrollment whose learning has started, else the newest.
+ */
+export async function getEnrollment(
+  memberId: number,
+  courseId: number,
+): Promise<Enrollment | null> {
+  const enrollments = await getMemberCourseEnrollments(memberId, courseId);
+  if (enrollments.length === 0) return null;
+
+  const classes = await getCourseClasses(courseId);
+  const open = pickOpenClass(classes);
+  if (open) {
+    const inOpen = enrollments.find((item) => item.class_id === open.id);
+    if (inOpen) return inOpen;
+  }
+
+  const started = enrollments.find((item) => {
+    const courseClass = classes.find((entry) => entry.id === item.class_id);
+    return (
+      courseClass != null &&
+      hasLearningStarted(courseClass.learning_starts_at)
+    );
+  });
+  if (started) return started;
+
+  return enrollments[0] ?? null;
 }
 
 export type MemberEnrollmentBrief = {
@@ -759,7 +825,7 @@ export async function getCompletedContentIds(
 }
 
 
-/** Submissions (answers + stored auto score) for an exam; optionally one enrollment. */
+/** Submissions (answers + score/feedback) for an exam; optionally one enrollment. */
 export async function getExamSubmissions(
   contentId: number,
   enrollmentId?: number,
@@ -768,11 +834,15 @@ export async function getExamSubmissions(
 
   let completionsQuery = supabase
     .from("content_completions")
-    .select("enrollment_id, exam_score, completed_at")
+    .select(
+      "enrollment_id, exam_score, exam_feedback, exam_graded_at, completed_at",
+    )
     .eq("content_id", contentId);
   let answersQuery = supabase
     .from("exam_answers")
-    .select("enrollment_id, question_id, selected_option_ids, answer_text")
+    .select(
+      "enrollment_id, question_id, selected_option_ids, answer_text, points_awarded, graded_at",
+    )
     .eq("content_id", contentId);
 
   if (enrollmentId != null) {
@@ -802,6 +872,9 @@ export async function getExamSubmissions(
         ? (row.selected_option_ids as string[])
         : [],
       answer_text: (row.answer_text as string | null) ?? null,
+      points_awarded:
+        row.points_awarded == null ? null : Number(row.points_awarded),
+      graded_at: (row.graded_at as string | null) ?? null,
     });
     byEnrollment.set(row.enrollment_id as number, list);
   }
@@ -810,6 +883,8 @@ export async function getExamSubmissions(
     enrollment_id: row.enrollment_id as number,
     submitted_at: row.completed_at as string,
     score: row.exam_score == null ? null : Number(row.exam_score),
+    feedback: (row.exam_feedback as string | null) ?? null,
+    graded_at: (row.exam_graded_at as string | null) ?? null,
     answers: byEnrollment.get(row.enrollment_id as number) ?? [],
   }));
 }

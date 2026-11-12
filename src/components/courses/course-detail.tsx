@@ -41,10 +41,12 @@ export function CourseDetail({
   course,
   contents,
   enrollment,
+  unenrollEnrollment = null,
   joinClass,
   previewClass,
   previewKind,
   learningStarted,
+  canEnrollInOpenClass = false,
   isLoggedIn,
   isMember,
   hasCompleteProfile,
@@ -54,10 +56,14 @@ export function CourseDetail({
   course: CourseWithMeta;
   contents: CourseContent[];
   enrollment: Enrollment | null;
+  /** Enrollment that can still be cancelled (open class before learning starts). */
+  unenrollEnrollment?: Enrollment | null;
   joinClass: CourseClass | null;
   previewClass: CourseClass | null;
   previewKind: "enrolled" | "open" | "upcoming" | "none";
   learningStarted: boolean;
+  /** True when an open class exists and the member is not yet in it. */
+  canEnrollInOpenClass?: boolean;
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
@@ -137,7 +143,7 @@ export function CourseDetail({
           <Rosette className="absolute -start-10 -bottom-10 size-40 text-primary/5" />
         </div>
 
-        {enrollment && !learningStarted && (
+        {unenrollEnrollment && (
           <div className="absolute top-4 left-4 z-20">
             <Button
               type="button"
@@ -282,15 +288,19 @@ export function CourseDetail({
               </p>
             )}
 
-            {(learningStarted || !enrollment) && (
+            {(learningStarted || canEnrollInOpenClass) && (
             <div className="flex flex-wrap items-center justify-center gap-2 pt-2 lg:justify-start">
               {enrollment && learningStarted && (
                 <Button asChild>
                   <Link href={`/portal/learning/${course.id}`}>متابعة التعلم</Link>
                 </Button>
               )}
-              {!enrollment && (
-                <Button onClick={onEnroll} disabled={pending || closed}>
+              {canEnrollInOpenClass && (
+                <Button
+                  onClick={onEnroll}
+                  disabled={pending || closed}
+                  variant={learningStarted ? "outline" : "default"}
+                >
                   {!isLoggedIn
                     ? "سجّل الدخول للالتحاق"
                     : !isMember || !hasCompleteProfile
@@ -299,7 +309,9 @@ export function CourseDetail({
                         ? "جاري الالتحاق…"
                         : closed
                           ? "لا توجد دفعة للالتحاق"
-                          : "الإلتحاق الآن"}
+                          : learningStarted
+                            ? "الالتحاق بالدفعة الجديدة"
+                            : "الإلتحاق الآن"}
                 </Button>
               )}
             </div>

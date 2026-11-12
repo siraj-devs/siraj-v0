@@ -1,17 +1,20 @@
 "use client";
 
 import { submitExam, type ExamAnswerPayload } from "@/app/actions/courses";
+import { ProgressRing } from "@/components/courses/course-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import type { LearnerExamQuestion } from "@/lib/courses";
 import {
-  EXAM_QUESTION_TYPE_LABELS,
+  computeAutoPoints,
+  isAutoGradableQuestion,
   isChoiceQuestionType,
+  type ExamQuestion,
   type ExamSubmission,
 } from "@/lib/course-types";
+import type { LearnerExamQuestion } from "@/lib/courses";
 import { filterArabicInput } from "@/lib/profile-fields";
 import { cn } from "@/lib/utils";
 import {
@@ -19,12 +22,23 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Lock,
+  MessageSquareText,
+  XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-function isAnswered(question: LearnerExamQuestion, answer?: ExamAnswerPayload) {
+type QuestionView = LearnerExamQuestion | ExamQuestion;
+
+function hasCorrectIds(question: QuestionView): question is ExamQuestion {
+  return (
+    "correct_option_ids" in question &&
+    Array.isArray(question.correct_option_ids)
+  );
+}
+
+function isAnswered(question: QuestionView, answer?: ExamAnswerPayload) {
   if (!answer) return false;
   if (isChoiceQuestionType(question.question_type)) {
     return (answer.selected_option_ids?.length ?? 0) > 0;
@@ -65,6 +79,19 @@ function answersFromSubmission(
   return map;
 }
 
+function resultBadge(
+  question: QuestionView,
+  awarded: number | null,
+): "correct" | "partial" | "wrong" | "manual" | null {
+  if (awarded == null) return null;
+  if (!hasCorrectIds(question) || !isAutoGradableQuestion(question)) {
+    return "manual";
+  }
+  if (awarded >= question.points - 0.001) return "correct";
+  if (awarded > 0) return "partial";
+  return "wrong";
+}
+
 export function ExamViewer({
   title,
   courseId,
@@ -75,7 +102,7 @@ export function ExamViewer({
   title: string;
   courseId: number;
   contentId: number;
-  questions: LearnerExamQuestion[];
+  questions: QuestionView[];
   submission: ExamSubmission | null;
 }) {
   const router = useRouter();
@@ -86,7 +113,9 @@ export function ExamViewer({
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const readOnly = Boolean(submission) || justSubmitted;
+  const submitted = Boolean(submission) || justSubmitted;
+  const graded = Boolean(submission?.graded_at);
+  const readOnly = submitted;
 
   const requiredQuestions = useMemo(
     () => questions.filter((q) => !q.is_optional),
@@ -110,7 +139,7 @@ export function ExamViewer({
     ? (answeredRequiredCount / requiredQuestions.length) * 100
     : 100;
 
-  function setChoice(question: LearnerExamQuestion, optionId: string) {
+  function setChoice(question: QuestionView, optionId: string) {
     if (readOnly) return;
     const key = String(question.id);
     setAnswers((prev) => {
@@ -148,14 +177,17 @@ export function ExamViewer({
       }
       setJustSubmitted(true);
       setConfirming(false);
-      toast.success("تم إرسال إجاباتك بنجاح");
+      toast.success(
+        res.graded
+          ? "تم إرسال إجاباتك وظهرت نتيجتك"
+          : "تم إرسال إجاباتك — بانتظار التقييم",
+      );
       router.refresh();
     });
   }
 
   return (
     <div className="space-y-6" dir="rtl">
-      {/* Header */}
       <div className="overflow-hidden rounded-3xl border border-border/70 bg-background shadow-sm">
         <div className="relative flex flex-wrap items-center justify-between gap-5 bg-linear-to-b from-primary/10 to-primary/3 px-5 py-5 sm:px-7">
           <div className="flex items-start gap-4">
@@ -164,7 +196,7 @@ export function ExamViewer({
             </div>
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-primary">تقويم</p>
-              <h2 className="font-kufam text-2xl font-semibold leading-tight text-foreground">
+              <h2 className="font-kufam text-2xl leading-tight font-semibold text-foreground">
                 {title}
               </h2>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -174,11 +206,6 @@ export function ExamViewer({
                 {totalPoints > 0 && (
                   <span className="rounded-full bg-background/80 px-2.5 py-1 ring-1 ring-border">
                     {pointsLabel(totalPoints)}
-                  </span>
-                )}
-                {requiredQuestions.length < questions.length && (
-                  <span className="rounded-full bg-background/80 px-2.5 py-1 ring-1 ring-border">
-                    {questions.length - requiredQuestions.length} اختيارية
                   </span>
                 )}
               </div>
@@ -204,18 +231,63 @@ export function ExamViewer({
         </div>
       </div>
 
-      {/* Submitted banner */}
-      {readOnly && (
-        <div className="flex items-start gap-4 rounded-3xl border border-primary/30 bg-primary/5 px-5 py-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-            <CheckCircle2 className="size-6" />
+      {submitted && graded && submission && (
+        <div className="space-y-4 rounded-3xl border border-primary/30 bg-primary/5 p-5">
+          <div className="flex flex-wrap items-center gap-4">
+            {submission.score != null ? (
+              <ProgressRing value={submission.score} size={72} />
+            ) : (
+              <div className="flex size-[72px] items-center justify-center rounded-full bg-primary/15 text-primary">
+                <CheckCircle2 className="size-8" />
+              </div>
+            )}
+            <div className="space-y-1">
+              <p className="font-kufam text-lg text-foreground">
+                {submission.score == null
+                  ? "اكتمل التقويم"
+                  : submission.score >= 50
+                    ? "أحسنت، نتيجة ناجحة"
+                    : "نتيجتك جاهزة"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {submission.score == null
+                  ? "لا توجد نقاط قابلة للتصحيح في هذا التقويم"
+                  : `نتيجتك ${submission.score}%`}
+                {submission.submitted_at && (
+                  <span className="mt-1 block text-xs">
+                    أُرسلت في {formatSubmittedAt(submission.submitted_at)}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          {submission.feedback && (
+            <div className="flex gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3">
+              <MessageSquareText className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-primary">
+                  ملاحظة المقيّم
+                </p>
+                <p className="text-sm leading-7 whitespace-pre-wrap text-foreground">
+                  {submission.feedback}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {submitted && !graded && (
+        <div className="flex items-start gap-4 rounded-3xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-800">
+            <Lock className="size-5" />
           </div>
           <div className="space-y-1">
             <p className="font-kufam text-base text-foreground">
-              تم إرسال إجاباتك
+              تم إرسال إجاباتك — قيد المراجعة
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
-              سيتم تقييم إجاباتك لاحقاً. لا يمكن تعديلها أو إعادة الإرسال.
+              ستظهر نتيجتك وملخص الإجابات بعد انتهاء التصحيح.
               {submission && (
                 <span className="block text-xs">
                   أُرسلت في {formatSubmittedAt(submission.submitted_at)}
@@ -226,14 +298,19 @@ export function ExamViewer({
         </div>
       )}
 
-      {/* Questions */}
       <ol className="space-y-5">
         {questions.map((question, index) => {
           const answer = answers[String(question.id)];
+          const record = submission?.answers.find(
+            (a) => a.question_id === question.id,
+          );
           const selected = answer?.selected_option_ids ?? [];
           const multi = question.allow_multiple;
           const done = isAnswered(question, answer);
           const skipped = readOnly && !done;
+          const awarded = record?.points_awarded ?? null;
+          const badge = graded ? resultBadge(question, awarded) : null;
+          const revealCorrect = graded && hasCorrectIds(question);
 
           return (
             <li
@@ -249,9 +326,13 @@ export function ExamViewer({
                   <span
                     className={cn(
                       "flex size-9 shrink-0 items-center justify-center rounded-xl font-kufam text-sm transition-colors",
-                      done
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground",
+                      badge === "correct"
+                        ? "bg-emerald-600 text-white"
+                        : badge === "wrong"
+                          ? "bg-destructive text-destructive-foreground"
+                          : done
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground",
                     )}
                   >
                     {index + 1}
@@ -259,33 +340,47 @@ export function ExamViewer({
                   <div className="min-w-0 space-y-2">
                     <p
                       dir="rtl"
-                      className="text-start text-base font-medium leading-8 text-foreground"
+                      className="space-x-1.5 text-start text-base leading-8 font-medium text-foreground"
                     >
-                      {question.question_text}
+                      <span>{question.question_text}</span>
+                      {!question.is_optional && (
+                        <span className="text-lg font-semibold text-destructive">
+                          *
+                        </span>
+                      )}
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-                        {EXAM_QUESTION_TYPE_LABELS[question.question_type]}
-                      </span>
-                      {question.allow_multiple && (
-                        <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-                          اختر أكثر من إجابة
-                        </span>
-                      )}
-                      {question.is_optional && (
-                        <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-900">
-                          اختياري
-                        </span>
-                      )}
                       {skipped && (
                         <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
                           لم تُجب
                         </span>
                       )}
+                      {badge === "correct" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-800">
+                          <CheckCircle2 className="size-3" />
+                          صحيحة
+                        </span>
+                      )}
+                      {badge === "partial" && (
+                        <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-900">
+                          جزئية
+                        </span>
+                      )}
+                      {badge === "wrong" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-destructive">
+                          <XCircle className="size-3" />
+                          خاطئة
+                        </span>
+                      )}
+                      {graded && awarded != null && (
+                        <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
+                          {awarded} / {question.points}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                {question.points > 0 && (
+                {question.points > 0 && !graded && (
                   <span className="shrink-0 rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary">
                     {pointsLabel(question.points)}
                   </span>
@@ -297,15 +392,33 @@ export function ExamViewer({
                   <div className="space-y-2.5">
                     {question.options.map((option) => {
                       const active = selected.includes(option.id);
+                      const isCorrect =
+                        revealCorrect &&
+                        question.correct_option_ids.includes(option.id);
                       return (
                         <label
                           key={option.id}
                           className={cn(
                             "flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm transition-all",
                             readOnly ? "cursor-default" : "cursor-pointer",
-                            active
-                              ? "border-primary/60 bg-primary/8 text-foreground shadow-sm"
-                              : "border-border/80 text-foreground/80",
+                            graded &&
+                              active &&
+                              isCorrect &&
+                              "border-emerald-500/50 bg-emerald-500/10",
+                            graded &&
+                              active &&
+                              !isCorrect &&
+                              "border-destructive/40 bg-destructive/5",
+                            graded &&
+                              !active &&
+                              isCorrect &&
+                              "border-dashed border-emerald-500/40",
+                            !graded &&
+                              active &&
+                              "border-primary/60 bg-primary/8 text-foreground shadow-sm",
+                            !graded &&
+                              !active &&
+                              "border-border/80 text-foreground/80",
                             !active &&
                               !readOnly &&
                               "hover:border-primary/30 hover:bg-muted/40",
@@ -339,6 +452,9 @@ export function ExamViewer({
                     {question.options.map((option) => {
                       const active = selected[0] === option.id;
                       const id = `q-${question.id}-${option.id}`;
+                      const isCorrect =
+                        revealCorrect &&
+                        question.correct_option_ids.includes(option.id);
                       return (
                         <label
                           key={option.id}
@@ -346,9 +462,24 @@ export function ExamViewer({
                           className={cn(
                             "flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm transition-all",
                             readOnly ? "cursor-default" : "cursor-pointer",
-                            active
-                              ? "border-primary/60 bg-primary/8 text-foreground shadow-sm"
-                              : "border-border/80 text-foreground/80",
+                            graded &&
+                              active &&
+                              isCorrect &&
+                              "border-emerald-500/50 bg-emerald-500/10",
+                            graded &&
+                              active &&
+                              !isCorrect &&
+                              "border-destructive/40 bg-destructive/5",
+                            graded &&
+                              !active &&
+                              isCorrect &&
+                              "border-dashed border-emerald-500/40",
+                            !graded &&
+                              active &&
+                              "border-primary/60 bg-primary/8 text-foreground shadow-sm",
+                            !graded &&
+                              !active &&
+                              "border-border/80 text-foreground/80",
                             !active &&
                               !readOnly &&
                               "hover:border-primary/30 hover:bg-muted/40",
@@ -407,12 +538,21 @@ export function ExamViewer({
                   />
                 </div>
               )}
+
+              {graded &&
+                hasCorrectIds(question) &&
+                isAutoGradableQuestion(question) &&
+                done && (
+                  <p className="mt-3 text-[11px] text-muted-foreground">
+                    المكتسب {awarded ?? computeAutoPoints(question, selected)}{" "}
+                    من {question.points}
+                  </p>
+                )}
             </li>
           );
         })}
       </ol>
 
-      {/* Submit */}
       {readOnly ? (
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
           <Lock className="size-4 shrink-0" />
@@ -432,7 +572,11 @@ export function ExamViewer({
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button onClick={onSubmit} disabled={pending} className="sm:min-w-40">
+            <Button
+              onClick={onSubmit}
+              disabled={pending}
+              className="sm:min-w-40"
+            >
               {pending ? "جاري الإرسال…" : "نعم، أرسل الإجابات"}
             </Button>
             <Button

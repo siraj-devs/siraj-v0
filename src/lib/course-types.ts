@@ -97,13 +97,19 @@ export type ExamAnswerRecord = {
   question_id: number;
   selected_option_ids: string[];
   answer_text: string | null;
+  /** null = awaiting manual grade */
+  points_awarded: number | null;
+  graded_at: string | null;
 };
 
 export type ExamSubmission = {
   enrollment_id: number;
   submitted_at: string;
-  /** Auto-graded score (0-100) over scorable questions; null when none. */
+  /** Final published score (0-100); null until published / auto-finalized. */
   score: number | null;
+  feedback: string | null;
+  /** When set, learner may see score + summary. */
+  graded_at: string | null;
   answers: ExamAnswerRecord[];
 };
 
@@ -120,6 +126,59 @@ export function isChoiceQuestionType(type: ExamQuestionType) {
 
 export function isTextQuestionType(type: ExamQuestionType) {
   return type === "short_text" || type === "long_text";
+}
+
+/** Choice questions with at least one correct option are auto-scored. */
+export function isAutoGradableQuestion(question: Pick<
+  ExamQuestion,
+  "question_type" | "correct_option_ids"
+>) {
+  return (
+    isChoiceQuestionType(question.question_type) &&
+    question.correct_option_ids.length > 0
+  );
+}
+
+/** Manual teacher grade only when the question carries points and isn't auto-scored. */
+export function needsManualGrade(question: Pick<
+  ExamQuestion,
+  "question_type" | "correct_option_ids" | "points"
+>) {
+  return !isAutoGradableQuestion(question) && question.points > 0;
+}
+
+/**
+ * Partial credit for multi-correct: each correctly selected option earns
+ * points / |correct|. Wrong selections award 0 (no penalty).
+ */
+export function computeAutoPoints(
+  question: Pick<ExamQuestion, "points" | "correct_option_ids">,
+  selectedIds: string[],
+): number {
+  const correct = question.correct_option_ids;
+  if (correct.length === 0 || question.points <= 0) return 0;
+  const selected = new Set(selectedIds);
+  const hits = correct.filter((id) => selected.has(id)).length;
+  const per = question.points / correct.length;
+  return Math.round(hits * per * 100) / 100;
+}
+
+export function computeExamScorePercent(
+  questions: Pick<ExamQuestion, "id" | "points">[],
+  answers: Pick<ExamAnswerRecord, "question_id" | "points_awarded">[],
+): number | null {
+  const byId = new Map(questions.map((q) => [q.id, q]));
+  let earned = 0;
+  let max = 0;
+  for (const answer of answers) {
+    if (answer.points_awarded == null) continue;
+    const question = byId.get(answer.question_id);
+    if (!question) continue;
+    max += question.points;
+    earned += answer.points_awarded;
+  }
+  if (max <= 0) return null;
+  return Math.round((earned / max) * 10000) / 100;
 }
 
 export type Enrollment = {
