@@ -3,6 +3,8 @@
 import {
   deleteCourseContent,
   deleteExamQuestion,
+  reorderCourseContents,
+  reorderExamQuestions,
   upsertCourseContent,
   upsertExamQuestion,
 } from "@/app/actions/courses";
@@ -11,10 +13,10 @@ import { AudioViewer } from "@/components/courses/audio-viewer";
 import { CourseClassesPanel } from "@/components/courses/course-classes-panel";
 import { ExamQuestionsDialog } from "@/components/courses/exam-questions-dialog";
 import { FormDialog } from "@/components/dashboard/form-dialog";
-import { SegmentedChoiceField } from "@/components/dashboard/segmented-choice-field";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import type { KebabMenuItem } from "@/components/dashboard/kebab-menu";
 import {
+  CONTENT_TYPE_HINT,
   CONTENT_TYPE_ICON,
   MetaChip,
   StarRating,
@@ -70,11 +72,13 @@ import {
   Clock,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   CircleHelp,
   Eye,
   EyeOff,
   Globe,
   Book,
+  GripVertical,
   Pencil,
   Plus,
   Shield,
@@ -85,8 +89,18 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type DragEvent,
+} from "react";
 import { toast } from "sonner";
+
+const REQUIRED_MARK =
+  "after:ms-0.5 after:text-destructive after:content-['*']";
 
 const ROLE_STYLES: Record<MemberRole, string> = {
   owner: "bg-rose-500/10 text-rose-800 ring-rose-500/20",
@@ -122,7 +136,6 @@ export function CourseContentManager({
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [contentUrl, setContentUrl] = useState("");
-  const [order, setOrder] = useState("0");
   const [timestampsText, setTimestampsText] = useState("");
   const [durationAmount, setDurationAmount] = useState("");
   const [durationUnit, setDurationUnit] = useState<DurationUnit>("days");
@@ -138,6 +151,26 @@ export function CourseContentManager({
   } | null>(null);
   const [deletingQuestion, setDeletingQuestion] =
     useState<ExamQuestion | null>(null);
+  const [localQuestionsByContent, setLocalQuestionsByContent] = useState(
+    questionsByContent,
+  );
+  const [draggingQuestionId, setDraggingQuestionId] = useState<number | null>(
+    null,
+  );
+  const [dragOverQuestionId, setDragOverQuestionId] = useState<number | null>(
+    null,
+  );
+  const [localContents, setLocalContents] = useState(contents);
+  const [draggingLessonId, setDraggingLessonId] = useState<number | null>(null);
+  const [dragOverLessonId, setDragOverLessonId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLocalQuestionsByContent(questionsByContent);
+  }, [questionsByContent]);
+
+  useEffect(() => {
+    setLocalContents(contents);
+  }, [contents]);
 
   useEffect(() => {
     if (
@@ -150,8 +183,8 @@ export function CourseContentManager({
   }, [classes, selectedClassId]);
 
   const classContents = useMemo(
-    () => contents.filter((item) => item.class_id === selectedClassId),
-    [contents, selectedClassId],
+    () => localContents.filter((item) => item.class_id === selectedClassId),
+    [localContents, selectedClassId],
   );
   const selectedClass =
     classes.find((item) => item.id === selectedClassId) ?? null;
@@ -220,6 +253,122 @@ export function CourseContentManager({
     });
   }
 
+  function onQuestionDragStart(questionId: number) {
+    setDraggingQuestionId(questionId);
+  }
+
+  function onQuestionDragOver(
+    event: DragEvent<HTMLLIElement>,
+    questionId: number,
+  ) {
+    event.preventDefault();
+    if (dragOverQuestionId !== questionId) {
+      setDragOverQuestionId(questionId);
+    }
+  }
+
+  function onQuestionDragEnd() {
+    setDraggingQuestionId(null);
+    setDragOverQuestionId(null);
+  }
+
+  function onQuestionDrop(
+    event: DragEvent<HTMLLIElement>,
+    contentId: number,
+    targetQuestionId: number,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    const sourceId = draggingQuestionId;
+    setDraggingQuestionId(null);
+    setDragOverQuestionId(null);
+    if (sourceId == null || sourceId === targetQuestionId) return;
+
+    const current = localQuestionsByContent[contentId] ?? [];
+    const fromIndex = current.findIndex((item) => item.id === sourceId);
+    const toIndex = current.findIndex((item) => item.id === targetQuestionId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setLocalQuestionsByContent((prev) => ({ ...prev, [contentId]: next }));
+
+    startTransition(async () => {
+      const result = await reorderExamQuestions({
+        course_id: course.id,
+        content_id: contentId,
+        ordered_ids: next.map((item) => item.id),
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        setLocalQuestionsByContent(questionsByContent);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function onLessonDragStart(lessonId: number) {
+    setDraggingLessonId(lessonId);
+    setDraggingQuestionId(null);
+    setDragOverQuestionId(null);
+  }
+
+  function onLessonDragOver(
+    event: DragEvent<HTMLLIElement>,
+    lessonId: number,
+  ) {
+    if (draggingLessonId == null) return;
+    event.preventDefault();
+    if (dragOverLessonId !== lessonId) {
+      setDragOverLessonId(lessonId);
+    }
+  }
+
+  function onLessonDragEnd() {
+    setDraggingLessonId(null);
+    setDragOverLessonId(null);
+  }
+
+  function onLessonDrop(targetLessonId: number) {
+    const sourceId = draggingLessonId;
+    const classId = selectedClassId;
+    setDraggingLessonId(null);
+    setDragOverLessonId(null);
+    if (sourceId == null || sourceId === targetLessonId || classId == null) {
+      return;
+    }
+
+    const current = localContents.filter((item) => item.class_id === classId);
+    const fromIndex = current.findIndex((item) => item.id === sourceId);
+    const toIndex = current.findIndex((item) => item.id === targetLessonId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const next = [...current];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+
+    setLocalContents((prev) => {
+      const others = prev.filter((item) => item.class_id !== classId);
+      return [...others, ...next];
+    });
+
+    startTransition(async () => {
+      const result = await reorderCourseContents({
+        course_id: course.id,
+        class_id: classId,
+        ordered_ids: next.map((item) => item.id),
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        setLocalContents(contents);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   useEffect(() => {
     if (!previewing && !examState) return;
     const onKey = (e: KeyboardEvent) => {
@@ -237,7 +386,6 @@ export function CourseContentManager({
     setTitle("");
     setAuthor("");
     setContentUrl("");
-    setOrder(String(classContents.length));
     setTimestampsText("");
     setDurationAmount("");
     setDurationUnit("days");
@@ -252,7 +400,6 @@ export function CourseContentManager({
     setTitle(content.title);
     setAuthor(content.author ?? "");
     setContentUrl(content.content_url ?? "");
-    setOrder(String(content.order_sequence));
     setTimestampsText(
       (content.metadata.timestamps ?? [])
         .map((t) => `${t.seconds}|${t.label}`)
@@ -306,9 +453,11 @@ export function CourseContentManager({
         course_id: course.id,
         type,
         title,
-        author,
+        author: type === "exam" ? null : author,
         content_url: type === "exam" ? null : contentUrl,
-        order_sequence: Number(order) || 0,
+        order_sequence: editing
+          ? editing.order_sequence
+          : classContents.length,
         duration_unit,
         duration_amount,
         start_date: startDate || null,
@@ -482,16 +631,15 @@ export function CourseContentManager({
       </div>
 
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <div>
-              <h3 className="font-kufam text-xl font-semibold text-foreground">
-                الدروس
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                تظهر فقط لمن التحق بهذه الدفعة.
-              </p>
-            </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <h3 className="font-kufam text-xl font-semibold text-foreground">
+              الدروس
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              تظهر فقط لمن التحق بهذه الدفعة.
+              {classContents.length > 1 ? " اسحب لإعادة الترتيب." : ""}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={openCreate} className="gap-2" disabled={classes.length === 0}>
@@ -506,213 +654,295 @@ export function CourseContentManager({
             {classContents.map((content, index) => {
               const Icon = CONTENT_TYPE_ICON[content.type];
               const openUpward = index >= classContents.length - 2;
+              const questionCount =
+                (localQuestionsByContent[content.id] ?? []).length;
+              const questionPoints = (
+                localQuestionsByContent[content.id] ?? []
+              ).reduce((sum, q) => sum + q.points, 0);
+              const rowActions = (
+                <ListRowActions
+                  items={[
+                    {
+                      key: "preview",
+                      label: "معاينة",
+                      icon: <Eye className="size-3.5" />,
+                      onClick: () => setPreviewing(content),
+                    },
+                    ...(content.type === "exam"
+                      ? [
+                          {
+                            key: "questions",
+                            label: "إضافة سؤال",
+                            icon: <CircleHelp className="size-3.5" />,
+                            onClick: () => openQuestionDialog(content.id),
+                          } satisfies KebabMenuItem,
+                          {
+                            key: "answers",
+                            label: "الإجابات",
+                            icon: <CheckCircle2 className="size-3.5" />,
+                            href: `/dashboard/courses/${course.id}/exams/${content.id}`,
+                          } satisfies KebabMenuItem,
+                        ]
+                      : []),
+                    {
+                      key: "edit",
+                      label: "تعديل",
+                      icon: <Pencil className="size-3.5" />,
+                      onClick: () => openEdit(content),
+                    },
+                    {
+                      key: "delete",
+                      label: "حذف",
+                      icon: <Trash2 className="size-3.5" />,
+                      variant: "destructive",
+                      onClick: () => setDeleting(content),
+                    },
+                  ]}
+                  open={openMenuId === content.id}
+                  onToggle={() =>
+                    setOpenMenuId(
+                      openMenuId === content.id ? null : content.id,
+                    )
+                  }
+                  onClose={() => setOpenMenuId(null)}
+                  menuPlacement={openUpward ? "up" : "down"}
+                  ariaLabel="خيارات الدرس"
+                />
+              );
+              const rowMeta = (
+                <>
+                  <span
+                    className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-xl text-muted-foreground active:cursor-grabbing"
+                    aria-hidden
+                    title="اسحب لإعادة الترتيب"
+                  >
+                    <GripVertical className="size-4" />
+                  </span>
+                  <span className="w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
+                    <Icon className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <p className="truncate text-lg font-medium text-foreground">
+                        {content.title}
+                      </p>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {CONTENT_TYPE_LABELS[content.type]}
+                      </span>
+                      {content.type === "exam" && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          {questionCount} سؤال
+                        </span>
+                      )}
+                    </div>
+                    {content.author && (
+                      <p className="truncate text-sm text-muted-foreground">
+                        {content.author}
+                      </p>
+                    )}
+                    {formatLessonDateRange(content) && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        الفترة: {formatLessonDateRange(content)}
+                      </p>
+                    )}
+                    {formatLessonDuration(content) && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        المدة: {formatLessonDuration(content)}
+                      </p>
+                    )}
+                    {content.content_url && (
+                      <Link
+                        href={content.content_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 block truncate text-sm transition hover:text-primary hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {content.content_url}
+                      </Link>
+                    )}
+                  </div>
+                </>
+              );
+
               return (
                 <li
                   key={content.id}
-                  className={`border-b border-border/60 last:border-b-0 ${
-                    openMenuId === content.id ? "relative z-50" : "relative z-0"
-                  }`}
+                  draggable={!pending}
+                  onDragStart={() => onLessonDragStart(content.id)}
+                  onDragOver={(event) => onLessonDragOver(event, content.id)}
+                  onDrop={() => onLessonDrop(content.id)}
+                  onDragEnd={onLessonDragEnd}
+                  className={cn(
+                    "border-b border-border/60 last:border-b-0",
+                    openMenuId === content.id ? "relative z-50" : "relative z-0",
+                    draggingLessonId === content.id && "opacity-60",
+                    dragOverLessonId === content.id &&
+                      draggingLessonId != null &&
+                      draggingLessonId !== content.id &&
+                      "bg-primary/5",
+                  )}
                 >
-                  <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6">
-                    <span className="w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
-                      {index + 1}
-                    </span>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <p className="truncate text-lg font-medium text-foreground">
-                          {content.title}
-                        </p>
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {CONTENT_TYPE_LABELS[content.type]}
-                        </span>
-                      </div>
-                      {content.author && (
-                        <p className="truncate text-sm text-muted-foreground">
-                          {content.author}
-                        </p>
-                      )}
-                      {formatLessonDateRange(content) && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          الفترة: {formatLessonDateRange(content)}
-                        </p>
-                      )}
-                      {formatLessonDuration(content) && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          المدة: {formatLessonDuration(content)}
-                        </p>
-                      )}
-                      {content.content_url && (
-                        <Link
-                          href={content.content_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 block truncate text-sm transition hover:text-primary hover:underline"
+                  {content.type === "exam" ? (
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+                        {rowMeta}
+                        <div
+                          className="flex shrink-0 items-center gap-2"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
                         >
-                          {content.content_url}
-                        </Link>
-                      )}
-                    </div>
+                          {rowActions}
+                          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </div>
+                      </summary>
 
-                    <ListRowActions
-                      items={[
-                        {
-                          key: "preview",
-                          label: "معاينة",
-                          icon: <Eye className="size-3.5" />,
-                          onClick: () => setPreviewing(content),
-                        },
-                        ...(content.type === "exam"
-                          ? [
-                              {
-                                key: "questions",
-                                label: "إضافة سؤال",
-                                icon: <CircleHelp className="size-3.5" />,
-                                onClick: () => openQuestionDialog(content.id),
-                              } satisfies KebabMenuItem,
-                              {
-                                key: "answers",
-                                label: "الإجابات",
-                                icon: <CheckCircle2 className="size-3.5" />,
-                                href: `/dashboard/courses/${course.id}/exams/${content.id}`,
-                              } satisfies KebabMenuItem,
-                            ]
-                          : []),
-                        {
-                          key: "edit",
-                          label: "تعديل",
-                          icon: <Pencil className="size-3.5" />,
-                          onClick: () => openEdit(content),
-                        },
-                        {
-                          key: "delete",
-                          label: "حذف",
-                          icon: <Trash2 className="size-3.5" />,
-                          variant: "destructive",
-                          onClick: () => setDeleting(content),
-                        },
-                      ]}
-                      open={openMenuId === content.id}
-                      onToggle={() =>
-                        setOpenMenuId(
-                          openMenuId === content.id ? null : content.id,
-                        )
-                      }
-                      onClose={() => setOpenMenuId(null)}
-                      menuPlacement={openUpward ? "up" : "down"}
-                      ariaLabel="خيارات الدرس"
-                    />
-                  </div>
-
-                  {content.type === "exam" && (
-                    <div className="space-y-3 border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-kufam text-sm text-foreground">
-                          الأسئلة
-                          <span className="ms-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                            {(questionsByContent[content.id] ?? []).length}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          المجموع:{" "}
-                          {(questionsByContent[content.id] ?? []).reduce(
-                            (sum, q) => sum + q.points,
-                            0,
-                          )}{" "}
-                          نقطة
-                        </p>
-                      </div>
-                      {(questionsByContent[content.id] ?? []).length > 0 ? (
-                        <ol className="space-y-2">
-                          {(questionsByContent[content.id] ?? []).map(
-                            (q, index) => (
-                              <li
-                                key={q.id}
-                                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-3 py-2.5 shadow-sm"
-                              >
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-kufam text-xs text-primary">
-                                  {index + 1}
-                                </span>
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p
-                                    dir="rtl"
-                                    className="line-clamp-2 text-start text-sm leading-6 text-foreground"
+                      <div className="space-y-3 border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-kufam text-sm text-foreground">
+                            الأسئلة
+                            <span className="ms-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                              {questionCount}
+                            </span>
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {questionCount > 1 && (
+                              <span>اسحب لإعادة الترتيب</span>
+                            )}
+                            <span>المجموع: {questionPoints} نقطة</span>
+                          </div>
+                        </div>
+                        {questionCount > 0 ? (
+                          <ol className="space-y-2">
+                            {(localQuestionsByContent[content.id] ?? []).map(
+                              (q, qIndex) => (
+                                <li
+                                  key={q.id}
+                                  draggable={!pending}
+                                  onDragStart={(event) => {
+                                    event.stopPropagation();
+                                    onQuestionDragStart(q.id);
+                                  }}
+                                  onDragOver={(event) => {
+                                    event.stopPropagation();
+                                    onQuestionDragOver(event, q.id);
+                                  }}
+                                  onDrop={(event) =>
+                                    onQuestionDrop(event, content.id, q.id)
+                                  }
+                                  onDragEnd={onQuestionDragEnd}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-2xl border bg-background px-2 py-2.5 shadow-sm transition sm:gap-3 sm:px-3",
+                                    draggingQuestionId === q.id
+                                      ? "border-primary/50 opacity-60"
+                                      : dragOverQuestionId === q.id &&
+                                          draggingQuestionId != null &&
+                                          draggingQuestionId !== q.id
+                                        ? "border-primary border-dashed bg-primary/5"
+                                        : "border-border/70",
+                                  )}
+                                >
+                                  <span
+                                    className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-xl text-muted-foreground active:cursor-grabbing"
+                                    aria-hidden
+                                    title="اسحب لإعادة الترتيب"
                                   >
-                                    {q.question_text}
-                                  </p>
-                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                    <span className="rounded-md border border-border px-2 py-0.5">
-                                      {EXAM_QUESTION_TYPE_LABELS[q.question_type]}
-                                    </span>
-                                    <span className="rounded-md border border-border px-2 py-0.5">
-                                      {q.points === 0
-                                        ? "بدون نقاط"
-                                        : q.points === 1
-                                          ? "نقطة"
-                                          : q.points === 2
-                                            ? "نقطتان"
-                                            : `${q.points} نقاط`}
-                                    </span>
-                                    {q.is_optional && (
+                                    <GripVertical className="size-4" />
+                                  </span>
+                                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-kufam text-xs text-primary">
+                                    {qIndex + 1}
+                                  </span>
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <p
+                                      dir="rtl"
+                                      className="line-clamp-2 text-start text-sm leading-6 text-foreground"
+                                    >
+                                      {q.question_text}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                                       <span className="rounded-md border border-border px-2 py-0.5">
-                                        اختياري
+                                        {
+                                          EXAM_QUESTION_TYPE_LABELS[
+                                            q.question_type
+                                          ]
+                                        }
                                       </span>
-                                    )}
-                                    {isChoiceQuestionType(q.question_type) &&
-                                      q.correct_option_ids.length === 0 && (
-                                        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-900">
-                                          بدون تصحيح آلي
+                                      <span className="rounded-md border border-border px-2 py-0.5">
+                                        {q.points === 0
+                                          ? "بدون نقاط"
+                                          : q.points === 1
+                                            ? "نقطة"
+                                            : q.points === 2
+                                              ? "نقطتان"
+                                              : `${q.points} نقاط`}
+                                      </span>
+                                      {q.is_optional && (
+                                        <span className="rounded-md border border-border px-2 py-0.5">
+                                          اختياري
                                         </span>
                                       )}
+                                      {isChoiceQuestionType(q.question_type) &&
+                                        q.correct_option_ids.length === 0 && (
+                                          <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-900">
+                                            بدون تصحيح آلي
+                                          </span>
+                                        )}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8"
-                                    disabled={pending}
-                                    onClick={() =>
-                                      openQuestionDialog(content.id, q)
-                                    }
-                                    aria-label="تعديل السؤال"
-                                  >
-                                    <Pencil className="size-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8 text-muted-foreground hover:text-destructive"
-                                    disabled={pending}
-                                    onClick={() => setDeletingQuestion(q)}
-                                    aria-label="حذف السؤال"
-                                  >
-                                    <Trash2 className="size-4" />
-                                  </Button>
-                                </div>
-                              </li>
-                            ),
-                          )}
-                        </ol>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openQuestionDialog(content.id)}
-                          className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed border-border px-3 py-6 text-center transition-colors hover:border-primary/40 hover:bg-primary/4"
-                        >
-                          <Plus className="size-4 text-muted-foreground" />
-                          <span className="text-sm text-foreground">
-                            لا أسئلة بعد
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            اضغط لإضافة أول سؤال
-                          </span>
-                        </button>
-                      )}
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-8"
+                                      disabled={pending}
+                                      onClick={() =>
+                                        openQuestionDialog(content.id, q)
+                                      }
+                                      aria-label="تعديل السؤال"
+                                    >
+                                      <Pencil className="size-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-8 text-muted-foreground hover:text-destructive"
+                                      disabled={pending}
+                                      onClick={() => setDeletingQuestion(q)}
+                                      aria-label="حذف السؤال"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </div>
+                                </li>
+                              ),
+                            )}
+                          </ol>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openQuestionDialog(content.id)}
+                            className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed border-border px-3 py-6 text-center transition-colors hover:border-primary/40 hover:bg-primary/4"
+                          >
+                            <Plus className="size-4 text-muted-foreground" />
+                            <span className="text-sm text-foreground">
+                              لا أسئلة بعد
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              اضغط لإضافة أول سؤال
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </details>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6">
+                      {rowMeta}
+                      {rowActions}
                     </div>
                   )}
                 </li>
@@ -728,6 +958,7 @@ export function CourseContentManager({
           </div>
         )}
       </section>
+
 
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-3">
@@ -1023,96 +1254,95 @@ export function CourseContentManager({
           submitLabel="حفظ"
           maxWidthClassName="max-w-lg"
         >
-          <div className="space-y-2">
-            <Label>النوع</Label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as CourseContentType)}
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            >
+          <p className="text-xs text-muted-foreground">
+            الحقول المعلَّمة بـ <span className="text-destructive">*</span>{" "}
+            إلزامية
+          </p>
+
+          <fieldset className="space-y-2">
+            <legend className={cn("text-sm font-medium leading-none", REQUIRED_MARK)}>
+              نوع الدرس
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
               {(Object.keys(CONTENT_TYPE_LABELS) as CourseContentType[]).map(
-                (key) => (
-                  <option key={key} value={key}>
-                    {CONTENT_TYPE_LABELS[key]}
-                  </option>
-                ),
+                (key) => {
+                  const TypeIcon = CONTENT_TYPE_ICON[key];
+                  const selected = type === key;
+                  return (
+                    <label
+                      key={key}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                        selected
+                          ? "border-primary/50 bg-primary/8 ring-1 ring-primary/20"
+                          : "border-border bg-background hover:bg-muted/40",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="lesson-type"
+                        className="sr-only"
+                        checked={selected}
+                        onChange={() => setType(key)}
+                      />
+                      <span
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+                          selected
+                            ? "bg-primary/15 text-primary"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        <TypeIcon className="size-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            "block text-sm font-medium",
+                            selected ? "text-foreground" : "text-foreground/80",
+                          )}
+                        >
+                          {CONTENT_TYPE_LABELS[key]}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {CONTENT_TYPE_HINT[key]}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                },
               )}
-            </select>
-          </div>
+            </div>
+          </fieldset>
+
           <div className="space-y-2">
-            <Label>العنوان</Label>
+            <Label htmlFor="lesson-title" className={REQUIRED_MARK}>
+              العنوان
+            </Label>
             <Input
+              id="lesson-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="مثال: مقدمة في الموضوع"
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label>المؤلف</Label>
-            <Input
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-              placeholder="اختياري"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="lesson-start-date">تاريخ البداية</Label>
-              <Input
-                id="lesson-start-date"
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lesson-end-date">تاريخ النهاية</Label>
-              <Input
-                id="lesson-end-date"
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lesson-duration">مدة الدرس</Label>
-            <Input
-              id="lesson-duration"
-              type="number"
-              min={1}
-              step={1}
-              value={durationAmount}
-              onChange={(event) => setDurationAmount(event.target.value)}
-              placeholder="اختياري"
-            />
-          </div>
-          <SegmentedChoiceField
-            legend="وحدة المدة"
-            name="lesson-duration-unit"
-            value={durationUnit}
-            columns={2}
-            onChange={setDurationUnit}
-            options={[
-              {
-                value: "days",
-                label: "أيام",
-                icon: <CalendarDays />,
-                activeClassName:
-                  "border-sky-400/50 bg-sky-50 text-sky-900",
-              },
-              {
-                value: "hours",
-                label: "ساعات",
-                icon: <Clock />,
-                activeClassName:
-                  "border-amber-400/50 bg-amber-50 text-amber-900",
-              },
-            ]}
-          />
+
           {type !== "exam" && (
             <div className="space-y-2">
-              <Label>
+              <Label htmlFor="lesson-author">المؤلف</Label>
+              <Input
+                id="lesson-author"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="اختياري"
+              />
+            </div>
+          )}
+
+          {type !== "exam" && (
+            <div className="space-y-2">
+              <Label htmlFor="lesson-url" className={REQUIRED_MARK}>
                 {type === "watching"
                   ? "رابط يوتيوب"
                   : type === "listening"
@@ -1120,7 +1350,9 @@ export function CourseContentManager({
                     : "رابط PDF / Drive"}
               </Label>
               <Input
+                id="lesson-url"
                 dir="ltr"
+                type="url"
                 value={contentUrl}
                 onChange={(e) => setContentUrl(e.target.value)}
                 required
@@ -1128,22 +1360,117 @@ export function CourseContentManager({
               />
             </div>
           )}
-          <div className="space-y-2">
-            <Label>الترتيب</Label>
-            <Input
-              type="number"
-              value={order}
-              onChange={(e) => setOrder(e.target.value)}
-            />
+
+          <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CalendarDays className="size-4 text-muted-foreground" />
+              الجدولة
+              <span className="text-xs font-normal text-muted-foreground">
+                (اختياري)
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="lesson-start-date"
+                  className="text-xs text-muted-foreground"
+                >
+                  تاريخ البداية
+                </Label>
+                <Input
+                  id="lesson-start-date"
+                  type="date"
+                  value={startDate}
+                  max={endDate || undefined}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="lesson-end-date"
+                  className="text-xs text-muted-foreground"
+                >
+                  تاريخ النهاية
+                </Label>
+                <Input
+                  id="lesson-end-date"
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="bg-background"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="lesson-duration"
+                className="text-xs text-muted-foreground"
+              >
+                مدة الدرس
+              </Label>
+              <div className="flex items-stretch gap-2">
+                <Input
+                  id="lesson-duration"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={durationAmount}
+                  onChange={(event) => setDurationAmount(event.target.value)}
+                  placeholder="—"
+                  className="w-24 bg-background text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <div
+                  role="radiogroup"
+                  aria-label="وحدة المدة"
+                  className="grid flex-1 grid-cols-2 gap-1 rounded-xl border border-border bg-background p-1"
+                >
+                  {(
+                    [
+                      { value: "days", label: "أيام", icon: CalendarDays },
+                      { value: "hours", label: "ساعات", icon: Clock },
+                    ] as const
+                  ).map((option) => {
+                    const selected = durationUnit === option.value;
+                    const UnitIcon = option.icon;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setDurationUnit(option.value)}
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 rounded-lg text-sm transition",
+                          selected
+                            ? "bg-primary/10 font-medium text-primary"
+                            : "text-muted-foreground hover:bg-muted/50",
+                        )}
+                      >
+                        <UnitIcon className="size-3.5" />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
+
           {type === "watching" && (
             <div className="space-y-2">
-              <Label>طوابع زمنية (seconds|العنوان لكل سطر)</Label>
-              <textarea
+              <Label htmlFor="lesson-timestamps">الطوابع الزمنية</Label>
+              <p className="text-xs text-muted-foreground">
+                سطر لكل طابع بالصيغة: الثواني|العنوان
+              </p>
+              <Textarea
+                id="lesson-timestamps"
                 rows={4}
                 value={timestampsText}
                 onChange={(e) => setTimestampsText(e.target.value)}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
+                className="font-mono text-sm"
                 placeholder={"0|المقدمة\n120|الفكرة الأولى"}
                 dir="ltr"
               />

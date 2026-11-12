@@ -10,6 +10,7 @@ type ConfirmDeleteModalProps = {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "default" | "destructive";
   pending?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -21,6 +22,7 @@ export function ConfirmDeleteModal({
   description,
   confirmLabel = "حذف",
   cancelLabel = "إلغاء",
+  confirmVariant = "destructive",
   pending = false,
   onCancel,
   onConfirm,
@@ -90,7 +92,7 @@ export function ConfirmDeleteModal({
           </Button>
           <Button
             type="button"
-            variant="destructive"
+            variant={confirmVariant}
             onClick={onConfirm}
             disabled={pending}
             className="flex-1"

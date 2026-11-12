@@ -17,8 +17,8 @@ import {
 import type { LearnerExamQuestion } from "@/lib/courses";
 import { filterArabicInput } from "@/lib/profile-fields";
 import { cn } from "@/lib/utils";
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import {
-  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Lock,
@@ -558,37 +558,6 @@ export function ExamViewer({
           <Lock className="size-4 shrink-0" />
           أُغلق هذا التقويم بعد الإرسال
         </div>
-      ) : confirming ? (
-        <div className="space-y-4 rounded-3xl border border-amber-500/40 bg-amber-500/5 p-5">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700" />
-            <div className="space-y-1">
-              <p className="font-kufam text-base text-foreground">
-                تأكيد الإرسال
-              </p>
-              <p className="text-sm leading-6 text-muted-foreground">
-                يمكنك إرسال إجاباتك مرة واحدة فقط، ولا يمكن تعديلها بعد ذلك.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              onClick={onSubmit}
-              disabled={pending}
-              className="sm:min-w-40"
-            >
-              {pending ? "جاري الإرسال…" : "نعم، أرسل الإجابات"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConfirming(false)}
-              disabled={pending}
-            >
-              مراجعة الإجابات
-            </Button>
-          </div>
-        </div>
       ) : (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button
@@ -605,6 +574,18 @@ export function ExamViewer({
           )}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        open={confirming && !readOnly}
+        title="تأكيد الإرسال"
+        description="يمكنك إرسال إجاباتك مرة واحدة فقط، ولا يمكن تعديلها بعد ذلك."
+        confirmLabel="نعم، أرسل الإجابات"
+        cancelLabel="مراجعة الإجابات"
+        confirmVariant="default"
+        pending={pending}
+        onCancel={() => setConfirming(false)}
+        onConfirm={onSubmit}
+      />
     </div>
   );
 }

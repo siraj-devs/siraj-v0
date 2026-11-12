@@ -270,7 +270,7 @@ export function ExamQuestionsDialog({
       <div className="space-y-5">
           {/* Type picker */}
           <div className="space-y-2">
-            <Label>نوع السؤال</Label>
+            <Label className="after:ms-0.5 after:text-destructive after:content-['*']">نوع السؤال</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {TYPE_ORDER.map((option) => {
                 const Icon = TYPE_META[option].icon;
@@ -305,7 +305,9 @@ export function ExamQuestionsDialog({
 
           {/* Question text */}
           <div className="space-y-2">
-            <Label htmlFor="exam-question-text">نص السؤال</Label>
+            <Label htmlFor="exam-question-text" className="after:ms-0.5 after:text-destructive after:content-['*']">
+              نص السؤال
+            </Label>
             <Input
               id="exam-question-text"
               dir="rtl"
@@ -322,7 +324,7 @@ export function ExamQuestionsDialog({
             <div className="space-y-3">
               <div className="flex items-end justify-between gap-2">
                 <div className="space-y-0.5">
-                  <Label>الخيارات</Label>
+                  <Label className="after:ms-0.5 after:text-destructive after:content-['*']">الخيارات</Label>
                   <p className="text-xs text-muted-foreground">
                     {ungraded
                       ? "لن يُصحَّح هذا السؤال تلقائياً"
@@ -475,7 +477,9 @@ export function ExamQuestionsDialog({
           {/* Points */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3">
             <div className="space-y-0.5">
-              <Label htmlFor="exam-question-points">النقاط</Label>
+              <Label htmlFor="exam-question-points" className="after:ms-0.5 after:text-destructive after:content-['*']">
+                النقاط
+              </Label>
               <p className="text-xs text-muted-foreground">
                 اجعلها 0 إذا لم يكن للسؤال وزن
               </p>

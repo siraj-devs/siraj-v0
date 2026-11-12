@@ -1,7 +1,8 @@
 import type { MemberProfile } from "@/app/actions/members";
 import { RemoteAvatar } from "@/components/remote-avatar";
+import type { MemberLearningItem } from "@/lib/courses";
 import { MEMBER_ROLE_LABELS, type MemberRole } from "@/lib/member-role";
-import { Mail, Phone } from "lucide-react";
+import { BookOpen, CheckCircle2, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -155,7 +156,13 @@ function ConnectionCard({
   return <div className={className}>{content}</div>;
 }
 
-export function MemberDetail({ member }: { member: MemberProfile }) {
+export function MemberDetail({
+  member,
+  learning = [],
+}: {
+  member: MemberProfile;
+  learning?: MemberLearningItem[];
+}) {
   const styles = ROLE_STYLES[member.role];
   const phoneVerified = Boolean(member.phone_verified_at);
 
@@ -218,9 +225,14 @@ export function MemberDetail({ member }: { member: MemberProfile }) {
       </header>
 
       <section className="space-y-4">
-        <h2 className="font-kufam text-xl text-foreground">
-          الحسابات المرتبطة
-        </h2>
+        <div>
+          <h2 className="font-kufam text-xl font-semibold text-foreground">
+            الحسابات المرتبطة
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            الحسابات التي يسجّل بها العضو الدخول.
+          </p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ConnectionCard
             linked={Boolean(member.login)}
@@ -249,6 +261,87 @@ export function MemberDetail({ member }: { member: MemberProfile }) {
             iconWrapClassName="bg-muted"
           />
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <h2 className="font-kufam text-xl font-semibold text-foreground">
+              الدورات
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              الدورات التي التحق بها العضو وتقدّمه فيها.
+            </p>
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {learning.length} دورة
+          </span>
+        </div>
+
+        {learning.length > 0 ? (
+          <ul className="overflow-hidden rounded-3xl border border-border/70 bg-background/70 shadow-[0_4px_24px_-18px_color-mix(in_oklch,var(--foreground)_12%,transparent)]">
+            {learning.map(({ enrollment, course }) => {
+              const done =
+                enrollment.status === "completed" ||
+                enrollment.progress_percentage >= 100;
+              const percent = Math.round(enrollment.progress_percentage);
+              return (
+                <li
+                  key={enrollment.id}
+                  className="border-b border-border/60 last:border-b-0"
+                >
+                  <Link
+                    href={`/dashboard/courses/${course.id}`}
+                    className="flex flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6"
+                  >
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                      <BookOpen className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <p className="truncate font-kufam text-base text-foreground">
+                        {course.title}
+                      </p>
+                      <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full ${
+                            done ? "bg-emerald-500" : "bg-primary"
+                          }`}
+                          style={{ width: `${Math.min(100, percent)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                      {percent}%
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+                        done
+                          ? "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30"
+                          : "bg-sky-500/15 text-sky-800 ring-sky-500/30"
+                      }`}
+                    >
+                      {done ? (
+                        <>
+                          <CheckCircle2 className="size-3.5" />
+                          مكتمل
+                        </>
+                      ) : (
+                        "قيد التعلم"
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border px-6 py-10 text-center">
+            <BookOpen className="mx-auto mb-3 size-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              لم يلتحق بأي دورة بعد.
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );

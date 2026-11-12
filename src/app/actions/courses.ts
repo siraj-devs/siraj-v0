@@ -375,6 +375,71 @@ export async function upsertCourseContent(input: {
   }
 }
 
+export async function reorderCourseContents(input: {
+  course_id: number;
+  class_id: number;
+  ordered_ids: number[];
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const ordered_ids = input.ordered_ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ordered_ids.length === 0) {
+      return { success: false, error: "لا دروس لإعادة الترتيب" };
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("course_contents")
+      .select("id")
+      .eq("course_id", input.course_id)
+      .eq("class_id", input.class_id);
+
+    if (fetchError) {
+      console.error("Error loading course contents for reorder:", fetchError);
+      return { success: false, error: "تعذر تحديث ترتيب الدروس" };
+    }
+
+    const existingIds = new Set((existing ?? []).map((row) => Number(row.id)));
+    if (
+      ordered_ids.length !== existingIds.size ||
+      ordered_ids.some((id) => !existingIds.has(id))
+    ) {
+      return { success: false, error: "ترتيب الدروس غير صالح" };
+    }
+
+    const updates = await Promise.all(
+      ordered_ids.map((id, index) =>
+        supabase
+          .from("course_contents")
+          .update({
+            order_sequence: index,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id)
+          .eq("course_id", input.course_id)
+          .eq("class_id", input.class_id),
+      ),
+    );
+
+    if (updates.some((result) => result.error)) {
+      console.error(
+        "Error reordering course contents:",
+        updates.find((result) => result.error)?.error,
+      );
+      return { success: false, error: "تعذر تحديث ترتيب الدروس" };
+    }
+
+    revalidateCoursePaths(input.course_id);
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
 export async function deleteCourseContent(
   id: number,
   courseId: number,
@@ -491,6 +556,66 @@ export async function deleteExamQuestion(
     const { error } = await supabase.from("exam_questions").delete().eq("id", id);
     if (error) return { success: false, error: "تعذر حذف السؤال" };
     revalidateCoursePaths(courseId);
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function reorderExamQuestions(input: {
+  course_id: number;
+  content_id: number;
+  ordered_ids: number[];
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const ordered_ids = input.ordered_ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ordered_ids.length === 0) {
+      return { success: false, error: "لا أسئلة لإعادة الترتيب" };
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("exam_questions")
+      .select("id")
+      .eq("content_id", input.content_id);
+
+    if (fetchError) {
+      console.error("Error loading exam questions for reorder:", fetchError);
+      return { success: false, error: "تعذر تحديث ترتيب الأسئلة" };
+    }
+
+    const existingIds = new Set((existing ?? []).map((row) => Number(row.id)));
+    if (
+      ordered_ids.length !== existingIds.size ||
+      ordered_ids.some((id) => !existingIds.has(id))
+    ) {
+      return { success: false, error: "ترتيب الأسئلة غير صالح" };
+    }
+
+    const updates = await Promise.all(
+      ordered_ids.map((id, index) =>
+        supabase
+          .from("exam_questions")
+          .update({ order_sequence: index })
+          .eq("id", id)
+          .eq("content_id", input.content_id),
+      ),
+    );
+
+    if (updates.some((result) => result.error)) {
+      console.error(
+        "Error reordering exam questions:",
+        updates.find((result) => result.error)?.error,
+      );
+      return { success: false, error: "تعذر تحديث ترتيب الأسئلة" };
+    }
+
+    revalidateCoursePaths(input.course_id);
     return { success: true };
   } catch {
     return { success: false, error: "غير مصرح" };
@@ -701,6 +826,12 @@ export async function markContentComplete(
     if (!content || content.class_id !== enrollment.class_id) {
       return { success: false, error: "هذا الدرس لا ينتمي إلى دفعتك" };
     }
+    if (content.type === "exam") {
+      return {
+        success: false,
+        error: "يُكمل التقويم بعد التقييم، وليس يدوياً",
+      };
+    }
     const blocked = await learningBlockedReason(enrollment);
     if (blocked) return { success: false, error: blocked };
     if (!hasLessonStarted(content)) {
@@ -862,14 +993,16 @@ export async function submitExam(
       return { success: false, error: "تعذر حفظ إجابات التقويم" };
     }
 
+    // Lesson counts as completed only once the exam is graded.
+    const graded = !needsManual;
     const { error } = await supabase.from("content_completions").upsert(
       {
         enrollment_id: enrollment.id,
         content_id: contentId,
-        completed: true,
+        completed: graded,
         exam_score: score,
         exam_feedback: null,
-        exam_graded_at: needsManual ? null : now,
+        exam_graded_at: graded ? now : null,
         completed_at: now,
       },
       { onConflict: "enrollment_id,content_id" },
@@ -882,7 +1015,7 @@ export async function submitExam(
 
     const progress = await recalculateProgress(enrollment.id, courseId);
     revalidateCoursePaths(courseId);
-    return { success: true, progress, graded: !needsManual };
+    return { success: true, progress, graded };
   } catch {
     return { success: false, error: "حدث خطأ غير متوقع" };
   }
@@ -947,12 +1080,18 @@ export async function gradeExamAnswer(input: {
       return { success: false, error: "تعذر حفظ الدرجة" };
     }
 
-    // Keep published score in sync only after publish; clear graded_at if re-grading.
+    // Re-grading unpublishes the result until the teacher publishes again.
     await supabase
       .from("content_completions")
-      .update({ exam_graded_at: null, exam_score: null })
+      .update({
+        exam_graded_at: null,
+        exam_score: null,
+        completed: false,
+      })
       .eq("enrollment_id", input.enrollment_id)
       .eq("content_id", input.content_id);
+
+    await recalculateProgress(input.enrollment_id, input.course_id);
 
     const score = await recomputeExamScore(
       input.content_id,
@@ -1015,6 +1154,7 @@ export async function publishExamGrade(input: {
         exam_score: score,
         exam_feedback: feedback,
         exam_graded_at: now,
+        completed: true,
       })
       .eq("enrollment_id", input.enrollment_id)
       .eq("content_id", input.content_id);
@@ -1023,6 +1163,8 @@ export async function publishExamGrade(input: {
       console.error("Error publishing exam grade:", error);
       return { success: false, error: "تعذر نشر النتيجة" };
     }
+
+    await recalculateProgress(input.enrollment_id, input.course_id);
 
     revalidateCoursePaths(input.course_id);
     revalidatePath(
