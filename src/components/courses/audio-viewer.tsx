@@ -91,7 +91,7 @@ export function AudioViewer({ title, url }: { title: string; url: string }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-between">
           <button
             type="button"
             onClick={() => {

@@ -4,6 +4,7 @@ import { ExamViewer } from "@/components/courses/exam-viewer";
 import { ReadingViewer } from "@/components/courses/reading-viewer";
 import { VideoViewer } from "@/components/courses/video-viewer";
 import {
+  getClassLeaderboard,
   getCompletedContentIds,
   getCourseById,
   getCourseClasses,
@@ -69,10 +70,11 @@ export default async function PortalLessonPage({
     notFound();
   }
 
-  const [contents, completed, myRating] = await Promise.all([
+  const [contents, completed, myRating, leaderboard] = await Promise.all([
     getCourseContents(courseId, enrollment.class_id),
     getCompletedContentIds(enrollment.id),
     getMyCourseRating(member.id, courseId),
+    getClassLeaderboard(courseId, enrollment.class_id),
   ]);
 
   const activeIndex = contents.findIndex((item) => item.id === contentId);
@@ -129,6 +131,8 @@ export default async function PortalLessonPage({
         completedIds={[...completed]}
         activeContentId={contentId}
         myRating={myRating}
+        leaderboard={leaderboard}
+        currentMemberId={member.id}
       >
         {viewer}
       </CourseLearnShell>

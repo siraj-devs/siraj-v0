@@ -222,6 +222,112 @@ export type ContentCompletion = {
   completed_at: string;
 };
 
+/** Graded exam completion used for class leaderboard scoring. */
+export type ExamCompletionScore = {
+  enrollment_id: number;
+  content_id: number;
+  exam_score: number | null;
+  exam_graded_at: string | null;
+};
+
+export type ClassLeaderboardEntry = {
+  rank: number;
+  enrollmentId: number;
+  member: {
+    id: number;
+    name: string;
+    avatar: string | null;
+  };
+  progressPercentage: number;
+  /** Progress contribution (0–100). */
+  progressPoints: number;
+  /** Earned exam points from graded تقويمات. */
+  examPoints: number;
+  /** Max exam points available in the class. */
+  examMaxPoints: number;
+  /** progressPoints + examPoints. */
+  totalPoints: number;
+};
+
+/**
+ * Leaderboard score: class progress (0–100) + earned points from graded exams.
+ * Supervisors are excluded by the caller before ranking.
+ */
+export function buildClassLeaderboard(
+  enrollments: CourseEnrollmentWithMember[],
+  examContents: Pick<CourseContent, "id">[],
+  questionsByContent: Record<number, Pick<ExamQuestion, "points">[]>,
+  examCompletions: ExamCompletionScore[],
+): ClassLeaderboardEntry[] {
+  const examIds = new Set(examContents.map((item) => item.id));
+  const examMaxByContent = new Map<number, number>();
+  let examMaxPoints = 0;
+  for (const contentId of examIds) {
+    const max = (questionsByContent[contentId] ?? []).reduce(
+      (sum, question) => sum + Math.max(0, question.points),
+      0,
+    );
+    examMaxByContent.set(contentId, max);
+    examMaxPoints += max;
+  }
+
+  const completionsByEnrollment = new Map<number, ExamCompletionScore[]>();
+  for (const row of examCompletions) {
+    if (!examIds.has(row.content_id) || !row.exam_graded_at) continue;
+    if (row.exam_score == null) continue;
+    const list = completionsByEnrollment.get(row.enrollment_id) ?? [];
+    list.push(row);
+    completionsByEnrollment.set(row.enrollment_id, list);
+  }
+
+  const ranked = enrollments
+    .filter((enrollment) => (enrollment.class_role ?? "participant") !== "supervisor")
+    .map((enrollment) => {
+      const progressPoints = Math.round(
+        Math.min(100, Math.max(0, enrollment.progress_percentage)),
+      );
+      let examPoints = 0;
+      for (const completion of completionsByEnrollment.get(enrollment.id) ?? []) {
+        const max = examMaxByContent.get(completion.content_id) ?? 0;
+        if (max <= 0 || completion.exam_score == null) continue;
+        examPoints += (completion.exam_score / 100) * max;
+      }
+      examPoints = Math.round(examPoints * 100) / 100;
+      return {
+        enrollmentId: enrollment.id,
+        member: {
+          id: enrollment.member.id,
+          name: enrollment.member.name,
+          avatar: enrollment.member.avatar,
+        },
+        progressPercentage: enrollment.progress_percentage,
+        progressPoints,
+        examPoints,
+        examMaxPoints,
+        totalPoints: Math.round((progressPoints + examPoints) * 100) / 100,
+      };
+    })
+    .sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.progressPoints !== a.progressPoints) {
+        return b.progressPoints - a.progressPoints;
+      }
+      return a.member.name.localeCompare(b.member.name, "ar");
+    });
+
+  // Dense ranking: equal totals share a rank (1,2,3,3,4…).
+  let denseRank = 1;
+  return ranked.map((entry, index) => {
+    if (
+      index > 0 &&
+      ranked[index - 1]!.totalPoints !== entry.totalPoints
+    ) {
+      denseRank += 1;
+    }
+    return { ...entry, rank: denseRank };
+  });
+}
+
 export const CONTENT_TYPE_LABELS: Record<CourseContentType, string> = {
   watching: "مشاهدة",
   listening: "استماع",

@@ -1,5 +1,6 @@
 import { CourseLearnShell } from "@/components/courses/course-learn-shell";
 import {
+  getClassLeaderboard,
   getCompletedContentIds,
   getCourseById,
   getCourseClasses,
@@ -44,12 +45,14 @@ export default async function PortalCoursePage({
   const enrollment = await getEnrollment(member.id, id);
   if (!enrollment) redirect(`/courses/${id}`);
 
-  const [contents, completed, myRating, classes] = await Promise.all([
-    getCourseContents(id, enrollment.class_id),
-    getCompletedContentIds(enrollment.id),
-    getMyCourseRating(member.id, id),
-    getCourseClasses(id),
-  ]);
+  const [contents, completed, myRating, classes, leaderboard] =
+    await Promise.all([
+      getCourseContents(id, enrollment.class_id),
+      getCompletedContentIds(enrollment.id),
+      getMyCourseRating(member.id, id),
+      getCourseClasses(id),
+      getClassLeaderboard(id, enrollment.class_id),
+    ]);
   const courseClass =
     classes.find((item) => item.id === enrollment.class_id) ?? null;
   if (courseClass && !hasLearningStarted(courseClass.learning_starts_at)) {
@@ -66,6 +69,9 @@ export default async function PortalCoursePage({
         completedIds={[...completed]}
         activeContentId={null}
         myRating={myRating}
+        leaderboard={leaderboard}
+        currentMemberId={member.id}
+        showNavArrows={false}
       >
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/80 px-6 py-16 text-center">
           <p className="font-kufam text-xl text-foreground">اختر درساً للبدء</p>

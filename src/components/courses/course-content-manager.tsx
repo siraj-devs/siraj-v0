@@ -189,6 +189,7 @@ export function CourseContentManager({
     [enrollments, selectedClassId],
   );
 
+
   const completedCount = useMemo(
     () =>
       classEnrollments.filter(

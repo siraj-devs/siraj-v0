@@ -6,6 +6,7 @@ import {
   unenrollFromCourse,
 } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
+import { ClassLeaderboard } from "@/components/courses/class-leaderboard";
 import {
   CONTENT_TYPE_ICON,
   ProgressRing,
@@ -14,6 +15,7 @@ import {
 import { Rosette } from "@/components/islamic-motif";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type {
+  ClassLeaderboardEntry,
   CourseContent,
   CourseWithMeta,
   Enrollment,
@@ -46,6 +48,10 @@ export function CourseLearnShell({
   activeContentId,
   myRating = null,
   allowUnenroll = false,
+  leaderboard = [],
+  currentMemberId = null,
+  showMiniLeaderboard = true,
+  showNavArrows = true,
   children,
 }: {
   course: CourseWithMeta;
@@ -55,6 +61,10 @@ export function CourseLearnShell({
   activeContentId: number | null;
   myRating?: number | null;
   allowUnenroll?: boolean;
+  leaderboard?: ClassLeaderboardEntry[];
+  currentMemberId?: number | null;
+  showMiniLeaderboard?: boolean;
+  showNavArrows?: boolean;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -307,7 +317,7 @@ export function CourseLearnShell({
             {children}
           </div>
 
-          {contents.length > 0 && (
+          {(contents.length > 0 && showNavArrows) && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
               <div className="flex items-center gap-2">
                 <NavArrow
@@ -362,11 +372,29 @@ export function CourseLearnShell({
           {contents.length > 0 && (
             <div className="lg:hidden">{lessonPanel}</div>
           )}
+          {showMiniLeaderboard && (
+            <div className="lg:hidden">
+              <ClassLeaderboard
+                entries={leaderboard}
+                currentMemberId={currentMemberId}
+                courseId={course.id}
+                compact
+              />
+            </div>
+          )}
           <div className="lg:hidden">{ratingPanel}</div>
         </div>
 
         <aside className="hidden w-full shrink-0 space-y-4 lg:block lg:w-80">
           {contents.length > 0 && lessonPanel}
+          {showMiniLeaderboard && (
+            <ClassLeaderboard
+              entries={leaderboard}
+              currentMemberId={currentMemberId}
+              courseId={course.id}
+              compact
+            />
+          )}
           {ratingPanel}
         </aside>
       </div>

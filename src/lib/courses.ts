@@ -1,4 +1,5 @@
 import type {
+  ClassLeaderboardEntry,
   Course,
   CourseAcl,
   CourseContent,
@@ -12,6 +13,7 @@ import type {
   ExamSubmission,
   ExamOption,
 } from "@/lib/course-types";
+import { buildClassLeaderboard } from "@/lib/course-types";
 import type { AppMember } from "@/lib/members";
 import type { DurationUnit } from "@/lib/course-schedule";
 import {
@@ -797,6 +799,66 @@ export async function getCourseRatingsByMember(
     map[row.member_id as number] = Number(row.rating) || 0;
   }
   return map;
+}
+
+/** Graded exam completions for a course (used by class leaderboards). */
+export async function getCourseExamCompletions(
+  courseId: number,
+): Promise<import("@/lib/course-types").ExamCompletionScore[]> {
+  const contents = await getCourseContents(courseId);
+  const examIds = contents.filter((item) => item.type === "exam").map((item) => item.id);
+  if (examIds.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("content_completions")
+    .select("enrollment_id, content_id, exam_score, exam_graded_at")
+    .in("content_id", examIds);
+
+  if (error) {
+    console.error("Error fetching exam completions for leaderboard:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    enrollment_id: row.enrollment_id as number,
+    content_id: row.content_id as number,
+    exam_score: row.exam_score == null ? null : Number(row.exam_score),
+    exam_graded_at: (row.exam_graded_at as string | null) ?? null,
+  }));
+}
+
+/** Class leaderboard for portal participants (excludes supervisors). */
+export async function getClassLeaderboard(
+  courseId: number,
+  classId: number | null,
+): Promise<ClassLeaderboardEntry[]> {
+  if (classId == null) return [];
+
+  const [contents, enrollments, examCompletions] = await Promise.all([
+    getCourseContents(courseId, classId),
+    getCourseEnrollments(courseId),
+    getCourseExamCompletions(courseId),
+  ]);
+
+  const classExams = contents.filter((item) => item.type === "exam");
+  const classEnrollments = enrollments.filter(
+    (item) => item.class_id === classId,
+  );
+
+  const questionsByContent: Record<number, ExamQuestion[]> = {};
+  await Promise.all(
+    classExams.map(async (exam) => {
+      questionsByContent[exam.id] = await getExamQuestions(exam.id);
+    }),
+  );
+
+  return buildClassLeaderboard(
+    classEnrollments,
+    classExams,
+    questionsByContent,
+    examCompletions,
+  );
 }
 
 export async function getCompletedContentIds(
