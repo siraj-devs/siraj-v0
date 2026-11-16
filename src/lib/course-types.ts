@@ -14,11 +14,18 @@ export type CourseContentType =
   | "reading"
   | "exam";
 export type EnrollmentStatus = "active" | "completed" | "dropped";
+export type EnrollmentClassRole = "participant" | "supervisor";
 export type ExamQuestionType =
   | "multiple_choice"
   | "true_false"
   | "short_text"
   | "long_text";
+
+export const ENROLLMENT_CLASS_ROLE_LABELS: Record<EnrollmentClassRole, string> =
+  {
+    participant: "مشارك",
+    supervisor: "مشرف",
+  };
 
 export type VideoTimestamp = {
   label: string;
@@ -39,6 +46,7 @@ export type Course = {
   owner_id: number | null;
   rating_avg: number;
   rating_count: number;
+  order_sequence: number;
   created_at: string;
   updated_at: string;
 };
@@ -188,6 +196,7 @@ export type Enrollment = {
   progress_percentage: number;
   status: EnrollmentStatus;
   class_id: number | null;
+  class_role: EnrollmentClassRole;
   created_at: string;
   updated_at: string;
 };

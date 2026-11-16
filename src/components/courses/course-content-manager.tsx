@@ -5,6 +5,7 @@ import {
   deleteExamQuestion,
   reorderCourseContents,
   reorderExamQuestions,
+  updateEnrollmentClassRole,
   upsertCourseContent,
   upsertExamQuestion,
 } from "@/app/actions/courses";
@@ -51,6 +52,7 @@ import type {
   CourseContentType,
   CourseEnrollmentWithMember,
   CourseWithMeta,
+  EnrollmentClassRole,
   ExamOption,
   ExamQuestion,
   ExamQuestionType,
@@ -58,15 +60,13 @@ import type {
 } from "@/lib/course-types";
 import {
   CONTENT_TYPE_LABELS,
+  ENROLLMENT_CLASS_ROLE_LABELS,
   EXAM_QUESTION_TYPE_LABELS,
   VISIBILITY_LABELS,
   isChoiceQuestionType,
   isTextQuestionType,
 } from "@/lib/course-types";
-import {
-  MEMBER_ROLE_LABELS,
-  type MemberRole,
-} from "@/lib/member-role";
+import { MEMBER_ROLE_LABELS } from "@/lib/member-role";
 import {
   CalendarDays,
   Clock,
@@ -74,6 +74,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
+  Copy,
   Eye,
   EyeOff,
   Globe,
@@ -101,14 +102,6 @@ import { toast } from "sonner";
 
 const REQUIRED_MARK =
   "after:ms-0.5 after:text-destructive after:content-['*']";
-
-const ROLE_STYLES: Record<MemberRole, string> = {
-  owner: "bg-rose-500/10 text-rose-800 ring-rose-500/20",
-  admin: "bg-primary/15 text-[#7a5a08] ring-primary/25",
-  participant: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20",
-  veteran: "bg-sky-500/10 text-sky-800 ring-sky-500/20",
-  newcomer: "bg-violet-500/10 text-violet-800 ring-violet-500/20",
-};
 
 export function CourseContentManager({
   course,
@@ -489,6 +482,30 @@ export function CourseContentManager({
     });
   }
 
+  function onSetClassRole(
+    enrollment: CourseEnrollmentWithMember,
+    class_role: EnrollmentClassRole,
+  ) {
+    if (enrollment.class_role === class_role) return;
+    startTransition(async () => {
+      const result = await updateEnrollmentClassRole({
+        course_id: course.id,
+        enrollment_id: enrollment.id,
+        class_role,
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        class_role === "supervisor"
+          ? "تم تعيينه مشرفاً"
+          : "تم تعيينه مشاركاً",
+      );
+      router.refresh();
+    });
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
@@ -667,6 +684,18 @@ export function CourseContentManager({
                       label: "معاينة",
                       icon: <Eye className="size-3.5" />,
                       onClick: () => setPreviewing(content),
+                    },
+                    {
+                      key: "copy-link",
+                      label: "نسخ رابط التعلم",
+                      icon: <Copy className="size-3.5" />,
+                      onClick: () => {
+                        const url = `${window.location.origin}/portal/learning/${course.id}/${content.id}`;
+                        void navigator.clipboard.writeText(url).then(
+                          () => toast.success("تم نسخ رابط الدرس"),
+                          () => toast.error("تعذر نسخ الرابط"),
+                        );
+                      },
                     },
                     ...(content.type === "exam"
                       ? [
@@ -981,15 +1010,16 @@ export function CourseContentManager({
               const done =
                 enrollment.status === "completed" ||
                 enrollment.progress_percentage >= 100;
-              const role = enrollment.member.role;
+              const memberRole = enrollment.member.role;
+              const classRole = enrollment.class_role ?? "participant";
               return (
                 <li
                   key={enrollment.id}
-                  className="border-b border-border/60 last:border-b-0"
+                  className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 sm:gap-4 sm:px-6"
                 >
                   <Link
                     href={`/dashboard/members/${enrollment.member.id}`}
-                    className="flex flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6"
+                    className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-90"
                   >
                     <RemoteAvatar
                       src={enrollment.member.avatar}
@@ -1001,54 +1031,66 @@ export function CourseContentManager({
                         </div>
                       }
                     />
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <p className="truncate font-kufam text-lg text-foreground">
-                          {enrollment.member.name}
-                        </p>
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${ROLE_STYLES[role]}`}
-                        >
-                          {MEMBER_ROLE_LABELS[role]}
-                        </span>
-                      </div>
-                      {(enrollment.member.phone ||
-                        enrollment.member.login) && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {enrollment.member.phone ??
-                            (enrollment.member.login
-                              ? `@${enrollment.member.login}`
-                              : "")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {ratingsByMember[enrollment.member_id] && (
-                        <StarRating
-                          value={ratingsByMember[enrollment.member_id]}
-                        />
-                      )}
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-                        {Math.round(enrollment.progress_percentage)}%
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-                          done
-                            ? "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30"
-                            : "bg-sky-500/15 text-sky-800 ring-sky-500/30"
-                        }`}
-                      >
-                        {done ? (
-                          <>
-                            <CheckCircle2 className="size-3.5" />
-                            مكتمل
-                          </>
-                        ) : (
-                          "قيد التعلم"
-                        )}
-                      </span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="truncate font-kufam text-lg text-foreground">
+                        {enrollment.member.name}
+                      </p>
                     </div>
                   </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div
+                      role="radiogroup"
+                      aria-label="دور في الدفعة"
+                      className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-background p-1"
+                    >
+                      {(["participant", "supervisor"] as const).map((role) => {
+                        const selected = classRole === role;
+                        return (
+                          <button
+                            key={role}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            disabled={pending}
+                            onClick={() => onSetClassRole(enrollment, role)}
+                            className={cn(
+                              "rounded-lg px-2.5 py-1 text-xs transition",
+                              selected
+                                ? role === "supervisor"
+                                  ? "bg-amber-500/15 font-medium text-amber-900"
+                                  : "bg-emerald-500/15 font-medium text-emerald-900"
+                                : "text-muted-foreground hover:bg-muted/50",
+                            )}
+                          >
+                            {ENROLLMENT_CLASS_ROLE_LABELS[role]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {ratingsByMember[enrollment.member_id] && (
+                      <StarRating
+                        value={ratingsByMember[enrollment.member_id]}
+                      />
+                    )}
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                      {Math.round(enrollment.progress_percentage)}%
+                    </span>
+                    <span
+                      title={done ? "مكتمل" : "قيد التعلم"}
+                      aria-label={done ? "مكتمل" : "قيد التعلم"}
+                      className={`inline-flex size-8 items-center justify-center rounded-full ring-1 ring-inset ${
+                        done
+                          ? "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30"
+                          : "bg-sky-500/15 text-sky-800 ring-sky-500/30"
+                      }`}
+                    >
+                      {done ? (
+                        <CheckCircle2 className="size-4" />
+                      ) : (
+                        <BookOpen className="size-4" />
+                      )}
+                    </span>
+                  </div>
                 </li>
               );
             })}

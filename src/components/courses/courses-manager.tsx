@@ -3,6 +3,7 @@
 import {
   createCourse,
   deleteCourse,
+  reorderCourses,
   updateCourse,
 } from "@/app/actions/courses";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
@@ -14,7 +15,14 @@ import type { CourseAclMemberOption, CourseWithMeta } from "@/lib/course-types";
 import type { MemberRole } from "@/lib/member-role";
 import { Eye, EyeOff, Lock, LockOpen, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type DragEvent,
+} from "react";
 import { toast } from "sonner";
 import { CourseFormDialog, type CourseFormState } from "./course-form-dialog";
 import { CourseList } from "./course-list";
@@ -52,20 +60,30 @@ export function CoursesManager({
   const [visibility, setVisibility] = useState<string[]>([]);
   const [privacy, setPrivacy] = useState<string[]>([]);
   const [layout, setLayout] = useState<"list" | "grid">("grid");
+  const [localCourses, setLocalCourses] = useState(courses);
+  const [draggingCourseId, setDraggingCourseId] = useState<number | null>(null);
+  const [dragOverCourseId, setDragOverCourseId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLocalCourses(courses);
+  }, [courses]);
 
   const counts = useMemo(
     () => ({
-      all: courses.length,
-      published: courses.filter((c) => c.is_published).length,
-      hidden: courses.filter((c) => !c.is_published).length,
-      private: courses.filter((c) => c.visibility === "private").length,
+      all: localCourses.length,
+      published: localCourses.filter((c) => c.is_published).length,
+      hidden: localCourses.filter((c) => !c.is_published).length,
+      private: localCourses.filter((c) => c.visibility === "private").length,
     }),
-    [courses],
+    [localCourses],
   );
+
+  const filtersActive =
+    query.trim().length > 0 || visibility.length > 0 || privacy.length > 0;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return courses.filter((course) => {
+    return localCourses.filter((course) => {
       if (
         !matchesSelection(
           visibility,
@@ -81,7 +99,53 @@ export function CoursesManager({
         (course.description?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [courses, visibility, privacy, query]);
+  }, [localCourses, visibility, privacy, query]);
+
+  function onCourseDragStart(courseId: number) {
+    if (filtersActive) return;
+    setDraggingCourseId(courseId);
+  }
+
+  function onCourseDragOver(event: DragEvent, courseId: number) {
+    if (draggingCourseId == null || filtersActive) return;
+    event.preventDefault();
+    if (dragOverCourseId !== courseId) setDragOverCourseId(courseId);
+  }
+
+  function onCourseDragEnd() {
+    setDraggingCourseId(null);
+    setDragOverCourseId(null);
+  }
+
+  function onCourseDrop(targetCourseId: number) {
+    const sourceId = draggingCourseId;
+    setDraggingCourseId(null);
+    setDragOverCourseId(null);
+    if (filtersActive || sourceId == null || sourceId === targetCourseId) {
+      return;
+    }
+
+    const fromIndex = localCourses.findIndex((item) => item.id === sourceId);
+    const toIndex = localCourses.findIndex((item) => item.id === targetCourseId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const next = [...localCourses];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setLocalCourses(next);
+
+    startTransition(async () => {
+      const result = await reorderCourses({
+        ordered_ids: next.map((item) => item.id),
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        setLocalCourses(courses);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   useEffect(() => {
     if (!modal && !openMenuId) return;
@@ -208,7 +272,11 @@ export function CoursesManager({
       <DashboardHeader
         eyebrow="إدارة التعلم"
         title="الدورات"
-        description="أنشئ الدورات ونظّم الدروس والتقويمات وظهورها للزوار."
+        description={
+          canManage && localCourses.length > 1
+            ? "أنشئ الدورات ونظّم الدروس والتقويمات. اسحب البطاقات لإعادة الترتيب."
+            : "أنشئ الدورات ونظّم الدروس والتقويمات وظهورها للزوار."
+        }
         action={
           canManage && (
             <Button onClick={openCreate} className="gap-2">
@@ -261,7 +329,7 @@ export function CoursesManager({
 
       <CourseList
         courses={filtered}
-        allCoursesCount={courses.length}
+        allCoursesCount={localCourses.length}
         layout={layout}
         openMenuId={openMenuId}
         onToggleMenu={(id) => setOpenMenuId(openMenuId === id ? null : id)}
@@ -274,6 +342,13 @@ export function CoursesManager({
         onCreate={openCreate}
         pending={pending}
         canManage={canManage}
+        canReorder={canManage && !filtersActive && localCourses.length > 1}
+        draggingCourseId={draggingCourseId}
+        dragOverCourseId={dragOverCourseId}
+        onDragStart={onCourseDragStart}
+        onDragOver={onCourseDragOver}
+        onDrop={onCourseDrop}
+        onDragEnd={onCourseDragEnd}
       />
 
       <ConfirmDeleteModal

@@ -17,7 +17,7 @@ export default async function CoursesPage() {
       <DecorativeLines
         eyebrow="الدورات"
         title="إبدأ رحلتك التعليمية مع سراج"
-        description="تصفّح الدورات المنشورة. عرض التفاصيل والالتحاق يتطلب تسجيل الدخول وملفاً شخصياً مكتملاً."
+        description="تصفّح الدورات المنشورة واطّلع على تفاصيلها. الالتحاق يتطلب تسجيل الدخول وملفاً شخصياً مكتملاً."
       />
       <CoursesCatalog courses={courses} enrollments={enrollments} />
     </div>

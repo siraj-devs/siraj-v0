@@ -144,6 +144,17 @@ export async function createCourse(formData: FormData): Promise<
     }
 
     const supabase = await createClient();
+    const { data: maxOrderRow } = await supabase
+      .from("courses")
+      .select("order_sequence")
+      .order("order_sequence", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextOrder =
+      Number(maxOrderRow?.order_sequence) >= 0
+        ? Number(maxOrderRow?.order_sequence) + 1
+        : 0;
+
     const { data, error } = await supabase
       .from("courses")
       .insert({
@@ -153,6 +164,7 @@ export async function createCourse(formData: FormData): Promise<
         visibility,
         owner_id: member.id,
         thumbnail_url,
+        order_sequence: nextOrder,
       })
       .select("id")
       .single();
@@ -248,6 +260,103 @@ export async function deleteCourse(
     }
 
     revalidateCoursePaths(id);
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function reorderCourses(input: {
+  ordered_ids: number[];
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const ordered_ids = input.ordered_ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (ordered_ids.length === 0) {
+      return { success: false, error: "لا دورات لإعادة الترتيب" };
+    }
+
+    const supabase = await createClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from("courses")
+      .select("id");
+
+    if (fetchError) {
+      console.error("Error loading courses for reorder:", fetchError);
+      return { success: false, error: "تعذر تحديث ترتيب الدورات" };
+    }
+
+    const existingIds = new Set((existing ?? []).map((row) => Number(row.id)));
+    if (
+      ordered_ids.length !== existingIds.size ||
+      ordered_ids.some((id) => !existingIds.has(id))
+    ) {
+      return { success: false, error: "ترتيب الدورات غير صالح" };
+    }
+
+    const updates = await Promise.all(
+      ordered_ids.map((id, index) =>
+        supabase
+          .from("courses")
+          .update({
+            order_sequence: index,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id),
+      ),
+    );
+
+    if (updates.some((result) => result.error)) {
+      console.error(
+        "Error reordering courses:",
+        updates.find((result) => result.error)?.error,
+      );
+      return { success: false, error: "تعذر تحديث ترتيب الدورات" };
+    }
+
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/courses");
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
+export async function updateEnrollmentClassRole(input: {
+  course_id: number;
+  enrollment_id: number;
+  class_role: "participant" | "supervisor";
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    if (
+      input.class_role !== "participant" &&
+      input.class_role !== "supervisor"
+    ) {
+      return { success: false, error: "دور غير صالح" };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("enrollments")
+      .update({
+        class_role: input.class_role,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.enrollment_id)
+      .eq("course_id", input.course_id);
+
+    if (error) {
+      console.error("Error updating enrollment class role:", error);
+      return { success: false, error: "تعذر تحديث دور الملتحق" };
+    }
+
+    revalidateCoursePaths(input.course_id);
     return { success: true };
   } catch {
     return { success: false, error: "غير مصرح" };
@@ -709,9 +818,10 @@ export async function enrollInCourse(
         class_id: joinClass.id,
         progress_percentage: 0,
         status: "active",
+        class_role: "participant",
       })
       .select(
-        "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
+        "id, member_id, course_id, class_id, progress_percentage, status, class_role, created_at, updated_at",
       )
       .single();
 
@@ -724,9 +834,16 @@ export async function enrollInCourse(
     return {
       success: true,
       enrollment: {
-        ...(data as Enrollment),
+        id: data.id as number,
+        member_id: data.member_id as number,
+        course_id: data.course_id as number,
         class_id: (data.class_id as number | null) ?? joinClass.id,
         progress_percentage: Number(data.progress_percentage) || 0,
+        status: data.status as Enrollment["status"],
+        class_role:
+          data.class_role === "supervisor" ? "supervisor" : "participant",
+        created_at: data.created_at as string,
+        updated_at: data.updated_at as string,
       },
     };
   } catch {

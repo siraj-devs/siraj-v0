@@ -115,13 +115,20 @@ function mapCourse(row: Record<string, unknown>): Course {
     owner_id: (row.owner_id as number | null) ?? null,
     rating_avg: Number(row.rating_avg) || 0,
     rating_count: Number(row.rating_count) || 0,
+    order_sequence: Number(row.order_sequence) || 0,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };
 }
 
 const COURSE_COLUMNS =
-  "id, title, description, thumbnail_url, is_published, visibility, owner_id, rating_avg, rating_count, created_at, updated_at";
+  "id, title, description, thumbnail_url, is_published, visibility, owner_id, rating_avg, rating_count, order_sequence, created_at, updated_at";
+
+function mapEnrollmentClassRole(
+  value: unknown,
+): import("@/lib/course-types").EnrollmentClassRole {
+  return value === "supervisor" ? "supervisor" : "participant";
+}
 
 export function canAccessCourse(
   course: Pick<Course, "visibility">,
@@ -298,7 +305,8 @@ export async function getPublishedCourses(
     .from("courses")
     .select(COURSE_COLUMNS)
     .eq("is_published", true)
-    .order("created_at", { ascending: false });
+    .order("order_sequence", { ascending: true })
+    .order("id", { ascending: true });
 
   if (error) {
     console.error("Error fetching published courses:", error);
@@ -333,7 +341,8 @@ export async function getAllCoursesForDashboard(): Promise<CourseWithMeta[]> {
   const { data, error } = await supabase
     .from("courses")
     .select(COURSE_COLUMNS)
-    .order("created_at", { ascending: false });
+    .order("order_sequence", { ascending: true })
+    .order("id", { ascending: true });
 
   if (error) {
     console.error("Error fetching courses for dashboard:", error);
@@ -521,10 +530,14 @@ function mapEnrollmentRow(data: Record<string, unknown>): Enrollment {
     class_id: (data.class_id as number | null) ?? null,
     progress_percentage: Number(data.progress_percentage) || 0,
     status: data.status as Enrollment["status"],
+    class_role: mapEnrollmentClassRole(data.class_role),
     created_at: data.created_at as string,
     updated_at: data.updated_at as string,
   };
 }
+
+const ENROLLMENT_COLUMNS =
+  "id, member_id, course_id, class_id, progress_percentage, status, class_role, created_at, updated_at";
 
 /** All enrollments for a member in a course (newest first). */
 export async function getMemberCourseEnrollments(
@@ -534,9 +547,7 @@ export async function getMemberCourseEnrollments(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("enrollments")
-    .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
-    )
+    .select(ENROLLMENT_COLUMNS)
     .eq("member_id", memberId)
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -556,9 +567,7 @@ export async function getEnrollmentForClass(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("enrollments")
-    .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at",
-    )
+    .select(ENROLLMENT_COLUMNS)
     .eq("member_id", memberId)
     .eq("class_id", classId)
     .maybeSingle();
@@ -650,7 +659,7 @@ export async function getMemberLearning(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, courses ( id, title, description, thumbnail_url ), course_classes ( id, course_id, registration_opens_on, registration_closes_on, learning_starts_at, created_at )",
+      "id, member_id, course_id, class_id, progress_percentage, status, class_role, created_at, updated_at, courses ( id, title, description, thumbnail_url ), course_classes ( id, course_id, registration_opens_on, registration_closes_on, learning_starts_at, created_at )",
     )
     .eq("member_id", memberId)
     .order("created_at", { ascending: false });
@@ -668,16 +677,7 @@ export async function getMemberLearning(
       : row.course_classes;
     return [
       {
-        enrollment: {
-          id: row.id as number,
-          member_id: row.member_id as number,
-          course_id: row.course_id as number,
-          class_id: (row.class_id as number | null) ?? null,
-          progress_percentage: Number(row.progress_percentage) || 0,
-          status: row.status as Enrollment["status"],
-          created_at: row.created_at as string,
-          updated_at: row.updated_at as string,
-        },
+        enrollment: mapEnrollmentRow(row as Record<string, unknown>),
         course: {
           id: courseRaw.id as number,
           title: courseRaw.title as string,
@@ -728,7 +728,7 @@ export async function getCourseEnrollments(
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id, member_id, course_id, class_id, progress_percentage, status, created_at, updated_at, members ( id, name, email, phone, role, ft_connections ( login, avatar ), dc_connections ( username, avatar ), google_connections ( email, avatar ) )",
+      "id, member_id, course_id, class_id, progress_percentage, status, class_role, created_at, updated_at, members ( id, name, email, phone, role, ft_connections ( login, avatar ), dc_connections ( username, avatar ), google_connections ( email, avatar ) )",
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -762,14 +762,7 @@ export async function getCourseEnrollments(
 
     return [
       {
-        id: row.id as number,
-        member_id: row.member_id as number,
-        course_id: row.course_id as number,
-        class_id: (row.class_id as number | null) ?? null,
-        progress_percentage: Number(row.progress_percentage) || 0,
-        status: row.status as CourseEnrollmentWithMember["status"],
-        created_at: row.created_at as string,
-        updated_at: row.updated_at as string,
+        ...mapEnrollmentRow(row as Record<string, unknown>),
         member: {
           id: member.id as number,
           name: member.name as string,

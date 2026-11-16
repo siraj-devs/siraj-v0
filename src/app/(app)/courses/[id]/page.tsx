@@ -17,19 +17,13 @@ import {
   isMemberProfileComplete,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export default async function CourseDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getSession();
-  if (!session) {
-    const { id } = await params;
-    redirect(`/login?next=/courses/${id}`);
-  }
-
   const { id: raw } = await params;
   const id = Number(raw);
   if (!Number.isFinite(id)) notFound();
@@ -37,7 +31,8 @@ export default async function CourseDetailPage({
   const course = await getCourseById(id);
   if (!course || !course.is_published) notFound();
 
-  const member = await getMemberForSession(session);
+  const session = await getSession();
+  const member = session ? await getMemberForSession(session) : null;
   const [enrollments, acl, classes] = await Promise.all([
     member ? getMemberCourseEnrollments(member.id, id) : Promise.resolve([]),
     getCourseAcl(id),
@@ -112,7 +107,7 @@ export default async function CourseDetailPage({
         previewKind={previewKind}
         learningStarted={learningStarted}
         canEnrollInOpenClass={canEnrollInOpenClass}
-        isLoggedIn
+        isLoggedIn={Boolean(session)}
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}
         profileName={member?.name ?? ""}

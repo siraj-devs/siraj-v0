@@ -27,7 +27,6 @@ import {
   Lock,
   LockOpen,
   MoreHorizontal,
-  Play,
   Shield,
   Trash2,
 } from "lucide-react";
@@ -340,11 +339,7 @@ export function CourseDetail({
                     {index + 1}
                   </span>
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                    {enrollment && learningStarted ? (
-                      <Play className="size-4 fill-current" />
-                    ) : (
-                      <Icon className="size-4" />
-                    )}
+                    <Icon className="size-4" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-lg text-foreground">
