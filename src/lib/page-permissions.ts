@@ -10,7 +10,6 @@ export const GRANTABLE_DASHBOARD_PAGES = [
   { path: "/dashboard/courses", label: "الدورات" },
   { path: "/dashboard/sessions", label: "الأمسيات" },
   { path: "/dashboard/network", label: "الشبكة" },
-  { path: "/dashboard/events", label: "الأحداث" },
   { path: "/dashboard/lists", label: "اللوائح" },
 ] as const;
 

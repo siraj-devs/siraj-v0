@@ -1,69 +1,41 @@
-import { listEventsForRange } from "@/app/actions/events";
+import { listEvents, listEventsForRange } from "@/app/actions/events";
+import { CalendarView } from "@/components/calendar/calendar-view";
 import {
-  fetchHijriMonth,
-  gregorianBoundsFromDays,
-  HijriCalendarMonth,
-} from "@/components/calendar/hijri-calendar-month";
+  CALENDAR_RANGE_COOKIE,
+  defaultResolvedRange,
+  parseRangeSpec,
+  resolveRangeSpec,
+} from "@/lib/calendar-range";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
+import { gregorianBoundsFromDays } from "@/lib/hijri-calendar";
+import { cookies } from "next/headers";
 
 export default async function CalendarPage() {
-  await gateDashboardPage("/dashboard/calendar");
+  const { canEdit } = await gateDashboardPage("/dashboard/calendar");
 
-  const today = new Date();
-  const dd = String(today.getDate()).padStart(2, "0");
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const yyyy = today.getFullYear();
-  const dateStr = `${dd}-${mm}-${yyyy}`;
+  // Saved per-browser range (cookie); falls back to the default window.
+  const store = await cookies();
+  const spec = parseRangeSpec(store.get(CALENDAR_RANGE_COOKIE)?.value);
+  const custom = spec ? await resolveRangeSpec(spec).catch(() => null) : null;
+  const range = custom ?? (await defaultResolvedRange());
 
-  const res = await fetch(`https://api.aladhan.com/v1/gToH/${dateStr}`, {
-    cache: "no-store",
-  });
-  const json = await res.json();
-  const currentHijriData = json.data.hijri;
-
-  const startMonth = currentHijriData.month.number;
-  const startYear = parseInt(currentHijriData.year, 10);
-
-  const monthsToRender = Array.from({ length: 6 }).map((_, i) => {
-    let m = startMonth + i;
-    let y = startYear;
-    while (m > 12) {
-      m -= 12;
-      y++;
-    }
-    return { month: m, year: y };
-  });
-
-  const monthsDays = await Promise.all(
-    monthsToRender.map((item) => fetchHijriMonth(item.year, item.month)),
-  );
-
-  let rangeStart: Date | null = null;
-  let rangeEnd: Date | null = null;
-  for (const days of monthsDays) {
-    const bounds = gregorianBoundsFromDays(days);
-    if (!bounds) continue;
-    if (!rangeStart || bounds.start < rangeStart) rangeStart = bounds.start;
-    if (!rangeEnd || bounds.endExclusive > rangeEnd)
-      rangeEnd = bounds.endExclusive;
-  }
-
-  const events =
-    rangeStart && rangeEnd
-      ? await listEventsForRange(rangeStart, rangeEnd)
-      : [];
+  const bounds = gregorianBoundsFromDays(range.months.flatMap((m) => m.days));
+  const [events, allEvents] = await Promise.all([
+    bounds ? listEventsForRange(bounds.start, bounds.endExclusive) : [],
+    listEvents(),
+  ]);
 
   return (
-    <div className="container mx-auto space-y-4 p-3 px-4 sm:space-y-6 sm:p-6">
-      <div className="grid grid-cols-1 place-items-center gap-4 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        {monthsToRender.map((item, i) => (
-          <HijriCalendarMonth
-            key={`${item.year}-${item.month}`}
-            days={monthsDays[i] ?? []}
-            events={events}
-          />
-        ))}
-      </div>
+    <div className="px-0 py-6 md:py-10">
+      <CalendarView
+        months={range.months}
+        events={events}
+        allEvents={allEvents}
+        startKey={range.startKey}
+        endKey={range.endKey}
+        rangeSpec={custom ? spec : null}
+        canManage={canEdit}
+      />
     </div>
   );
 }

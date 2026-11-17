@@ -7,7 +7,6 @@ import {
 } from "@/lib/member-role";
 import type { PageGrant } from "@/lib/page-permissions";
 import {
-  CalendarClock,
   CalendarDays,
   Clapperboard,
   ClipboardList,
@@ -36,7 +35,7 @@ const DASHBOARD_LINKS: {
   { href: "/dashboard/members", label: "الأعضاء", icon: Users, viewerDefault: true },
   {
     href: "/dashboard/calendar",
-    label: "جدول",
+    label: "الجدول",
     icon: CalendarDays,
     viewerDefault: true,
   },
@@ -58,7 +57,6 @@ const DASHBOARD_LINKS: {
   { href: "/dashboard/courses", label: "الدورات", icon: GraduationCap },
   { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
-  { href: "/dashboard/events", label: "الأحداث", icon: CalendarClock },
   { href: "/dashboard/lists", label: "اللوائح", icon: ListChecks },
 ];
 

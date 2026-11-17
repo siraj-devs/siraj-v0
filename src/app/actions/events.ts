@@ -35,7 +35,6 @@ const SELECT_COLS =
   "id, name, start_at, end_at, color, repeat_mode, repeat_weekdays, created_at, updated_at";
 
 function revalidateEvents() {
-  revalidatePath("/dashboard/events");
   revalidatePath("/dashboard/calendar");
 }
 
@@ -76,7 +75,7 @@ function toRepeatable(event: ClubEvent): RepeatableEvent {
 }
 
 export async function listEvents(): Promise<ClubEvent[]> {
-  await requirePageAccess("/dashboard/events");
+  await requirePageAccess("/dashboard/calendar");
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -97,11 +96,7 @@ export async function listEventsForRange(
   rangeStart: string | Date,
   rangeEnd: string | Date,
 ): Promise<ClubEvent[]> {
-  try {
-    await requirePageAccess("/dashboard/calendar");
-  } catch {
-    await requirePageAccess("/dashboard/events");
-  }
+  await requirePageAccess("/dashboard/calendar");
 
   const start =
     typeof rangeStart === "string" ? parseIso(rangeStart) : rangeStart;
@@ -182,7 +177,7 @@ export async function createEvent(
   { success: true; event: ClubEvent } | { success: false; error: string }
 > {
   try {
-    await requirePageEdit("/dashboard/events");
+    await requirePageEdit("/dashboard/calendar");
     const parsed = parseWriteFields(input);
     if (!parsed.success) return parsed;
 
@@ -220,7 +215,7 @@ export async function updateEvent(
   input: EventWriteInput & { id: string },
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requirePageEdit("/dashboard/events");
+    await requirePageEdit("/dashboard/calendar");
     if (!input.id) return { success: false, error: "معرّف غير صالح" };
 
     const parsed = parseWriteFields(input);
@@ -259,7 +254,7 @@ export async function deleteEvent(
   id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    await requirePageEdit("/dashboard/events");
+    await requirePageEdit("/dashboard/calendar");
     if (!id) return { success: false, error: "معرّف غير صالح" };
 
     const supabase = await createClient();

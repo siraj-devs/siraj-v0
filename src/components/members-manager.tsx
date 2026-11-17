@@ -26,7 +26,6 @@ import {
   type PageGrant,
 } from "@/lib/page-permissions";
 import {
-  CalendarClock,
   CalendarDays,
   Clapperboard,
   ClipboardList,
@@ -121,7 +120,6 @@ const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/courses": GraduationCap,
   "/dashboard/sessions": Clapperboard,
   "/dashboard/network": Network,
-  "/dashboard/events": CalendarClock,
   "/dashboard/lists": ListChecks,
 };
 
