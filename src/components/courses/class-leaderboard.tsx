@@ -22,13 +22,16 @@ function podiumTone(rank: number): 1 | 2 | 3 {
 function RankBadge({
   rank,
   compact = false,
+  /** Rank 4+ (and forced plain) show a regular number — no medal/trophy/crown. */
+  plain = false,
 }: {
   rank: number;
   compact?: boolean;
+  plain?: boolean;
 }) {
   const size = compact ? "size-8" : "size-10";
   const icon = compact ? "size-4" : "size-5";
-  if (rank === 1) {
+  if (!plain && rank === 1) {
     return (
       <span
         className={cn(
@@ -40,7 +43,7 @@ function RankBadge({
       </span>
     );
   }
-  if (rank === 2) {
+  if (!plain && rank === 2) {
     return (
       <span
         className={cn(
@@ -52,7 +55,7 @@ function RankBadge({
       </span>
     );
   }
-  if (rank === 3) {
+  if (!plain && rank === 3) {
     return (
       <span
         className={cn(
@@ -389,7 +392,7 @@ export function ClassLeaderboard({
                       isYou && "bg-primary/6",
                     )}
                   >
-                    <RankBadge rank={entry.rank} />
+                    <RankBadge rank={entry.rank} plain />
                     <RemoteAvatar
                       src={entry.member.avatar}
                       alt={entry.member.name}

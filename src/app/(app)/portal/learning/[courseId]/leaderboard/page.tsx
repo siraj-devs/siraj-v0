@@ -15,8 +15,6 @@ import {
   isMemberProfileComplete,
 } from "@/lib/members";
 import { getSession } from "@/lib/session";
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 export default async function PortalCourseLeaderboardPage({
@@ -72,15 +70,9 @@ export default async function PortalCourseLeaderboardPage({
         currentMemberId={member.id}
         showMiniLeaderboard={false}
         showNavArrows={false}
+        headerVariant="compact"
       >
         <div className="space-y-6">
-          <Link
-            href={`/portal/learning/${id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            <ArrowRight className="size-4" />
-            العودة للتعلّم
-          </Link>
           <ClassLeaderboard
             entries={leaderboard}
             currentMemberId={member.id}

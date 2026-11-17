@@ -26,13 +26,16 @@ import {
   hasLessonStarted,
   isLessonLocked,
 } from "@/lib/course-schedule";
+import { cn } from "@/lib/utils";
 import {
+  ArrowRight,
   Check,
   ChevronLeft,
   ChevronRight,
   Lock,
   MoreHorizontal,
   Trash2,
+  Trophy,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -52,6 +55,7 @@ export function CourseLearnShell({
   currentMemberId = null,
   showMiniLeaderboard = true,
   showNavArrows = true,
+  headerVariant = "full",
   children,
 }: {
   course: CourseWithMeta;
@@ -65,6 +69,8 @@ export function CourseLearnShell({
   currentMemberId?: number | null;
   showMiniLeaderboard?: boolean;
   showNavArrows?: boolean;
+  /** Full hero on course overview; compact bar on lesson/leaderboard. */
+  headerVariant?: "full" | "compact";
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -230,46 +236,54 @@ export function CourseLearnShell({
     </div>
   );
 
-  return (
-    <div className="flex w-full flex-col gap-6 pb-12">
-      <header className="rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent p-5 md:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-          <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted sm:w-48 lg:w-64">
-            {course.thumbnail_url ? (
-              <Image
-                src={course.thumbnail_url}
-                alt={course.title}
-                fill
-                sizes="(min-width: 1024px) 256px, (min-width: 640px) 192px, 100vw"
-                className="object-cover"
-                priority
-              />
-            ) : (
-              <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
-                <Rosette className="size-12" />
-              </div>
-            )}
+  const progressPct = Math.min(
+    100,
+    Math.max(0, enrollment.progress_percentage || 0),
+  );
+  const leaderboardHref = `/portal/learning/${course.id}/leaderboard`;
+
+  const fullHeader = (
+    <header className="rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent p-5 md:p-7">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
+        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted sm:w-48 lg:w-64">
+          {course.thumbnail_url ? (
+            <Image
+              src={course.thumbnail_url}
+              alt={course.title}
+              fill
+              sizes="(min-width: 1024px) 256px, (min-width: 640px) 192px, 100vw"
+              className="object-cover"
+              priority
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
+              <Rosette className="size-12" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <ProgressRing value={enrollment.progress_percentage} size={64} />
+            <div className="min-w-0 flex-1">
+              <p className="font-kufam text-xs text-primary/80">
+                <Link
+                  href="/portal/learning"
+                  className="transition hover:underline"
+                >
+                  تعلّمي
+                </Link>
+              </p>
+              <h1 className="font-kufam text-xl font-semibold text-foreground md:text-2xl">
+                {course.title}
+              </h1>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {completed.size} من {contents.length} مكتمل
+              </p>
+            </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-            <div className="flex min-w-0 flex-1 items-center gap-4">
-              <ProgressRing value={enrollment.progress_percentage} size={64} />
-              <div className="min-w-0 flex-1">
-                <p className="font-kufam text-xs text-primary/80">
-                  <Link href="/portal/learning" className="transition hover:underline">
-                    تعلّمي
-                  </Link>
-                </p>
-                <h1 className="font-kufam text-xl font-semibold text-foreground md:text-2xl">
-                  {course.title}
-                </h1>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {completed.size} من {contents.length} مكتمل
-                </p>
-              </div>
-            </div>
-
-            {allowUnenroll && (
+          {allowUnenroll && (
             <div className="relative flex shrink-0 justify-end">
               <Button
                 type="button"
@@ -306,10 +320,80 @@ export function CourseLearnShell({
                 </>
               )}
             </div>
-            )}
+          )}
+        </div>
+      </div>
+    </header>
+  );
+
+  const compactHeader = (
+    <header className="rounded-2xl border border-border/70 bg-background/90 px-3 py-3 shadow-[0_4px_24px_-18px_color-mix(in_oklch,var(--foreground)_12%,transparent)] sm:px-4">
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        <Link
+          href={`/portal/learning/${course.id}`}
+          aria-label="العودة للتعلّم"
+          className={buttonVariants({ variant: "outline", size: "icon" })}
+        >
+          <ArrowRight className="size-4" />
+        </Link>
+
+        <div className="relative size-11 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted sm:size-12">
+          {course.thumbnail_url ? (
+            <Image
+              src={course.thumbnail_url}
+              alt=""
+              fill
+              sizes="48px"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center text-primary/35">
+              <Rosette className="size-5" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-kufam text-base font-semibold text-foreground sm:text-lg">
+            {course.title}
+          </h1>
+          <div className="mt-1.5 flex items-center gap-2.5">
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {completed.size}/{contents.length} دروس
+            </span>
+            <div
+              className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="تقدّم الدورة"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width]"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
         </div>
-      </header>
+
+        <Link
+          href={leaderboardHref}
+          aria-label="لوحة الصدارة"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "icon" }),
+            "shrink-0",
+          )}
+        >
+          <Trophy className="size-4" />
+        </Link>
+      </div>
+    </header>
+  );
+
+  return (
+    <div className="flex w-full flex-col gap-6 pb-12">
+      {headerVariant === "compact" ? compactHeader : fullHeader}
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-7">
         <div className="min-w-0 flex-1 space-y-5">

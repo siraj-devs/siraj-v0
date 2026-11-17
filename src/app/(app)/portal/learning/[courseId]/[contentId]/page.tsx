@@ -133,6 +133,7 @@ export default async function PortalLessonPage({
         myRating={myRating}
         leaderboard={leaderboard}
         currentMemberId={member.id}
+        headerVariant="compact"
       >
         {viewer}
       </CourseLearnShell>
