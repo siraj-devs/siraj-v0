@@ -1,3 +1,4 @@
+import { getClubMembers } from "@/app/actions/members";
 import { CourseContentManager } from "@/components/courses/course-content-manager";
 import {
   getCourseById,
@@ -26,12 +27,14 @@ export default async function DashboardCourseDetailPage({
   const course = await getCourseById(id);
   if (!course) notFound();
 
-  const [contents, enrollments, ratingsByMember, classes] = await Promise.all([
-    getCourseContents(id),
-    getCourseEnrollments(id),
-    getCourseRatingsByMember(id),
-    getCourseClasses(id),
-  ]);
+  const [contents, enrollments, ratingsByMember, classes, members] =
+    await Promise.all([
+      getCourseContents(id),
+      getCourseEnrollments(id),
+      getCourseRatingsByMember(id),
+      getCourseClasses(id),
+      getClubMembers(),
+    ]);
 
   const questionsByContent: Record<number, ExamQuestion[]> = {};
   await Promise.all(
@@ -51,6 +54,7 @@ export default async function DashboardCourseDetailPage({
         enrollments={enrollments}
         ratingsByMember={ratingsByMember}
         classes={classes}
+        members={members}
       />
     </div>
   );

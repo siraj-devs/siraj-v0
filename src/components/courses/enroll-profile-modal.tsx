@@ -5,7 +5,7 @@ import { saveMyProfile } from "@/app/actions/profiles";
 import { FormDialog } from "@/components/dashboard/form-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isArabicName, isValidPhone } from "@/lib/profile-fields";
+import { isArabicNamePart, isValidPhone } from "@/lib/profile-fields";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -13,21 +13,24 @@ import { toast } from "sonner";
 export function EnrollProfileModal({
   open,
   courseId,
-  initialName = "",
+  initialFirstName = "",
+  initialLastName = "",
   initialPhone = "",
   learningStarted,
   onClose,
 }: {
   open: boolean;
   courseId: number;
-  initialName?: string;
+  initialFirstName?: string;
+  initialLastName?: string;
   initialPhone?: string;
   learningStarted: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [name, setName] = useState(initialName);
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [lastName, setLastName] = useState(initialLastName);
   const [phone, setPhone] = useState(initialPhone);
 
   if (!open) return null;
@@ -35,8 +38,12 @@ export function EnrollProfileModal({
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    if (!isArabicName(name)) {
-      toast.error("الاسم يجب أن يكون بالعربية");
+    if (!isArabicNamePart(firstName)) {
+      toast.error("الاسم الأول يجب أن يكون بالعربية");
+      return;
+    }
+    if (!isArabicNamePart(lastName)) {
+      toast.error("اسم العائلة يجب أن يكون بالعربية");
       return;
     }
     if (!isValidPhone(phone)) {
@@ -45,7 +52,11 @@ export function EnrollProfileModal({
     }
 
     startTransition(async () => {
-      const saved = await saveMyProfile({ name, phone });
+      const saved = await saveMyProfile({
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+      });
       if (!saved.success) {
         toast.error(saved.error);
         return;
@@ -80,23 +91,42 @@ export function EnrollProfileModal({
       submitLabel="حفظ والالتحاق"
       pendingLabel="جاري الحفظ…"
     >
-      <div className="space-y-2">
-        <Label htmlFor="enroll-profile-name">
-          الاسم بالعربية{" "}
-          <span className="text-destructive" aria-hidden>
-            *
-          </span>
-        </Label>
-        <Input
-          id="enroll-profile-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          disabled={pending}
-          autoFocus
-          placeholder="مثال: أحمد محمد"
-          dir="rtl"
-        />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="enroll-profile-first-name">
+            الاسم الأول{" "}
+            <span className="text-destructive" aria-hidden>
+              *
+            </span>
+          </Label>
+          <Input
+            id="enroll-profile-first-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+            disabled={pending}
+            autoFocus
+            placeholder="مثال: أحمد"
+            dir="rtl"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="enroll-profile-last-name">
+            اسم العائلة{" "}
+            <span className="text-destructive" aria-hidden>
+              *
+            </span>
+          </Label>
+          <Input
+            id="enroll-profile-last-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+            disabled={pending}
+            placeholder="مثال: العلوي"
+            dir="rtl"
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="enroll-profile-phone">

@@ -12,6 +12,30 @@ export function isArabicName(name: string): boolean {
   return ARABIC_NAME_RE.test(trimmed);
 }
 
+/** Single name part (first or last): Arabic letters, at least 2 chars. */
+export function isArabicNamePart(value: string): boolean {
+  return isArabicName(value);
+}
+
+export function composeMemberName(firstName: string, lastName: string): string {
+  return `${firstName.trim()} ${lastName.trim()}`.trim().replace(/\s+/g, " ");
+}
+
+/** Split a stored full name into first + last (first token / remainder). */
+export function splitMemberName(fullName: string): {
+  first_name: string;
+  last_name: string;
+} {
+  const trimmed = fullName.trim().replace(/\s+/g, " ");
+  if (!trimmed) return { first_name: "", last_name: "" };
+  const space = trimmed.indexOf(" ");
+  if (space < 0) return { first_name: trimmed, last_name: "" };
+  return {
+    first_name: trimmed.slice(0, space),
+    last_name: trimmed.slice(space + 1).trim(),
+  };
+}
+
 /** Strip non-Arabic characters from an input/textarea value. */
 export function filterArabicInput(value: string): string {
   return value.replace(ARABIC_INPUT_RE, "");

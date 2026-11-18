@@ -94,7 +94,9 @@ const ROLE_STYLES: Record<
 };
 
 type MemberFormState = {
-  name: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
   role: MemberRole;
   ft_connection: string;
   dc_connection: string;
@@ -154,7 +156,9 @@ function DiscordIcon({ className }: { className?: string }) {
 }
 
 const emptyForm: MemberFormState = {
-  name: "",
+  first_name: "",
+  last_name: "",
+  phone: "",
   role: "newcomer",
   ft_connection: "",
   dc_connection: "",
@@ -237,6 +241,9 @@ export function MembersManager({
       if (!q) return true;
       return (
         m.name.toLowerCase().includes(q) ||
+        m.first_name.toLowerCase().includes(q) ||
+        m.last_name.toLowerCase().includes(q) ||
+        (m.phone?.includes(q) ?? false) ||
         (m.login?.toLowerCase().includes(q) ?? false) ||
         (m.dc_username?.toLowerCase().includes(q) ?? false) ||
         (m.google_email?.toLowerCase().includes(q) ?? false)
@@ -312,7 +319,12 @@ export function MembersManager({
   function openEdit(member: MemberProfile) {
     if (!canManage) return;
     setForm({
-      name: member.name,
+      first_name: member.first_name || member.name.split(/\s+/)[0] || "",
+      last_name:
+        member.last_name ||
+        member.name.trim().split(/\s+/).slice(1).join(" ") ||
+        "",
+      phone: member.phone ?? "",
       role: member.role,
       ft_connection: member.ft_connection ? String(member.ft_connection) : "",
       dc_connection: member.dc_connection ?? "",
@@ -335,7 +347,9 @@ export function MembersManager({
     if (!canManage) return;
 
     const payload = {
-      name: form.name,
+      first_name: form.first_name,
+      last_name: form.last_name,
+      phone: form.phone.trim() || null,
       role: form.role,
       ft_connection: form.ft_connection ? Number(form.ft_connection) : null,
       dc_connection: form.dc_connection || null,
@@ -422,25 +436,28 @@ export function MembersManager({
         >
           {(
             [
-              ["all", "الإجمالي", counts.all],
-              ["owner", "مالك", counts.owner],
-              ["admin", "مشرف", counts.admin],
-              ["participant", "عضو", counts.participant],
-              ["veteran", "مخضرم", counts.veteran],
-              ["newcomer", "وافد", counts.newcomer],
+              ["all", "الإجمالي", counts.all, Users],
+              ["owner", "مالك", counts.owner, Crown],
+              ["admin", "مشرف", counts.admin, Shield],
+              ["participant", "عضو", counts.participant, UserRound],
+              ["veteran", "مخضرم", counts.veteran, Medal],
+              ["newcomer", "وافد", counts.newcomer, Sparkles],
             ] as const
           )
             .filter(
               ([key]) =>
                 !hidePrivilegedRoles || (key !== "owner" && key !== "admin"),
             )
-            .map(([key, label, value]) => (
+            .map(([key, label, value, Icon]) => (
             <div
               key={key}
-              className="rounded-2xl border border-transparent bg-background/50 px-4 py-3 text-start"
+              className="rounded-2xl border border-primary/25 bg-background/70 px-4 py-3 text-start"
             >
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="mt-1 font-kufam text-2xl text-foreground">{value}</p>
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon className="size-3.5" />
+                {label}
+              </p>
+              <p className="mt-1 font-kufam text-lg text-foreground">{value}</p>
             </div>
           ))}
         </div>
@@ -731,23 +748,52 @@ export function MembersManager({
       {modal && (
         <FormDialog
           title={modal === "create" ? "إضافة عضو" : "تعديل عضو"}
-          description="حدّد الاسم والدور واربط حساب 42 و/أو ديسكورد."
+          description="حدّد الاسم ورقم الهاتف والدور، واربط حسابات الدخول إن لزم."
           onClose={closeModal}
           onSubmit={onSubmit}
           pending={pending}
           submitLabel="حفظ"
         >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="member-first-name">الاسم الأول</Label>
+              <Input
+                id="member-first-name"
+                required
+                autoFocus
+                value={form.first_name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, first_name: e.target.value }))
+                }
+                placeholder="مثال: أحمد"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-last-name">اسم العائلة</Label>
+              <Input
+                id="member-last-name"
+                required
+                value={form.last_name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, last_name: e.target.value }))
+                }
+                placeholder="مثال: العلوي"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="member-name">الاسم</Label>
+            <Label htmlFor="member-phone">رقم الهاتف</Label>
             <Input
-              id="member-name"
-              required
-              autoFocus
-              value={form.name}
+              id="member-phone"
+              type="tel"
+              dir="ltr"
+              className="text-left"
+              value={form.phone}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, name: e.target.value }))
+                setForm((prev) => ({ ...prev, phone: e.target.value }))
               }
-              placeholder="اسم العضو"
+              placeholder="06XXXXXXXX"
             />
           </div>
 

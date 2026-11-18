@@ -363,6 +363,72 @@ export async function updateEnrollmentClassRole(input: {
   }
 }
 
+/** Owner/editor enrolls a club member into a specific class (even if registration is closed). */
+export async function enrollMemberInClass(input: {
+  course_id: number;
+  class_id: number;
+  member_id: number;
+  class_role?: "participant" | "supervisor";
+}): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    await requirePageEdit("/dashboard/courses");
+
+    const courseId = Number(input.course_id);
+    const classId = Number(input.class_id);
+    const memberId = Number(input.member_id);
+    const classRole =
+      input.class_role === "supervisor" ? "supervisor" : "participant";
+
+    if (!Number.isFinite(courseId) || !Number.isFinite(classId) || !Number.isFinite(memberId)) {
+      return { success: false, error: "بيانات غير صالحة" };
+    }
+
+    const course = await getCourseById(courseId);
+    if (!course) return { success: false, error: "الدورة غير موجودة" };
+
+    const classes = await getCourseClasses(courseId);
+    const courseClass = classes.find((item) => item.id === classId);
+    if (!courseClass) return { success: false, error: "الدفعة غير موجودة" };
+
+    const existing = await getEnrollmentForClass(memberId, classId);
+    if (existing) {
+      return { success: false, error: "هذا العضو ملتحق بهذه الدفعة مسبقاً" };
+    }
+
+    const supabase = await createClient();
+    const { data: memberRow, error: memberError } = await supabase
+      .from("members")
+      .select("id")
+      .eq("id", memberId)
+      .maybeSingle();
+    if (memberError || !memberRow) {
+      return { success: false, error: "العضو غير موجود" };
+    }
+
+    const { error } = await supabase.from("enrollments").insert({
+      member_id: memberId,
+      course_id: courseId,
+      class_id: classId,
+      progress_percentage: 0,
+      status: "active",
+      class_role: classRole,
+    });
+
+    if (error) {
+      console.error("Error enrolling member in class:", error);
+      if (error.code === "23505") {
+        return { success: false, error: "هذا العضو ملتحق بهذه الدفعة مسبقاً" };
+      }
+      return { success: false, error: "تعذر إضافة الملتحق" };
+    }
+
+    revalidateCoursePaths(courseId);
+    return { success: true };
+  } catch {
+    return { success: false, error: "غير مصرح" };
+  }
+}
+
 export async function upsertCourseContent(input: {
   id?: number;
   course_id: number;

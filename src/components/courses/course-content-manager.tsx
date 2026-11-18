@@ -3,12 +3,14 @@
 import {
   deleteCourseContent,
   deleteExamQuestion,
+  enrollMemberInClass,
   reorderCourseContents,
   reorderExamQuestions,
   updateEnrollmentClassRole,
   upsertCourseContent,
   upsertExamQuestion,
 } from "@/app/actions/courses";
+import type { MemberProfile } from "@/app/actions/members";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { AudioViewer } from "@/components/courses/audio-viewer";
 import { CourseClassesPanel } from "@/components/courses/course-classes-panel";
@@ -19,6 +21,7 @@ import type { KebabMenuItem } from "@/components/dashboard/kebab-menu";
 import {
   CONTENT_TYPE_HINT,
   CONTENT_TYPE_ICON,
+  LessonMetaChips,
   MetaChip,
   StarRating,
 } from "@/components/courses/course-ui";
@@ -41,8 +44,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   formatClassDate,
-  formatLessonDateRange,
-  formatLessonDuration,
   formatRegistrationWindow,
   isClassOpen,
 } from "@/lib/course-schedule";
@@ -68,22 +69,23 @@ import {
 } from "@/lib/course-types";
 import { MEMBER_ROLE_LABELS } from "@/lib/member-role";
 import {
-  CalendarDays,
-  Clock,
+  Book,
   BookOpen,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   CircleHelp,
+  Clock,
   Copy,
   Eye,
   EyeOff,
   Globe,
-  Book,
   GripVertical,
   Pencil,
   Plus,
   Shield,
   Trash2,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -110,6 +112,7 @@ export function CourseContentManager({
   enrollments = [],
   ratingsByMember = {},
   classes = [],
+  members = [],
 }: {
   course: CourseWithMeta;
   contents: CourseContent[];
@@ -117,10 +120,16 @@ export function CourseContentManager({
   enrollments?: CourseEnrollmentWithMember[];
   ratingsByMember?: Record<number, number>;
   classes?: CourseClass[];
+  members?: MemberProfile[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [modal, setModal] = useState(false);
+  const [enrollOpen, setEnrollOpen] = useState(false);
+  const [enrollMemberId, setEnrollMemberId] = useState("");
+  const [enrollClassRole, setEnrollClassRole] =
+    useState<EnrollmentClassRole>("participant");
+  const [enrollQuery, setEnrollQuery] = useState("");
   const [editing, setEditing] = useState<CourseContent | null>(null);
   const [deleting, setDeleting] = useState<CourseContent | null>(null);
   const [previewing, setPreviewing] = useState<CourseContent | null>(null);
@@ -507,6 +516,65 @@ export function CourseContentManager({
     });
   }
 
+  const enrolledMemberIds = useMemo(
+    () => new Set(classEnrollments.map((item) => item.member_id)),
+    [classEnrollments],
+  );
+
+  const enrollCandidates = useMemo(() => {
+    const q = enrollQuery.trim().toLowerCase();
+    return members
+      .filter((member) => !enrolledMemberIds.has(member.id))
+      .filter((member) => {
+        if (!q) return true;
+        return (
+          member.name.toLowerCase().includes(q) ||
+          member.first_name.toLowerCase().includes(q) ||
+          member.last_name.toLowerCase().includes(q) ||
+          (member.login?.toLowerCase().includes(q) ?? false) ||
+          (member.dc_username?.toLowerCase().includes(q) ?? false) ||
+          (member.phone?.includes(q) ?? false)
+        );
+      })
+      .slice(0, 40);
+  }, [members, enrolledMemberIds, enrollQuery]);
+
+  function openEnrollModal() {
+    if (!selectedClassId) {
+      toast.error("اختر دفعة أولاً");
+      return;
+    }
+    setEnrollMemberId("");
+    setEnrollClassRole("participant");
+    setEnrollQuery("");
+    setEnrollOpen(true);
+  }
+
+  function onEnrollMember(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedClassId) return;
+    const memberId = Number(enrollMemberId);
+    if (!Number.isFinite(memberId)) {
+      toast.error("اختر عضواً");
+      return;
+    }
+    startTransition(async () => {
+      const result = await enrollMemberInClass({
+        course_id: course.id,
+        class_id: selectedClassId,
+        member_id: memberId,
+        class_role: enrollClassRole,
+      });
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("تمت إضافة الملتحق");
+      setEnrollOpen(false);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
       <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-linear-to-b from-primary/8 to-transparent px-6 py-8 md:px-10 md:py-10">
@@ -742,53 +810,42 @@ export function CourseContentManager({
               const rowMeta = (
                 <>
                   <span
-                    className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-xl text-muted-foreground active:cursor-grabbing"
+                    className="mt-1 flex size-8 shrink-0 cursor-grab items-center justify-center rounded-xl text-muted-foreground active:cursor-grabbing"
                     aria-hidden
                     title="اسحب لإعادة الترتيب"
                   >
                     <GripVertical className="size-4" />
                   </span>
-                  <span className="w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
+                  <span className="mt-2 w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
                     {index + 1}
                   </span>
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
                     <Icon className="size-4" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <p className="truncate text-lg font-medium text-foreground">
+                      <p className="break-words text-lg font-medium leading-snug text-foreground">
                         {content.title}
                       </p>
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        {CONTENT_TYPE_LABELS[content.type]}
-                      </span>
                       {content.type === "exam" && (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                           {questionCount} سؤال
                         </span>
                       )}
                     </div>
-                    {content.author && (
-                      <p className="truncate text-sm text-muted-foreground">
-                        {content.author}
-                      </p>
-                    )}
-                    {formatLessonDateRange(content) && (
-                      <p className="truncate text-xs text-muted-foreground">
-                        الفترة: {formatLessonDateRange(content)}
-                      </p>
-                    )}
-                    {formatLessonDuration(content) && (
-                      <p className="truncate text-xs text-muted-foreground">
-                        المدة: {formatLessonDuration(content)}
-                      </p>
-                    )}
+                    <LessonMetaChips
+                      author={content.author}
+                      startDate={content.start_date}
+                      endDate={content.end_date}
+                      durationUnit={content.duration_unit}
+                      durationAmount={content.duration_amount}
+                    />
                     {content.content_url && (
                       <Link
                         href={content.content_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 block truncate text-sm transition hover:text-primary hover:underline"
+                        className="block break-all text-sm transition hover:text-primary hover:underline"
                         onClick={(event) => event.stopPropagation()}
                       >
                         {content.content_url}
@@ -818,10 +875,10 @@ export function CourseContentManager({
                 >
                   {content.type === "exam" ? (
                     <details className="group">
-                      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-start gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6 [&::-webkit-details-marker]:hidden">
                         {rowMeta}
                         <div
-                          className="flex shrink-0 items-center gap-2"
+                          className="mt-1 flex shrink-0 items-center gap-2"
                           onClick={(event) => event.stopPropagation()}
                           onKeyDown={(event) => event.stopPropagation()}
                         >
@@ -970,7 +1027,7 @@ export function CourseContentManager({
                       </div>
                     </details>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6">
+                    <div className="flex flex-wrap items-start gap-3 px-4 py-4 sm:gap-4 sm:px-6">
                       {rowMeta}
                       {rowActions}
                     </div>
@@ -991,18 +1048,30 @@ export function CourseContentManager({
 
 
       <section className="space-y-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-kufam text-xl font-semibold text-foreground">
               الملتحقون
             </h3>
             <p className="text-sm text-muted-foreground">
-              من انضم خلال فترة تسجيل هذه الدفعة.
+              من انضم لهذه الدفعة، مع إمكانية الإضافة اليدوية.
             </p>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {classEnrollments.length} عضو
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {classEnrollments.length} عضو
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              disabled={!selectedClassId || pending}
+              onClick={openEnrollModal}
+            >
+              <UserPlus className="size-3.5" />
+              إضافة ملتحق
+            </Button>
+          </div>
         </div>
 
         {classEnrollments.length > 0 ? (
@@ -1016,11 +1085,11 @@ export function CourseContentManager({
               return (
                 <li
                   key={enrollment.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 sm:gap-4 sm:px-6"
+                  className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 sm:px-6 lg:flex-row lg:items-center lg:gap-4"
                 >
                   <Link
                     href={`/dashboard/members/${enrollment.member.id}`}
-                    className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-90"
+                    className="flex min-w-0 items-center gap-3 transition hover:opacity-90 lg:flex-1"
                   >
                     <RemoteAvatar
                       src={enrollment.member.avatar}
@@ -1033,12 +1102,12 @@ export function CourseContentManager({
                       }
                     />
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="truncate font-kufam text-lg text-foreground">
+                      <p className="break-words font-kufam text-lg leading-snug text-foreground">
                         {enrollment.member.name}
                       </p>
                     </div>
                   </Link>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
                     <div
                       role="radiogroup"
                       aria-label="دور في الدفعة"
@@ -1286,6 +1355,81 @@ export function CourseContentManager({
             </div>
           </div>
         </div>
+      )}
+
+      {enrollOpen && selectedClassId && (
+        <FormDialog
+          title="إضافة ملتحق"
+          description={`اختر عضواً لإضافته يدوياً إلى الدفعة ${selectedClassNumber}.`}
+          onClose={() => {
+            if (!pending) setEnrollOpen(false);
+          }}
+          onSubmit={onEnrollMember}
+          pending={pending}
+          submitLabel="إضافة"
+          pendingLabel="جاري الإضافة…"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="enroll-member-search">بحث عن عضو</Label>
+            <Input
+              id="enroll-member-search"
+              value={enrollQuery}
+              onChange={(e) => setEnrollQuery(e.target.value)}
+              placeholder="الاسم أو الهاتف أو 42…"
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="enroll-member">العضو</Label>
+            <select
+              id="enroll-member"
+              required
+              value={enrollMemberId}
+              onChange={(e) => setEnrollMemberId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <option value="">اختر عضواً…</option>
+              {enrollCandidates.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                  {member.login ? ` · ${member.login}` : ""}
+                  {member.phone ? ` · ${member.phone}` : ""}
+                </option>
+              ))}
+            </select>
+            {enrollCandidates.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {members.length === 0
+                  ? "لا أعضاء متاحون للقائمة."
+                  : "لا أعضاء مطابقون، أو الجميع ملتحقون بهذه الدفعة."}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>الدور في الدفعة</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["participant", "supervisor"] as const).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setEnrollClassRole(role)}
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-sm transition",
+                    enrollClassRole === role
+                      ? role === "supervisor"
+                        ? "border-amber-500/40 bg-amber-500/10 font-medium text-amber-900"
+                        : "border-emerald-500/40 bg-emerald-500/10 font-medium text-emerald-900"
+                      : "border-border text-muted-foreground hover:bg-muted/40",
+                  )}
+                >
+                  {ENROLLMENT_CLASS_ROLE_LABELS[role]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </FormDialog>
       )}
 
       {modal && (

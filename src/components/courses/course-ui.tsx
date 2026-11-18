@@ -1,13 +1,22 @@
 "use client";
 
+import {
+  formatClassDate,
+  formatLessonDuration,
+} from "@/lib/course-schedule";
 import type { CourseContentType } from "@/lib/course-types";
 import { cn } from "@/lib/utils";
 import {
   BookOpen,
+  CalendarCheck,
+  CalendarDays,
+  CalendarPlus,
+  Clock,
   Headphones,
   HelpCircle,
   PlayCircle,
   Star,
+  UserRound,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -163,6 +172,80 @@ export function MetaChip({
     <span className="inline-flex items-center gap-1.5 rounded-full text-xs text-foreground/70">
       {Icon && <Icon className="size-3.5 text-primary/70" />}
       {children}
+    </span>
+  );
+}
+
+export function LessonChip({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ElementType;
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-1 text-xs leading-relaxed text-foreground">
+      <Icon className="size-3.5 shrink-0 text-primary" aria-hidden />
+      {label ? <span className="text-muted-foreground">{label}</span> : null}
+      <span className="break-words font-medium">{children}</span>
+    </span>
+  );
+}
+
+/** Author + date/duration chips for lesson rows (public + dashboard). */
+export function LessonMetaChips({
+  author,
+  startDate,
+  endDate,
+  durationUnit,
+  durationAmount,
+  extra,
+}: {
+  author?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  durationUnit?: "hours" | "days" | null;
+  durationAmount?: number | null;
+  extra?: React.ReactNode;
+}) {
+  const duration = formatLessonDuration({
+    duration_unit: durationUnit ?? null,
+    duration_amount: durationAmount ?? null,
+  });
+  const hasDates = Boolean(startDate || endDate);
+  if (!author && !hasDates && !duration && !extra) return null;
+
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {author ? (
+        <LessonChip icon={UserRound}>
+          {author}
+        </LessonChip>
+      ) : null}
+      {startDate && endDate && startDate === endDate ? (
+        <LessonChip icon={CalendarDays}>{formatClassDate(startDate)}</LessonChip>
+      ) : (
+        <>
+          {startDate ? (
+            <LessonChip icon={CalendarPlus} label="من">
+              {formatClassDate(startDate)}
+            </LessonChip>
+          ) : null}
+          {endDate ? (
+            <LessonChip icon={CalendarCheck} label="إلى">
+              {formatClassDate(endDate)}
+            </LessonChip>
+          ) : null}
+        </>
+      )}
+      {duration ? (
+        <LessonChip icon={Clock} label="المدة">
+          {duration}
+        </LessonChip>
+      ) : null}
+      {extra}
     </span>
   );
 }

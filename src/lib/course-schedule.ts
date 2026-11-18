@@ -57,6 +57,17 @@ export function pickUpcomingClass(
   );
 }
 
+/** The most recent class (latest registration open date), regardless of status. */
+export function pickLastClass(
+  classes: readonly CourseClass[],
+): CourseClass | null {
+  return (
+    [...classes].sort((a, b) =>
+      b.registration_opens_on.localeCompare(a.registration_opens_on),
+    )[0] ?? null
+  );
+}
+
 export function hasLearningStarted(
   learningStartsAt: string,
   today = todayDateOnly(),

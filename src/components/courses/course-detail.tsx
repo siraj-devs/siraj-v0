@@ -5,6 +5,7 @@ import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { EnrollProfileModal } from "@/components/courses/enroll-profile-modal";
 import {
   CONTENT_TYPE_ICON,
+  LessonMetaChips,
   MetaChip,
   StarRating,
 } from "@/components/courses/course-ui";
@@ -14,13 +15,11 @@ import type { CourseWithMeta, Enrollment } from "@/lib/course-types";
 import { type CourseContent } from "@/lib/course-types";
 import {
   formatClassDate,
-  formatLessonDateRange,
-  formatLessonDuration,
   formatRegistrationWindow,
   hasLearningStarted,
   type CourseClass,
 } from "@/lib/course-schedule";
-import { isArabicName } from "@/lib/profile-fields";
+import { isArabicNamePart } from "@/lib/profile-fields";
 import {
   BookOpen,
   HelpCircle,
@@ -49,7 +48,8 @@ export function CourseDetail({
   isLoggedIn,
   isMember,
   hasCompleteProfile,
-  profileName = "",
+  profileFirstName = "",
+  profileLastName = "",
   profilePhone = "",
 }: {
   course: CourseWithMeta;
@@ -59,14 +59,15 @@ export function CourseDetail({
   unenrollEnrollment?: Enrollment | null;
   joinClass: CourseClass | null;
   previewClass: CourseClass | null;
-  previewKind: "enrolled" | "open" | "upcoming" | "none";
+  previewKind: "enrolled" | "open" | "upcoming" | "closed" | "none";
   learningStarted: boolean;
   /** True when an open class exists and the member is not yet in it. */
   canEnrollInOpenClass?: boolean;
   isLoggedIn: boolean;
   isMember: boolean;
   hasCompleteProfile: boolean;
-  profileName?: string;
+  profileFirstName?: string;
+  profileLastName?: string;
   profilePhone?: string;
 }) {
   const router = useRouter();
@@ -281,9 +282,13 @@ export function CourseDetail({
                 . الدروس أدناه لدفعتك، وتُفتح في ذلك التاريخ.
               </p>
             )}
-            {previewKind === "none" && (
+            {previewClass && previewKind === "closed" && (
               <p className="text-sm text-muted-foreground">
-                لا توجد فترة تسجيل مفتوحة ولا دفعة قادمة.
+                انتهى التسجيل في آخر دفعة (
+                <span className="text-foreground">
+                  {formatRegistrationWindow(previewClass)}
+                </span>
+                ). الدروس أدناه لتلك الدفعة.
               </p>
             )}
 
@@ -334,32 +339,24 @@ export function CourseDetail({
             {contents.map((item, index) => {
               const Icon = CONTENT_TYPE_ICON[item.type];
               const row = (
-                <div className="flex items-center gap-4 px-4 py-4 transition-colors sm:px-6">
-                  <span className="w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
+                <div className="flex items-start gap-4 px-4 py-4 transition-colors sm:px-6">
+                  <span className="mt-2 w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
                     {index + 1}
                   </span>
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
                     <Icon className="size-4" />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-lg text-foreground">
+                  <span className="min-w-0 flex-1 space-y-2">
+                    <span className="block break-words text-lg leading-snug text-foreground">
                       {item.title}
                     </span>
-                    {item.author && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {item.author}
-                      </span>
-                    )}
-                    {formatLessonDateRange(item) && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        الفترة: {formatLessonDateRange(item)}
-                      </span>
-                    )}
-                    {formatLessonDuration(item) && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        المدة: {formatLessonDuration(item)}
-                      </span>
-                    )}
+                    <LessonMetaChips
+                      author={item.author}
+                      startDate={item.start_date}
+                      endDate={item.end_date}
+                      durationUnit={item.duration_unit}
+                      durationAmount={item.duration_amount}
+                    />
                   </span>
                   {!(enrollment && learningStarted) && (
                     <Lock className="size-4 shrink-0 text-muted-foreground/60" />
@@ -395,22 +392,27 @@ export function CourseDetail({
                   ? "لا توجد دفعة لعرض دروسها"
                   : "لا دروس بعد"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {previewKind === "upcoming" && previewClass
-                ? `تبدأ فترة التسجيل ${formatRegistrationWindow(previewClass)}.`
-                : previewKind === "none"
-                  ? "عند فتح فترة تسجيل ستظهر دروس تلك الدفعة هنا."
+            {previewKind !== "none" && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {previewKind === "upcoming" && previewClass
+                  ? `تبدأ فترة التسجيل ${formatRegistrationWindow(previewClass)}.`
                   : "ستظهر الدروس هنا عند إضافتها لهذه الفترة."}
-            </p>
+              </p>
+            )}
           </div>
         )}
       </section>
 
       <EnrollProfileModal
-        key={`${profileModalOpen}-${profileName}-${profilePhone}`}
+        key={`${profileModalOpen}-${profileFirstName}-${profileLastName}-${profilePhone}`}
         open={profileModalOpen}
         courseId={course.id}
-        initialName={isArabicName(profileName) ? profileName : ""}
+        initialFirstName={
+          isArabicNamePart(profileFirstName) ? profileFirstName : ""
+        }
+        initialLastName={
+          isArabicNamePart(profileLastName) ? profileLastName : ""
+        }
         initialPhone={profilePhone}
         learningStarted={
           Boolean(joinClass && hasLearningStarted(joinClass.learning_starts_at))

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { AppMember } from "@/lib/members";
-import { isArabicName, isValidPhone } from "@/lib/profile-fields";
+import { isArabicNamePart, isValidPhone } from "@/lib/profile-fields";
 import { encodeOAuthState } from "@/lib/oauth-state";
 import { RemoteAvatar } from "@/components/remote-avatar";
 import { useRouter } from "next/navigation";
@@ -129,7 +129,8 @@ export function ProfileForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [name, setName] = useState(member?.name ?? "");
+  const [firstName, setFirstName] = useState(member?.first_name ?? "");
+  const [lastName, setLastName] = useState(member?.last_name ?? "");
   const [phone, setPhone] = useState(member?.phone ?? "");
 
   useEffect(() => {
@@ -151,27 +152,39 @@ export function ProfileForm({
   }, [linkedProvider, linkError, router]);
 
   const canSubmit = useMemo(() => {
-    const trimmedName = name.trim();
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
     const trimmedPhone = phone.trim();
 
-    if (!isArabicName(trimmedName) || !isValidPhone(trimmedPhone)) return false;
+    if (
+      !isArabicNamePart(trimmedFirst) ||
+      !isArabicNamePart(trimmedLast) ||
+      !isValidPhone(trimmedPhone)
+    ) {
+      return false;
+    }
 
     if (member) {
       const sameAsCurrent =
-        trimmedName === member.name.trim() &&
+        trimmedFirst === member.first_name.trim() &&
+        trimmedLast === member.last_name.trim() &&
         trimmedPhone === (member.phone ?? "").trim();
       if (sameAsCurrent) return false;
     }
 
     return true;
-  }, [name, phone, member]);
+  }, [firstName, lastName, phone, member]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
 
     startTransition(async () => {
-      const result = await saveMyProfile({ name, phone });
+      const result = await saveMyProfile({
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+      });
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -379,21 +392,42 @@ export function ProfileForm({
         onSubmit={onSubmit}
         className="space-y-5 rounded-3xl border border-border/80 bg-background/70 p-6 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] sm:p-8"
       >
-        <div className="space-y-2">
-          <RequiredLabel htmlFor="profile-name">الاسم بالعربية</RequiredLabel>
-          <Input
-            id="profile-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={pending}
-            autoFocus
-            placeholder="مثال: أحمد محمد"
-            dir="rtl"
-          />
-          {name.trim() && !isArabicName(name) ? (
-            <p className="text-xs text-destructive">الاسم يجب أن يكون بالعربية فقط</p>
-          ) : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <RequiredLabel htmlFor="profile-first-name">الاسم الأول</RequiredLabel>
+            <Input
+              id="profile-first-name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              disabled={pending}
+              autoFocus
+              placeholder="مثال: أحمد"
+              dir="rtl"
+            />
+            {firstName.trim() && !isArabicNamePart(firstName) ? (
+              <p className="text-xs text-destructive">
+                الاسم الأول يجب أن يكون بالعربية فقط
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <RequiredLabel htmlFor="profile-last-name">اسم العائلة</RequiredLabel>
+            <Input
+              id="profile-last-name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              disabled={pending}
+              placeholder="مثال: العلوي"
+              dir="rtl"
+            />
+            {lastName.trim() && !isArabicNamePart(lastName) ? (
+              <p className="text-xs text-destructive">
+                اسم العائلة يجب أن يكون بالعربية فقط
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-2">

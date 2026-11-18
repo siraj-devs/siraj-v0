@@ -5,7 +5,11 @@ import {
   isMemberProfileComplete,
   type AppMember,
 } from "@/lib/members";
-import { isArabicName, isValidPhone } from "@/lib/profile-fields";
+import {
+  composeMemberName,
+  isArabicNamePart,
+  isValidPhone,
+} from "@/lib/profile-fields";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { unlinkMemberConnection } from "@/lib/link-connection";
@@ -96,21 +100,24 @@ export async function getMyMemberProfile(): Promise<{
 }
 
 export async function saveMyProfile(input: {
-  name: string;
+  first_name: string;
+  last_name: string;
   phone: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const session = await getSession();
     if (!session) return { success: false, error: "يجب تسجيل الدخول أولاً" };
 
-    const name = input.name.trim();
+    const first_name = input.first_name.trim();
+    const last_name = input.last_name.trim();
+    const name = composeMemberName(first_name, last_name);
     const phone = input.phone.trim();
 
-    if (!isArabicName(name)) {
-      return {
-        success: false,
-        error: "الاسم يجب أن يكون بالعربية",
-      };
+    if (!isArabicNamePart(first_name)) {
+      return { success: false, error: "الاسم الأول يجب أن يكون بالعربية" };
+    }
+    if (!isArabicNamePart(last_name)) {
+      return { success: false, error: "اسم العائلة يجب أن يكون بالعربية" };
     }
     if (!isValidPhone(phone)) {
       return { success: false, error: "رقم الهاتف غير صالح" };
@@ -121,7 +128,8 @@ export async function saveMyProfile(input: {
 
     if (member) {
       const sameAsCurrent =
-        name === member.name.trim() &&
+        first_name === member.first_name.trim() &&
+        last_name === member.last_name.trim() &&
         phone === (member.phone ?? "").trim();
 
       if (sameAsCurrent) {
@@ -132,6 +140,8 @@ export async function saveMyProfile(input: {
       const { error } = await supabase
         .from("members")
         .update({
+          first_name,
+          last_name,
           name,
           phone,
           ...(phoneChanged ? { phone_verified_at: null } : {}),
@@ -160,6 +170,8 @@ export async function saveMyProfile(input: {
     }
 
     const { error } = await supabase.from("members").insert({
+      first_name,
+      last_name,
       name,
       phone,
       role: "newcomer",

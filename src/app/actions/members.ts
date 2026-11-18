@@ -8,10 +8,15 @@ import {
 } from "@/lib/member-permissions";
 import {
   canManageMembers,
+  composeMemberName,
   memberRoleRank,
   type AppMember,
   type MemberRole,
 } from "@/lib/members";
+import {
+  isArabicNamePart,
+  isValidPhone,
+} from "@/lib/profile-fields";
 import { hasPageEdit, type PageGrant } from "@/lib/page-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -63,7 +68,7 @@ function revalidateMembers() {
 }
 
 const MEMBER_PROFILE_SELECT =
-  "id, name, email, phone, phone_verified_at, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)";
+  "id, first_name, last_name, name, email, phone, phone_verified_at, role, ft_connection, dc_connection, google_connection, ft_connections(login, avatar), dc_connections(username, avatar), google_connections(email, avatar)";
 
 function mapMemberProfileRow(
   row: Record<string, unknown>,
@@ -85,9 +90,17 @@ function mapMemberProfileRow(
     avatar?: string | null;
   } | null;
 
+  const first_name = String(row.first_name ?? "").trim();
+  const last_name = String(row.last_name ?? "").trim();
+  const name =
+    String(row.name ?? "").trim() ||
+    [first_name, last_name].filter(Boolean).join(" ");
+
   return {
     id: row.id as number,
-    name: row.name as string,
+    first_name,
+    last_name,
+    name,
     email: (row.email as string | null) ?? null,
     phone: (row.phone as string | null) ?? null,
     phone_verified_at: (row.phone_verified_at as string | null) ?? null,
@@ -314,7 +327,9 @@ export async function getAvailableGoogleConnections(
 }
 
 export async function createMember(input: {
-  name: string;
+  first_name: string;
+  last_name: string;
+  phone?: string | null;
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
@@ -324,13 +339,21 @@ export async function createMember(input: {
   try {
     const { member: current } = await requirePageEdit(MEMBERS_PATH);
 
-    const name = input.name?.trim();
+    const first_name = input.first_name?.trim() ?? "";
+    const last_name = input.last_name?.trim() ?? "";
+    const phone = input.phone?.trim() || null;
+    const name = composeMemberName(first_name, last_name);
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
     const dc_connection = input.dc_connection?.trim() || null;
     const google_connection = input.google_connection?.trim() || null;
 
-    if (!name) return { success: false, error: "الاسم مطلوب" };
+    if (!isArabicNamePart(first_name))
+      return { success: false, error: "الاسم الأول يجب أن يكون بالعربية" };
+    if (!isArabicNamePart(last_name))
+      return { success: false, error: "اسم العائلة يجب أن يكون بالعربية" };
+    if (phone && !isValidPhone(phone))
+      return { success: false, error: "رقم الهاتف غير صالح" };
     if (!ROLE_VALUES.includes(role))
       return { success: false, error: "الدور غير صالح" };
 
@@ -338,7 +361,10 @@ export async function createMember(input: {
     const { data, error } = await supabase
       .from("members")
       .insert({
+        first_name,
+        last_name,
         name,
+        phone,
         role,
         ft_connection,
         dc_connection,
@@ -371,7 +397,9 @@ export async function createMember(input: {
 
 export async function updateMember(input: {
   id: number;
-  name: string;
+  first_name: string;
+  last_name: string;
+  phone?: string | null;
   role: MemberRole;
   ft_connection?: number | null;
   dc_connection?: string | null;
@@ -382,7 +410,10 @@ export async function updateMember(input: {
     const { member: current } = await requirePageEdit(MEMBERS_PATH);
 
     const id = Number(input.id);
-    const name = input.name?.trim();
+    const first_name = input.first_name?.trim() ?? "";
+    const last_name = input.last_name?.trim() ?? "";
+    const phone = input.phone?.trim() || null;
+    const name = composeMemberName(first_name, last_name);
     const role = input.role;
     const ft_connection = input.ft_connection ?? null;
     const dc_connection = input.dc_connection?.trim() || null;
@@ -390,7 +421,12 @@ export async function updateMember(input: {
 
     if (!id || !Number.isFinite(id))
       return { success: false, error: "معرّف غير صالح" };
-    if (!name) return { success: false, error: "الاسم مطلوب" };
+    if (!isArabicNamePart(first_name))
+      return { success: false, error: "الاسم الأول يجب أن يكون بالعربية" };
+    if (!isArabicNamePart(last_name))
+      return { success: false, error: "اسم العائلة يجب أن يكون بالعربية" };
+    if (phone && !isValidPhone(phone))
+      return { success: false, error: "رقم الهاتف غير صالح" };
     if (!ROLE_VALUES.includes(role))
       return { success: false, error: "الدور غير صالح" };
 
@@ -402,9 +438,26 @@ export async function updateMember(input: {
     }
 
     const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("members")
+      .select("phone")
+      .eq("id", id)
+      .maybeSingle();
+    const phoneChanged = phone !== ((existing?.phone as string | null) ?? null);
+
     const { error } = await supabase
       .from("members")
-      .update({ name, role, ft_connection, dc_connection, google_connection })
+      .update({
+        first_name,
+        last_name,
+        name,
+        phone,
+        ...(phoneChanged ? { phone_verified_at: null } : {}),
+        role,
+        ft_connection,
+        dc_connection,
+        google_connection,
+      })
       .eq("id", id);
 
     if (error) {

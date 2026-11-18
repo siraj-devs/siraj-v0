@@ -9,6 +9,7 @@ import {
 } from "@/lib/courses";
 import {
   hasLearningStarted,
+  pickLastClass,
   pickOpenClass,
   pickUpcomingClass,
 } from "@/lib/course-schedule";
@@ -64,12 +65,15 @@ export default async function CourseDetailPage({
     ? (classes.find((item) => item.id === learningEnrollment.class_id) ?? null)
     : null;
 
+  // No open/upcoming/enrolled class: fall back to the latest (closed) class.
+  const lastClass = pickLastClass(classes);
+
   const canEnrollInOpenClass = Boolean(openClass && !openEnrollment);
   const previewClass = openEnrollment
     ? openClass
     : canEnrollInOpenClass
       ? openClass
-      : (enrolledClass ?? upcomingClass);
+      : (enrolledClass ?? upcomingClass ?? lastClass);
   const previewKind = openEnrollment
     ? "enrolled"
     : openClass
@@ -78,7 +82,9 @@ export default async function CourseDetailPage({
         ? "upcoming"
         : enrolledClass
           ? "enrolled"
-          : "none";
+          : lastClass
+            ? "closed"
+            : "none";
 
   const contents = await getCourseContents(id, previewClass?.id ?? null);
   const learningStarted = enrolledClass
@@ -110,7 +116,8 @@ export default async function CourseDetailPage({
         isLoggedIn={Boolean(session)}
         isMember={Boolean(member)}
         hasCompleteProfile={isMemberProfileComplete(member)}
-        profileName={member?.name ?? ""}
+        profileFirstName={member?.first_name ?? ""}
+        profileLastName={member?.last_name ?? ""}
         profilePhone={member?.phone ?? ""}
       />
     </div>
