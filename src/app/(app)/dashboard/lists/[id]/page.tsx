@@ -8,7 +8,7 @@ export default async function DashboardListPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { canEdit } = await gateDashboardPage("/dashboard/lists");
+  const { canEdit, member } = await gateDashboardPage("/dashboard/lists");
   const { id } = await params;
   const data = await getClubList(id);
   if (!data) notFound();
@@ -19,6 +19,7 @@ export default async function DashboardListPage({
         list={data.list}
         entries={data.entries}
         canManage={canEdit}
+        currentMemberId={member?.id ?? null}
       />
     </div>
   );

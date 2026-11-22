@@ -8,23 +8,46 @@ import {
   type ListEntry,
   type ListProfileCard,
 } from "@/app/actions/lists";
+import {
+  LIST_ENTRY_PRIORITIES,
+  LIST_ENTRY_PRIORITY_LABELS,
+  type ListEntryPriority,
+} from "@/lib/list-entry";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
-import { ProfileResultModal } from "@/components/lists/profile-result-modal";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import { KebabMenu, type KebabMenuItem } from "@/components/dashboard/kebab-menu";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { matchesSelection } from "@/components/dashboard/search-filter-bar";
+import {
+  ListEntryPanel,
+  NotesCountChip,
+  PriorityBadge,
+} from "@/components/lists/list-entry-panel";
+import { ProfileResultModal } from "@/components/lists/profile-result-modal";
+import { RemoteAvatar } from "@/components/remote-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ViewLayout } from "@/components/layout-toggle";
 import { campusLabelAr } from "@/lib/network-labels";
-import { Calendar, MapPin, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  Flag,
+  MapPin,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { RemoteAvatar } from "@/components/remote-avatar";
+
+const PRIORITY_ORDER: Record<ListEntryPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+  none: 3,
+};
 
 function EntryAvatar({
   entry,
@@ -88,10 +111,12 @@ export function ListDetail({
   list,
   entries,
   canManage,
+  currentMemberId,
 }: {
   list: ClubList;
   entries: ListEntry[];
   canManage: boolean;
+  currentMemberId: number | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -101,11 +126,23 @@ export function ListDetail({
     profile: ListProfileCard;
   } | null>(null);
   const [removing, setRemoving] = useState<ListEntry | null>(null);
+  const [selected, setSelected] = useState<{
+    entry: ListEntry;
+    mode: "notes" | "priority";
+  } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [years, setYears] = useState<string[]>([]);
   const [campuses, setCampuses] = useState<string[]>([]);
+  const [priorities, setPriorities] = useState<string[]>([]);
   const [layout, setLayout] = useState<ViewLayout>("grid");
+
+  const selectedEntry =
+    selected != null
+      ? (entries.find((entry) => entry.id === selected.entry.id) ??
+        selected.entry)
+      : null;
+  const selectedMode = selected?.mode ?? "notes";
 
   const yearOptions = useMemo(() => {
     const values = new Set<string>();
@@ -129,20 +166,29 @@ export function ListDetail({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return entries.filter((entry) => {
-      const yearKey = entry.pool_year != null ? String(entry.pool_year) : "unknown";
-      const campusKey = campusLabelAr(entry.campus) ?? "unknown";
-      if (!matchesSelection(years, yearKey)) return false;
-      if (!matchesSelection(campuses, campusKey)) return false;
-      if (!q) return true;
-      return (
-        entry.name.toLowerCase().includes(q) ||
-        entry.login.toLowerCase().includes(q) ||
-        yearKey.includes(q) ||
-        campusKey.toLowerCase().includes(q)
-      );
-    });
-  }, [entries, query, years, campuses]);
+    return entries
+      .filter((entry) => {
+        const yearKey =
+          entry.pool_year != null ? String(entry.pool_year) : "unknown";
+        const campusKey = campusLabelAr(entry.campus) ?? "unknown";
+        if (!matchesSelection(years, yearKey)) return false;
+        if (!matchesSelection(campuses, campusKey)) return false;
+        if (!matchesSelection(priorities, entry.priority)) return false;
+        if (!q) return true;
+        return (
+          entry.name.toLowerCase().includes(q) ||
+          entry.login.toLowerCase().includes(q) ||
+          yearKey.includes(q) ||
+          campusKey.toLowerCase().includes(q) ||
+          entry.notes.some((note) => note.body.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const byPriority = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+        if (byPriority !== 0) return byPriority;
+        return b.created_at.localeCompare(a.created_at);
+      });
+  }, [entries, query, years, campuses, priorities]);
 
   function onSearch(event: FormEvent) {
     event.preventDefault();
@@ -183,9 +229,29 @@ export function ListDetail({
         return;
       }
       toast.success("تمت الإزالة من اللائحة");
+      if (selected?.entry.id === removing.id) setSelected(null);
       setRemoving(null);
       router.refresh();
     });
+  }
+
+  function itemsFor(entry: ListEntry): KebabMenuItem[] {
+    if (!canManage) return [];
+    return [
+      {
+        key: "edit",
+        label: "تعديل",
+        icon: <Pencil className="size-3.5" />,
+        onClick: () => setSelected({ entry, mode: "priority" }),
+      },
+      {
+        key: "remove",
+        label: "إزالة",
+        icon: <Trash2 className="size-3.5" />,
+        variant: "destructive",
+        onClick: () => setRemoving(entry),
+      },
+    ];
   }
 
   return (
@@ -202,7 +268,8 @@ export function ListDetail({
               {list.name}
             </h1>
             <p className="max-w-lg text-foreground/65">
-              ابحث عن حساب 42، ثم أكّد إضافته إلى هذه اللائحة.
+              ابحث عن حساب 42، ثم أكّد إضافته إلى هذه اللائحة. يمكنك تعيين أولوية
+              وإضافة ملاحظات تعاونية لكل حساب.
             </p>
           </div>
         </div>
@@ -234,13 +301,32 @@ export function ListDetail({
       <DashboardToolbar
         query={query}
         onQueryChange={setQuery}
-        searchPlaceholder="ابحث بالاسم أو اللوجين أو الحرم…"
+        searchPlaceholder="ابحث بالاسم أو اللوجين أو الملاحظات…"
         menuTitle="تصفية الحسابات"
         onReset={() => {
           setYears([]);
           setCampuses([]);
+          setPriorities([]);
         }}
         groups={[
+          {
+            title: "الأولوية",
+            selected: priorities,
+            onChange: setPriorities,
+            options: LIST_ENTRY_PRIORITIES.map((priority) => ({
+              key: priority,
+              label: LIST_ENTRY_PRIORITY_LABELS[priority],
+              tone:
+                priority === "high"
+                  ? ("rose" as const)
+                  : priority === "medium"
+                    ? ("amber" as const)
+                    : priority === "low"
+                      ? ("sky" as const)
+                      : ("slate" as const),
+              icon: <Flag />,
+            })),
+          },
           {
             title: "السنة",
             selected: years,
@@ -271,121 +357,106 @@ export function ListDetail({
       {filtered.length > 0 ? (
         layout === "list" ? (
           <ul className="space-y-3">
-            {filtered.map((entry) => {
-              const items: KebabMenuItem[] = canManage
-                ? [
-                    {
-                      key: "remove",
-                      label: "إزالة",
-                      icon: <Trash2 className="size-3.5" />,
-                      variant: "destructive",
-                      onClick: () => setRemoving(entry),
-                    },
-                  ]
-                : [];
-              return (
-                <li
-                  key={entry.id}
-                  className={`relative flex flex-col gap-4 rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
-                    openMenuId === entry.id ? "z-50" : "z-0"
-                  }`}
+            {filtered.map((entry) => (
+              <li
+                key={entry.id}
+                className={`relative flex flex-col gap-4 rounded-2xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
+                  openMenuId === entry.id ? "z-50" : "z-0"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelected({ entry, mode: "notes" })}
+                  className="flex min-w-0 flex-1 items-center gap-4 text-start"
                 >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <EntryAvatar entry={entry} className="size-14" />
-                    <div className="min-w-0 space-y-1.5">
+                  <EntryAvatar entry={entry} className="size-14" />
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-kufam text-lg text-foreground">
                         {entry.name}
                       </h3>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <Link
-                          href={`https://profile.intra.42.fr/users/${encodeURIComponent(entry.login)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          dir="ltr"
-                          className="text-sm text-muted-foreground underline-offset-2 transition hover:text-primary hover:underline"
-                        >
-                          @{entry.login}
-                        </Link>
-                        <EntryMeta entry={entry} />
-                      </div>
+                      <PriorityBadge priority={entry.priority} size="sm" />
                     </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span
+                        dir="ltr"
+                        className="text-sm text-muted-foreground"
+                      >
+                        @{entry.login}
+                      </span>
+                      <EntryMeta entry={entry} />
+                    </div>
+                    <NotesCountChip count={entry.notes.length} size="sm" />
                   </div>
-                  {canManage && (
-                    <div className="relative shrink-0 self-end sm:self-center">
-                      <ListRowActions
-                        items={items}
-                        open={openMenuId === entry.id}
-                        onToggle={() =>
-                          setOpenMenuId(openMenuId === entry.id ? null : entry.id)
-                        }
-                        onClose={() => setOpenMenuId(null)}
-                        menuPlacement="up"
-                        ariaLabel="خيارات الحساب"
-                      />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+                </button>
+                {canManage && (
+                  <div className="relative shrink-0 self-end sm:self-center">
+                    <ListRowActions
+                      items={itemsFor(entry)}
+                      open={openMenuId === entry.id}
+                      onToggle={() =>
+                        setOpenMenuId(openMenuId === entry.id ? null : entry.id)
+                      }
+                      onClose={() => setOpenMenuId(null)}
+                      menuPlacement="up"
+                      ariaLabel="خيارات الحساب"
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
           </ul>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((entry) => {
-              const items: KebabMenuItem[] = canManage
-                ? [
-                    {
-                      key: "remove",
-                      label: "إزالة",
-                      icon: <Trash2 className="size-3.5" />,
-                      variant: "destructive",
-                      onClick: () => setRemoving(entry),
-                    },
-                  ]
-                : [];
-              return (
-                <article
-                  key={entry.id}
-                  className={`group relative flex flex-col rounded-3xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_50px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] ${
-                    openMenuId === entry.id ? "z-50" : "z-0"
-                  }`}
-                >
-                  {canManage && (
-                    <div className="absolute top-3 left-3 z-20">
-                      <KebabMenu
-                        items={items}
-                        open={openMenuId === entry.id}
-                        onToggle={() =>
-                          setOpenMenuId(openMenuId === entry.id ? null : entry.id)
-                        }
-                        onClose={() => setOpenMenuId(null)}
-                        placement="down"
-                        ariaLabel="خيارات الحساب"
-                        buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
-                      />
-                    </div>
-                  )}
-                  <div className="flex flex-1 flex-col items-center px-2 pt-4 pb-2">
-                    <EntryAvatar entry={entry} className="mb-4 size-20" />
-                    <h3 className="mb-1 text-center font-kufam text-xl font-medium text-foreground">
-                      {entry.name}
-                    </h3>
-                    <Link
-                      href={`https://profile.intra.42.fr/users/${encodeURIComponent(entry.login)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      dir="ltr"
-                      className="mb-2 text-center text-sm text-muted-foreground underline-offset-2 transition hover:text-primary hover:underline"
-                    >
-                      @{entry.login}
-                    </Link>
-                    <EntryMeta
-                      entry={entry}
-                      className="flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+            {filtered.map((entry) => (
+              <article
+                key={entry.id}
+                className={`group relative flex flex-col rounded-3xl border border-border/80 bg-background/70 p-4 shadow-[0_4px_24px_-16px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_50px_-28px_color-mix(in_oklch,var(--primary)_28%,transparent)] ${
+                  openMenuId === entry.id ? "z-50" : "z-0"
+                }`}
+              >
+                {canManage && (
+                  <div className="absolute top-3 left-3 z-20">
+                    <KebabMenu
+                      items={itemsFor(entry)}
+                      open={openMenuId === entry.id}
+                      onToggle={() =>
+                        setOpenMenuId(openMenuId === entry.id ? null : entry.id)
+                      }
+                      onClose={() => setOpenMenuId(null)}
+                      placement="down"
+                      ariaLabel="خيارات الحساب"
+                      buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
                     />
                   </div>
-                </article>
-              );
-            })}
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelected({ entry, mode: "notes" })}
+                  className="flex flex-1 flex-col items-center px-2 pt-4 pb-2 text-center"
+                >
+                  <EntryAvatar entry={entry} className="mb-4 size-20" />
+                  <div dir="ltr" className="mb-1 flex flex-wrap items-center justify-center gap-2">
+                    <h3 className="font-kufam text-xl font-medium text-foreground">
+                      {entry.name}
+                    </h3>
+                    <PriorityBadge priority={entry.priority} />
+                  </div>
+                  <span
+                    className="mb-2 text-sm text-muted-foreground"
+                  >
+                    @{entry.login}
+                  </span>
+                  <EntryMeta
+                    entry={entry}
+                    className="mb-3 flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
+                  />
+                  <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
+                    <NotesCountChip count={entry.notes.length} />
+                  </div>
+                </button>
+              </article>
+            ))}
           </div>
         )
       ) : (
@@ -406,6 +477,17 @@ export function ListDetail({
         }}
         onConfirm={onConfirmAdd}
       />
+
+      {selectedEntry && (
+        <ListEntryPanel
+          listId={list.id}
+          entry={selectedEntry}
+          canManage={canManage}
+          currentMemberId={currentMemberId}
+          mode={selectedMode}
+          onClose={() => setSelected(null)}
+        />
+      )}
 
       <ConfirmDeleteModal
         open={Boolean(removing)}
