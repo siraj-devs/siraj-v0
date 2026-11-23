@@ -1,4 +1,5 @@
 import {
+  getSessionMemberOptions,
   getSessionsForDashboard,
   listSeries,
 } from "@/app/actions/sessions";
@@ -8,14 +9,20 @@ import { gateDashboardPage } from "@/lib/dashboard-gate";
 export default async function DashboardSessionsPage() {
   const { canEdit } = await gateDashboardPage("/dashboard/sessions");
 
-  const [sessions, series] = await Promise.all([
+  const [sessions, series, members] = await Promise.all([
     getSessionsForDashboard(),
     listSeries(),
+    canEdit ? getSessionMemberOptions() : [],
   ]);
 
   return (
     <div className="py-6 md:py-10">
-      <SessionsManager sessions={sessions} series={series} canManage={canEdit} />
+      <SessionsManager
+        sessions={sessions}
+        series={series}
+        members={members}
+        canManage={canEdit}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   deleteSession,
   updateSession,
   type ClubSession,
+  type SessionMemberOption,
   type SessionSeries,
 } from "@/app/actions/sessions";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
@@ -30,15 +31,19 @@ const emptyForm = (): SessionFormState => ({
   record_link: "",
   series_id: "",
   is_published: false,
+  presenters: [],
+  participants: [],
 });
 
 export function SessionsManager({
   sessions,
   series,
+  members,
   canManage,
 }: {
   sessions: ClubSession[];
   series: SessionSeries[];
+  members: SessionMemberOption[];
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -112,7 +117,12 @@ export function SessionsManager({
       if (!q) return true;
       return (
         s.title.toLowerCase().includes(q) ||
-        (s.series?.name.toLowerCase().includes(q) ?? false)
+        (s.series?.name.toLowerCase().includes(q) ?? false) ||
+        [...s.presenters, ...s.participants].some(
+          (person) =>
+            person.name.toLowerCase().includes(q) ||
+            (person.login?.toLowerCase().includes(q) ?? false),
+        )
       );
     });
   }, [sessions, query, statusFilter, seriesFilter]);
@@ -135,9 +145,11 @@ export function SessionsManager({
     setForm({
       title: session.title,
       due_date: session.due_date.slice(0, 10),
-      record_link: session.record_link,
+      record_link: session.record_link ?? "",
       series_id: session.series_id ?? "",
       is_published: session.is_published,
+      presenters: session.presenters,
+      participants: session.participants,
     });
     setEditingId(session.id);
     setImageFile(null);
@@ -207,6 +219,16 @@ export function SessionsManager({
     formData.set("record_link", form.record_link);
     formData.set("series_id", form.series_id);
     formData.set("is_published", form.is_published ? "true" : "false");
+    formData.set(
+      "people",
+      JSON.stringify([
+        ...form.presenters.map((person) => ({ ...person, role: "presenter" })),
+        ...form.participants.map((person) => ({
+          ...person,
+          role: "participant",
+        })),
+      ]),
+    );
     if (imageFile) formData.set("thumbnail", imageFile);
     if (removeThumbnail && !imageFile) formData.set("remove_thumbnail", "true");
     if (modal === "edit" && editingId) formData.set("id", editingId);
@@ -250,7 +272,7 @@ export function SessionsManager({
       <DashboardHeader
         eyebrow="إدارة المحتوى"
         title="الأمسيات"
-        description="أنشئ الأمسيات، أرفق تسجيل يوتيوب، ونظّم السلاسل وظهورها للأعضاء."
+        description="أنشئ الأمسيات، عيّن المقدّمين والمشاركين، أرفق تسجيل يوتيوب، ونظّم السلاسل وظهورها للأعضاء."
         action={
           canManage && (
             <Button onClick={openCreate} className="gap-2">
@@ -269,7 +291,7 @@ export function SessionsManager({
       <DashboardToolbar
         query={query}
         onQueryChange={setQuery}
-        searchPlaceholder="ابحث بالعنوان أو السلسلة…"
+        searchPlaceholder="ابحث بالعنوان أو السلسلة أو المقدّم…"
         menuTitle="تصفية الأمسيات"
         onReset={() => {
           setStatusFilter([]);
@@ -323,6 +345,7 @@ export function SessionsManager({
           form={form}
           onFormChange={setForm}
           seriesList={seriesList}
+          members={members}
           newSeriesName={newSeriesName}
           onNewSeriesNameChange={setNewSeriesName}
           onCreateSeries={onCreateSeries}

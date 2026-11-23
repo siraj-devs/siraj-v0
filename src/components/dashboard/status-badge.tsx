@@ -54,9 +54,11 @@ export function StatusBadge({
 export function PublishBadge({
   published,
   size = "md",
+  iconOnly = false,
 }: {
   published: boolean;
   size?: "sm" | "md";
+  iconOnly?: boolean;
 }) {
   const iconSize = size === "sm" ? "size-3" : "size-3.5";
   return (
@@ -71,6 +73,7 @@ export function PublishBadge({
       }
       label={published ? "منشور" : "مخفي"}
       size={size}
+      iconOnly={iconOnly}
     />
   );
 }

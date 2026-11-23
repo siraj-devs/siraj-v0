@@ -1,7 +1,9 @@
 "use client";
 
 import type { ClubEvent } from "@/app/actions/events";
+import type { ClubSession } from "@/app/actions/sessions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { SessionPeopleChips } from "@/components/sessions/session-people";
 import {
   KebabMenu,
   type KebabMenuItem,
@@ -18,14 +20,44 @@ import {
   type HijriMonthRef,
 } from "@/lib/hijri-calendar";
 import { cn } from "@/lib/utils";
-import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  Clapperboard,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CalendarRangeEditor } from "./calendar-range-editor";
-import { eventsForDay, HijriCalendarMonth } from "./hijri-calendar-month";
+import {
+  eventsForDay,
+  HijriCalendarMonth,
+  type CalendarItem,
+} from "./hijri-calendar-month";
 
 export type CalendarMonthData = HijriMonthRef & { days: HijriDay[] };
 
 type EventFilter = "all" | "upcoming" | "past";
+
+const SESSION_COLOR = "#7c3aed";
+
+type SessionCalendarItem = CalendarItem & { session: ClubSession };
+
+function sessionItem(session: ClubSession): SessionCalendarItem | null {
+  const start = fromDateKey(session.due_date.slice(0, 10));
+  if (!start) return null;
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return {
+    id: `session:${session.id}`,
+    name: session.title,
+    start_at: start.toISOString(),
+    end_at: end.toISOString(),
+    color: SESSION_COLOR,
+    session,
+  };
+}
 
 function timeRange(e: ClubEvent): string {
   const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
@@ -49,6 +81,7 @@ export function CalendarView({
   months,
   events,
   allEvents,
+  sessions,
   startKey,
   endKey,
   rangeSpec,
@@ -58,6 +91,8 @@ export function CalendarView({
   /** Occurrences inside the displayed range. */
   events: ClubEvent[];
   allEvents: ClubEvent[];
+  /** Sessions dated inside the displayed range. */
+  sessions: ClubSession[];
   startKey: string;
   endKey: string;
   rangeSpec: CalendarRangeSpec | null;
@@ -102,8 +137,23 @@ export function CalendarView({
     });
   }, [definitions, filter]);
 
+  const sessionItems = useMemo(
+    () =>
+      sessions
+        .map(sessionItem)
+        .filter((item): item is SessionCalendarItem => item != null),
+    [sessions],
+  );
+  const gridItems = useMemo<CalendarItem[]>(
+    () => [...events, ...sessionItems],
+    [events, sessionItems],
+  );
+
   const selectedDate = selectedKey ? fromDateKey(selectedKey) : null;
   const selectedEvents = selectedDate ? eventsForDay(events, selectedDate) : [];
+  const selectedSessions = selectedDate
+    ? eventsForDay(sessionItems, selectedDate)
+    : [];
 
   function itemsFor(event: ClubEvent): KebabMenuItem[] {
     if (!canManage) return [];
@@ -132,7 +182,7 @@ export function CalendarView({
       <DashboardHeader
         eyebrow="إدارة المجتمع"
         title="الجدول"
-        description="التقويم الهجري والميلادي مع أحداث النادي في صفحة واحدة."
+        description="التقويم الهجري والميلادي مع أحداث النادي وأمسياته في صفحة واحدة."
         action={
           canManage && (
             <Button onClick={() => editor.openCreate()} className="gap-2">
@@ -186,10 +236,60 @@ export function CalendarView({
                   )}
                 </div>
 
+                {selectedSessions.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {selectedSessions.map(({ session }) => {
+                      const body = (
+                        <>
+                          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                            <Clapperboard className="size-3.5 shrink-0 text-violet-600" />
+                            <span className="truncate">{session.title}</span>
+                            {!session.is_published && (
+                              <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-normal text-amber-800 ring-1 ring-inset ring-amber-200">
+                                مخفي
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            أمسية
+                            {session.participants.length > 0 &&
+                              ` · ${session.participants.length} مشارك`}
+                          </p>
+                          <SessionPeopleChips
+                            people={session.presenters}
+                            max={3}
+                            className="mt-2"
+                          />
+                        </>
+                      );
+                      return (
+                        <li
+                          key={session.id}
+                          style={{ borderInlineStartColor: SESSION_COLOR }}
+                          className="rounded-2xl border border-s-4 border-border/70 bg-background px-3 py-2.5"
+                        >
+                          {session.is_published ? (
+                            <Link
+                              href={`/sessions/${session.id}`}
+                              className="block transition hover:opacity-80"
+                            >
+                              {body}
+                            </Link>
+                          ) : (
+                            body
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
                 {selectedEvents.length === 0 ? (
-                  <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
-                    لا أحداث في هذا اليوم.
-                  </p>
+                  selectedSessions.length === 0 && (
+                    <p className="mt-4 rounded-2xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
+                      لا أحداث في هذا اليوم.
+                    </p>
+                  )
                 ) : (
                   <ul className="mt-4 space-y-2">
                     {selectedEvents.map((e) => {
@@ -346,7 +446,7 @@ export function CalendarView({
             <HijriCalendarMonth
               key={monthKey(m)}
               days={m.days}
-              events={events}
+              events={gridItems}
               rangeStartKey={startKey}
               rangeEndKey={endKey}
               selectedKey={selectedKey}

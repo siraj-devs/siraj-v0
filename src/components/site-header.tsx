@@ -37,7 +37,8 @@ export function SiteHeader({
   showSessions = true,
   user,
 }: SiteHeaderProps) {
-  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const links = allLinks.filter((link) => {
     if (link.href === "/join") return showJoin;
     if (link.href === "/courses") return showCourses;
@@ -45,10 +46,20 @@ export function SiteHeader({
     return true;
   });
 
+  function setMobileMenu(next: boolean) {
+    if (next) setUserMenuOpen(false);
+    setMobileOpen(next);
+  }
+
+  function setUserMenu(next: boolean) {
+    if (next) setMobileOpen(false);
+    setUserMenuOpen(next);
+  }
+
   useEffect(() => {
-    if (!open) return;
+    if (!mobileOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setMobileOpen(false);
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -56,13 +67,13 @@ export function SiteHeader({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, [mobileOpen]);
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 lg:grid lg:grid-cols-3">
         <div className="flex items-center">
-          <Link href="/" onClick={() => setOpen(false)}>
+          <Link href="/" onClick={() => setMobileMenu(false)}>
             <Logo className="size-10" />
           </Link>
         </div>
@@ -81,7 +92,11 @@ export function SiteHeader({
 
         <div className="flex items-center justify-end gap-2">
           {isLoggedIn ? (
-            <UserMenu user={user} />
+            <UserMenu
+              user={user}
+              open={userMenuOpen}
+              onOpenChange={setUserMenu}
+            />
           ) : showLogin ? (
             <Button asChild variant="secondary" size="sm" className="hidden lg:inline-flex">
               <Link href="/login">تسجيل الدخول</Link>
@@ -91,22 +106,22 @@ export function SiteHeader({
           <button
             type="button"
             className="flex size-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted lg:hidden"
-            aria-expanded={open}
+            aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
-            aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
-            onClick={() => setOpen((prev) => !prev)}
+            aria-label={mobileOpen ? "إغلاق القائمة" : "فتح القائمة"}
+            onClick={() => setMobileMenu(!mobileOpen)}
           >
-            {open ? <X className="size-6" /> : <Menu className="size-6" />}
+            {mobileOpen ? <X className="size-6" /> : <Menu className="size-6" />}
           </button>
         </div>
       </div>
 
-      {open && (
+      {mobileOpen && (
         <>
           <div
             className="fixed inset-0 top-[73px] z-40 bg-foreground/20 backdrop-blur-[2px] lg:hidden"
             aria-hidden
-            onClick={() => setOpen(false)}
+            onClick={() => setMobileMenu(false)}
           />
           <div
             id="mobile-menu"
@@ -118,7 +133,7 @@ export function SiteHeader({
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={() => setOpen(false)}
+                    onClick={() => setMobileMenu(false)}
                     className="rounded-md px-3 py-3 text-base text-foreground transition-colors hover:bg-muted hover:text-primary"
                   >
                     {link.label}
@@ -128,7 +143,7 @@ export function SiteHeader({
               {!isLoggedIn && showLogin && (
                 <div className="border-t border-border pt-4">
                   <Button asChild variant="secondary" className="w-full">
-                    <Link href="/login" onClick={() => setOpen(false)}>
+                    <Link href="/login" onClick={() => setMobileMenu(false)}>
                       تسجيل الدخول
                     </Link>
                   </Button>

@@ -1,4 +1,5 @@
 import { listEvents, listEventsForRange } from "@/app/actions/events";
+import { listSessionsForRange } from "@/app/actions/sessions";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import {
   CALENDAR_RANGE_COOKIE,
@@ -7,7 +8,7 @@ import {
   resolveRangeSpec,
 } from "@/lib/calendar-range";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
-import { gregorianBoundsFromDays } from "@/lib/hijri-calendar";
+import { gregorianBoundsFromDays, toDateKey } from "@/lib/hijri-calendar";
 import { cookies } from "next/headers";
 
 export default async function CalendarPage() {
@@ -20,9 +21,15 @@ export default async function CalendarPage() {
   const range = custom ?? (await defaultResolvedRange());
 
   const bounds = gregorianBoundsFromDays(range.months.flatMap((m) => m.days));
-  const [events, allEvents] = await Promise.all([
+  const [events, allEvents, sessions] = await Promise.all([
     bounds ? listEventsForRange(bounds.start, bounds.endExclusive) : [],
     listEvents(),
+    bounds
+      ? listSessionsForRange(
+          toDateKey(bounds.start),
+          toDateKey(bounds.endExclusive),
+        )
+      : [],
   ]);
 
   return (
@@ -31,6 +38,7 @@ export default async function CalendarPage() {
         months={range.months}
         events={events}
         allEvents={allEvents}
+        sessions={sessions}
         startKey={range.startKey}
         endKey={range.endKey}
         rangeSpec={custom ? spec : null}

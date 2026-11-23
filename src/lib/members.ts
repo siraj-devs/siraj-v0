@@ -163,6 +163,7 @@ export const VIEWER_DASHBOARD_PATHS = [
   "/dashboard/calendar",
   "/dashboard/finance",
   "/dashboard/meetings",
+  "/dashboard/sessions",
 ] as const;
 
 /** @deprecated Use VIEWER_DASHBOARD_PATHS */

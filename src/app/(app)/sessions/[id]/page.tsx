@@ -21,7 +21,9 @@ export default async function SessionDetailPage({
   const session = await getPublishedSessionById(id);
   if (!session) notFound();
 
-  const embed = youtubeEmbedUrl(session.record_link);
+  const embed = session.record_link
+    ? youtubeEmbedUrl(session.record_link)
+    : null;
 
   return (
     <article className="flex w-full flex-col gap-8 py-10 pb-16 md:gap-10 md:py-14">

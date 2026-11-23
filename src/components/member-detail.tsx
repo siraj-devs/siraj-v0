@@ -1,8 +1,21 @@
 import type { MemberProfile } from "@/app/actions/members";
+import type { MemberSessionItem } from "@/app/actions/sessions";
+import { PublishBadge } from "@/components/dashboard/status-badge";
+import { Rosette } from "@/components/islamic-motif";
 import { RemoteAvatar } from "@/components/remote-avatar";
 import type { MemberLearningItem } from "@/lib/courses";
 import { MEMBER_ROLE_LABELS, type MemberRole } from "@/lib/member-role";
-import { BookOpen, CheckCircle2, Mail, Phone } from "lucide-react";
+import { formatSessionDueDate } from "@/lib/session-date";
+import {
+  BookOpen,
+  CheckCircle2,
+  Clapperboard,
+  Mail,
+  Mic,
+  Phone,
+  Users,
+} from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -159,10 +172,15 @@ function ConnectionCard({
 export function MemberDetail({
   member,
   learning = [],
+  sessions = [],
 }: {
   member: MemberProfile;
   learning?: MemberLearningItem[];
+  sessions?: MemberSessionItem[];
 }) {
+  const presentedCount = sessions.filter((s) =>
+    s.roles.includes("presenter"),
+  ).length;
   const styles = ROLE_STYLES[member.role];
   const phoneVerified = Boolean(member.phone_verified_at);
 
@@ -339,6 +357,100 @@ export function MemberDetail({
             <BookOpen className="mx-auto mb-3 size-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
               لم يلتحق بأي دورة بعد.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <h2 className="font-kufam text-xl font-semibold text-foreground">
+              الأمسيات
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              الأمسيات التي قدّمها العضو أو شارك فيها.
+            </p>
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {sessions.length} أمسية
+            {presentedCount > 0 && ` · قدّم ${presentedCount}`}
+          </span>
+        </div>
+
+        {sessions.length > 0 ? (
+          <ul className="overflow-hidden rounded-3xl border border-border/70 bg-background/70 shadow-[0_4px_24px_-18px_color-mix(in_oklch,var(--foreground)_12%,transparent)]">
+            {sessions.map((session) => (
+              <li
+                key={session.id}
+                className="border-b border-border/60 last:border-b-0"
+              >
+                <Link
+                  href={
+                    session.is_published
+                      ? `/sessions/${session.id}`
+                      : "/dashboard/sessions"
+                  }
+                  className="flex flex-wrap items-center gap-3 px-4 py-4 transition hover:bg-muted/40 sm:gap-4 sm:px-6"
+                >
+                  <span className="relative h-11 w-16 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted">
+                    {session.thumbnail ? (
+                      <Image
+                        src={session.thumbnail}
+                        alt=""
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="flex size-full items-center justify-center bg-linear-to-b from-primary/5 to-primary/2 text-primary/35">
+                        <Rosette className="size-5" />
+                      </span>
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="truncate font-kufam text-base text-foreground">
+                      {session.title}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>{formatSessionDueDate(session.due_date)}</span>
+                      {session.series && (
+                        <span className="inline-flex items-center gap-1">
+                          <Clapperboard className="size-3" />
+                          {session.series.name}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {!session.is_published && (
+                    <PublishBadge published={false} size="sm" iconOnly />
+                  )}
+                  {session.roles.map((role) => (
+                    <span
+                      key={role}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+                        role === "presenter"
+                          ? "bg-violet-500/10 text-violet-800 ring-violet-500/25"
+                          : "bg-sky-500/10 text-sky-800 ring-sky-500/25"
+                      }`}
+                    >
+                      {role === "presenter" ? (
+                        <Mic className="size-3.5" />
+                      ) : (
+                        <Users className="size-3.5" />
+                      )}
+                      {role === "presenter" ? "مقدّم" : "مشارك"}
+                    </span>
+                  ))}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border px-6 py-10 text-center">
+            <Clapperboard className="mx-auto mb-3 size-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              لم يقدّم أو يشارك في أي أمسية بعد.
             </p>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { getClubMemberById } from "@/app/actions/members";
+import { getMemberSessions } from "@/app/actions/sessions";
 import { MemberDetail } from "@/components/member-detail";
 import { getMemberLearning, type MemberLearningItem } from "@/lib/courses";
 import { gateDashboardPage } from "@/lib/dashboard-gate";
@@ -27,6 +28,7 @@ export default async function MemberDetailPage({
   } catch {
     learning = [];
   }
+  const sessions = await getMemberSessions(id);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-6 md:py-10">
@@ -43,6 +45,7 @@ export default async function MemberDetailPage({
           role: roleVisibleTo(current?.role, member.role),
         }}
         learning={learning}
+        sessions={sessions}
       />
     </div>
   );

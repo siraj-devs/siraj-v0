@@ -15,6 +15,7 @@ import { YoutubeLogoIcon } from "@phosphor-icons/react/dist/ssr";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { SessionPeopleSummary } from "./session-people";
 
 function SessionThumb({
   session,
@@ -51,21 +52,24 @@ function YoutubeLink({
   href: string;
   className?: string;
 }) {
+  // A button, not an anchor: it sits inside the card's link to the detail page.
   return (
-    <Link
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
       aria-label="فتح على يوتيوب"
       title="يوتيوب"
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(href, "_blank", "noopener,noreferrer");
+      }}
       className={
         className ??
-        "inline-flex items-center justify-center text-[#FF0000] transition"
+        "inline-flex items-center justify-center text-[#FF0000] transition hover:scale-110"
       }
     >
       <YoutubeLogoIcon weight="fill" size={24} />
-    </Link>
+    </button>
   );
 }
 
@@ -141,7 +145,10 @@ export function SessionList({
               openMenuId === session.id ? "z-50" : "z-0"
             } ${!session.is_published ? "opacity-75" : ""}`}
           >
-            <div className="flex min-w-0 items-center gap-4">
+            <Link
+              href={`/dashboard/sessions/${session.id}`}
+              className="flex min-w-0 flex-1 items-center gap-4"
+            >
               <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted">
                 {session.thumbnail ? (
                   <Image
@@ -162,7 +169,11 @@ export function SessionList({
                   <h3 className="truncate font-kufam text-lg text-foreground">
                     {session.title}
                   </h3>
-                  <PublishBadge published={session.is_published} size="sm" />
+                  <PublishBadge
+                    published={session.is_published}
+                    size="sm"
+                    iconOnly
+                  />
                   {session.series && (
                     <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
                       {session.series.name}
@@ -173,10 +184,17 @@ export function SessionList({
                   <p className="text-sm text-muted-foreground">
                     {formatSessionDueDate(session.due_date)}
                   </p>
-                  <YoutubeLink href={session.record_link} />
+                  {session.record_link && (
+                    <YoutubeLink href={session.record_link} />
+                  )}
                 </div>
+                <SessionPeopleSummary
+                  presenters={session.presenters}
+                  participants={session.participants}
+                  className="pt-1"
+                />
               </div>
-            </div>
+            </Link>
 
             {canManage && (
               <div className="relative shrink-0 self-end sm:self-center">
@@ -197,7 +215,7 @@ export function SessionList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {sessions.map((session) => (
         <article
           key={session.id}
@@ -205,42 +223,57 @@ export function SessionList({
             openMenuId === session.id ? "z-50" : "z-0"
           } ${!session.is_published ? "opacity-75" : ""}`}
         >
-          <div className="relative">
+          {canManage && (
+            <div className="absolute top-5 left-5 z-20">
+              <KebabMenu
+                items={itemsFor(session)}
+                open={openMenuId === session.id}
+                onToggle={() => onToggleMenu(session.id)}
+                onClose={onCloseMenu}
+                placement="down"
+                ariaLabel="خيارات الأمسية"
+                buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+              />
+            </div>
+          )}
+
+          <Link
+            href={`/dashboard/sessions/${session.id}`}
+            className="flex flex-1 flex-col"
+          >
             <SessionThumb session={session} />
-            {canManage && (
-              <div className="absolute top-2 left-2 z-20">
-                <KebabMenu
-                  items={itemsFor(session)}
-                  open={openMenuId === session.id}
-                  onToggle={() => onToggleMenu(session.id)}
-                  onClose={onCloseMenu}
-                  placement="down"
-                  ariaLabel="خيارات الأمسية"
-                  buttonClassName="rounded-lg bg-background/80 p-1.5 text-muted-foreground backdrop-blur-sm transition hover:bg-background hover:text-foreground"
+
+            <div className="relative flex flex-1 flex-col items-center px-2 pb-2 pt-4">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <h3 className="text-center font-kufam text-xl font-medium text-foreground">
+                  {session.title}
+                </h3>
+                <PublishBadge
+                  published={session.is_published}
+                  size="sm"
+                  iconOnly
                 />
               </div>
-            )}
-          </div>
-
-          <div className="relative flex flex-1 flex-col items-center px-2 pb-2 pt-4">
-            <h3 className="mb-2 text-center font-kufam text-xl font-medium text-foreground">
-              {session.title}
-            </h3>
-            <div className="mb-2 flex flex-wrap justify-center gap-1.5">
-              <PublishBadge published={session.is_published} />
               {session.series && (
-                <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground ring-1 ring-inset ring-border/70">
+                <span className="mb-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground ring-1 ring-inset ring-border/70">
                   {session.series.name}
                 </span>
               )}
+              <p className="text-center text-sm text-muted-foreground">
+                {formatSessionDueDate(session.due_date)}
+              </p>
+              <SessionPeopleSummary
+                presenters={session.presenters}
+                participants={session.participants}
+                className="mt-3 justify-center"
+              />
+              {session.record_link && (
+                <div className="mt-auto flex justify-center pt-3">
+                  <YoutubeLink href={session.record_link} />
+                </div>
+              )}
             </div>
-            <p className="text-center text-sm text-muted-foreground">
-              {formatSessionDueDate(session.due_date)}
-            </p>
-            <div className="mt-auto flex justify-center pt-3">
-              <YoutubeLink href={session.record_link} />
-            </div>
-          </div>
+          </Link>
         </article>
       ))}
     </div>

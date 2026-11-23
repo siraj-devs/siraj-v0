@@ -55,13 +55,20 @@ const DASHBOARD_LINKS: {
   { href: "/dashboard/connections", label: "الاتصالات", icon: Link2 },
   { href: "/dashboard/content", label: "المحتوى", icon: FileText },
   { href: "/dashboard/courses", label: "الدورات", icon: GraduationCap },
-  { href: "/dashboard/sessions", label: "الأمسيات", icon: Clapperboard },
+  {
+    href: "/dashboard/sessions",
+    label: "الأمسيات",
+    icon: Clapperboard,
+    viewerDefault: true,
+  },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
   { href: "/dashboard/lists", label: "اللوائح", icon: ListChecks },
 ];
 
 export function UserMenu({
   user,
+  open,
+  onOpenChange,
 }: {
   user:
     | (SessionData["user"] & {
@@ -70,8 +77,13 @@ export function UserMenu({
         pagePermissions: PageGrant[];
       })
     | null;
+  /** Controlled open state (used by the site header to avoid overlapping menus). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isOpen = open ?? uncontrolledOpen;
+  const setIsOpen = onOpenChange ?? setUncontrolledOpen;
   const avatarSrc = user?.image || null;
   const isOwner = user?.role === "owner";
   const hasViewerRole =

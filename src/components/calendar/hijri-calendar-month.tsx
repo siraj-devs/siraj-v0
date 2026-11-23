@@ -1,11 +1,19 @@
 "use client";
 
-import type { ClubEvent } from "@/app/actions/events";
 import {
   parseGregorianDate,
   toDateKey,
 } from "@/lib/hijri-calendar";
 import { cn } from "@/lib/utils";
+
+/** Anything placed on the calendar grid (club events, sessions). */
+export type CalendarItem = {
+  id: string;
+  name: string;
+  start_at: string;
+  end_at: string;
+  color: string;
+};
 
 const WEEKDAYS_AR = [
   "السبت",
@@ -34,7 +42,10 @@ function getWeekIndex(en: string) {
   return WEEKDAY_INDEX_SAT_FIRST[en] ?? 0;
 }
 
-export function eventsForDay(events: ClubEvent[], dayStart: Date): ClubEvent[] {
+export function eventsForDay<T extends CalendarItem>(
+  events: T[],
+  dayStart: Date,
+): T[] {
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
   return events.filter((e) => {
@@ -67,7 +78,7 @@ export function HijriCalendarMonth({
   onSelectDay,
 }: {
   days: HijriDay[];
-  events: ClubEvent[];
+  events: CalendarItem[];
   /** Days outside [rangeStartKey, rangeEndKey] are hidden (UI-only range). */
   rangeStartKey?: string;
   rangeEndKey?: string;
@@ -113,7 +124,7 @@ export function HijriCalendarMonth({
         </div>
         {monthEventCount > 0 && (
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-            {monthEventCount} حدث
+            {monthEventCount} موعد
           </span>
         )}
       </div>
