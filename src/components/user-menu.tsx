@@ -103,7 +103,7 @@ export function UserMenu({
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setIsOpen(!isOpen)}
         className="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-border transition-opacity hover:opacity-80 focus:outline-none"
         aria-label="قائمة المستخدم"
         aria-expanded={isOpen}
