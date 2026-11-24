@@ -315,7 +315,7 @@ export function buildClassLeaderboard(
       return a.member.name.localeCompare(b.member.name, "ar");
     });
 
-  // Dense ranking: equal totals share a rank (1,2,3,3,4…).
+  // Dense ranking: equal totals share a rank (1,2,2,3…).
   let denseRank = 1;
   return ranked.map((entry, index) => {
     if (

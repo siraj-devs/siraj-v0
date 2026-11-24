@@ -23,7 +23,8 @@ export function StatusBadge({
   iconOnly = false,
 }: {
   tone: BadgeTone;
-  icon: ReactNode;
+  /** Omit for a text-only chip. */
+  icon?: ReactNode;
   /** Required for accessibility when `iconOnly` is true (used as title/aria-label). */
   label: string;
   size?: "sm" | "md";

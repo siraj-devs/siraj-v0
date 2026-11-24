@@ -6,13 +6,6 @@ import { cn } from "@/lib/utils";
 import { ChevronLeft, Crown, Medal, Trophy } from "lucide-react";
 import Link from "next/link";
 
-function pointsLabel(value: number) {
-  const rounded = Math.round(value * 100) / 100;
-  if (rounded === 1) return "نقطة واحدة";
-  if (rounded === 2) return "نقطتان";
-  return `${rounded} نقطة`;
-}
-
 function podiumTone(rank: number): 1 | 2 | 3 {
   if (rank <= 1) return 1;
   if (rank === 2) return 2;
@@ -114,14 +107,13 @@ function PodiumPoints({
   return (
     <div
       className={cn(
-        "mt-1 inline-flex min-w-24 flex-col items-center rounded-2xl border px-4 py-2.5",
+        "mt-1 inline-flex min-w-24 items-center justify-center rounded-2xl border px-4 py-2.5",
         styles[tone],
       )}
     >
       <span className="font-kufam text-2xl font-semibold leading-none tracking-tight">
         {Math.round(value * 100) / 100}
       </span>
-      <span className="mt-1 text-[11px] font-medium opacity-80">نقطة</span>
     </div>
   );
 }
@@ -132,12 +124,16 @@ function PodiumCard({
   isYou,
 }: {
   entry: ClassLeaderboardEntry;
-  /** Visual column height only (2nd | 1st | 3rd layout). */
+  /** Visual column height only (2nd | 1st | 3rd layout). Desktop only. */
   layoutPlace: 1 | 2 | 3;
   isYou: boolean;
 }) {
   const tone = podiumTone(entry.rank);
-  const heights = { 1: "mt-2", 2: "mt-6", 3: "mt-10" } as const;
+  const heights = {
+    1: "sm:mt-2",
+    2: "sm:mt-6",
+    3: "sm:mt-10",
+  } as const;
   const tones = {
     1: "border-amber-500/35 bg-linear-to-b from-amber-500/12 to-background",
     2: "border-slate-400/35 bg-linear-to-b from-slate-400/10 to-background",
@@ -182,6 +178,58 @@ function PodiumCard({
   );
 }
 
+/**
+ * Who stands on the podium:
+ * - Always ranks 1 and 2 (ties included).
+ * - Rank 3 joins only when ranks 1+2 have fewer than 3 people
+ *   (so 100 + two 90s fill the podium; the 50s stay in the table as #3).
+ */
+function splitPodium(entries: ClassLeaderboardEntry[]) {
+  const rank1 = entries.filter((entry) => entry.rank === 1);
+  const rank2 = entries.filter((entry) => entry.rank === 2);
+  const rank3 = entries.filter((entry) => entry.rank === 3);
+  const includeThird = rank1.length + rank2.length < 3;
+  const podium = [
+    ...rank1,
+    ...rank2,
+    ...(includeThird ? rank3 : []),
+  ];
+  const podiumIds = new Set(podium.map((entry) => entry.enrollmentId));
+  const rest = entries.filter((entry) => !podiumIds.has(entry.enrollmentId));
+  return { podium, rest, rank1, rank2, rank3: includeThird ? rank3 : [] };
+}
+
+/** Classic desktop order: 2nd | 1st | 3rd (or both 2nds flanking 1st). */
+function desktopPodiumOrder(
+  rank1: ClassLeaderboardEntry[],
+  rank2: ClassLeaderboardEntry[],
+  rank3: ClassLeaderboardEntry[],
+): { entry: ClassLeaderboardEntry; layoutPlace: 1 | 2 | 3 }[] {
+  if (
+    rank1.length === 1 &&
+    rank2.length === 1 &&
+    rank3.length === 1
+  ) {
+    return [
+      { entry: rank2[0]!, layoutPlace: 2 },
+      { entry: rank1[0]!, layoutPlace: 1 },
+      { entry: rank3[0]!, layoutPlace: 3 },
+    ];
+  }
+  if (rank1.length === 1 && rank2.length === 2 && rank3.length === 0) {
+    return [
+      { entry: rank2[0]!, layoutPlace: 2 },
+      { entry: rank1[0]!, layoutPlace: 1 },
+      { entry: rank2[1]!, layoutPlace: 2 },
+    ];
+  }
+  // Fallback: 1st first, then 2nd, then 3rd — still use rank for height tone.
+  return [...rank1, ...rank2, ...rank3].map((entry) => ({
+    entry,
+    layoutPlace: Math.min(entry.rank, 3) as 1 | 2 | 3,
+  }));
+}
+
 export function ClassLeaderboard({
   entries,
   currentMemberId,
@@ -194,12 +242,8 @@ export function ClassLeaderboard({
   /** Compact list for the learn-shell sidebar. */
   compact?: boolean;
 }) {
-  const topThree = entries.slice(0, 3);
-  const rest = entries.slice(3);
-  const podiumOrder =
-    topThree.length >= 3
-      ? [topThree[1]!, topThree[0]!, topThree[2]!]
-      : topThree;
+  const { podium, rest, rank1, rank2, rank3 } = splitPodium(entries);
+  const desktopOrder = desktopPodiumOrder(rank1, rank2, rank3);
   const yourEntry =
     currentMemberId != null
       ? entries.find((entry) => entry.member.id === currentMemberId)
@@ -329,8 +373,8 @@ export function ClassLeaderboard({
             <RankBadge rank={yourEntry.rank} compact />
             <div>
               <p className="text-sm font-medium text-foreground">ترتيبك</p>
-              <p className="text-xs text-muted-foreground">
-                {pointsLabel(yourEntry.totalPoints)}
+              <p className="font-kufam text-sm text-muted-foreground">
+                {yourEntry.totalPoints}
               </p>
             </div>
           </div>
@@ -349,35 +393,39 @@ export function ClassLeaderboard({
         </div>
       ) : (
         <div className="space-y-4">
-          {topThree.length > 0 && (
-            <div
-              className={cn(
-                "grid gap-3",
-                topThree.length === 1 && "mx-auto max-w-xs grid-cols-1",
-                topThree.length === 2 && "sm:grid-cols-2",
-                topThree.length >= 3 && "sm:grid-cols-3",
-              )}
-            >
-              {topThree.length >= 3
-                ? podiumOrder.map((entry, index) => (
-                    <PodiumCard
-                      key={entry.enrollmentId}
-                      entry={entry}
-                      layoutPlace={
-                        (index === 0 ? 2 : index === 1 ? 1 : 3) as 1 | 2 | 3
-                      }
-                      isYou={entry.member.id === currentMemberId}
-                    />
-                  ))
-                : topThree.map((entry, index) => (
-                    <PodiumCard
-                      key={entry.enrollmentId}
-                      entry={entry}
-                      layoutPlace={Math.min(index + 1, 3) as 1 | 2 | 3}
-                      isYou={entry.member.id === currentMemberId}
-                    />
-                  ))}
-            </div>
+          {podium.length > 0 && (
+            <>
+              {/* Mobile: flat stack, no podium stagger / empty top space */}
+              <div className="grid gap-3 sm:hidden">
+                {podium.map((entry) => (
+                  <PodiumCard
+                    key={entry.enrollmentId}
+                    entry={entry}
+                    layoutPlace={Math.min(entry.rank, 3) as 1 | 2 | 3}
+                    isYou={entry.member.id === currentMemberId}
+                  />
+                ))}
+              </div>
+
+              {/* Desktop: classic podium row */}
+              <div
+                className={cn(
+                  "hidden gap-3 sm:grid",
+                  podium.length === 1 && "mx-auto max-w-xs grid-cols-1",
+                  podium.length === 2 && "grid-cols-2",
+                  podium.length >= 3 && "grid-cols-3",
+                )}
+              >
+                {desktopOrder.map(({ entry, layoutPlace }) => (
+                  <PodiumCard
+                    key={entry.enrollmentId}
+                    entry={entry}
+                    layoutPlace={layoutPlace}
+                    isYou={entry.member.id === currentMemberId}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           {rest.length > 0 && (
@@ -414,12 +462,9 @@ export function ClassLeaderboard({
                         ) : null}
                       </p>
                     </div>
-                    <div className="text-end">
-                      <p className="font-kufam text-lg text-foreground">
-                        {entry.totalPoints}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">نقطة</p>
-                    </div>
+                    <p className="font-kufam text-lg text-foreground">
+                      {entry.totalPoints}
+                    </p>
                   </li>
                 );
               })}

@@ -879,6 +879,44 @@ export async function getCompletedContentIds(
   return new Set((data ?? []).map((row) => row.content_id as number));
 }
 
+/** Completed content ids keyed by enrollment id (dashboard participants panel). */
+export async function getCompletedContentIdsByEnrollment(
+  courseId: number,
+): Promise<Record<number, number[]>> {
+  const supabase = await createClient();
+  const { data: enrollments, error: enrollmentsError } = await supabase
+    .from("enrollments")
+    .select("id")
+    .eq("course_id", courseId);
+
+  if (enrollmentsError) {
+    console.error("Error fetching enrollments for completions:", enrollmentsError);
+    return {};
+  }
+
+  const enrollmentIds = (enrollments ?? []).map((row) => row.id as number);
+  if (enrollmentIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("content_completions")
+    .select("enrollment_id, content_id")
+    .in("enrollment_id", enrollmentIds)
+    .eq("completed", true);
+
+  if (error) {
+    console.error("Error fetching course completions:", error);
+    return {};
+  }
+
+  const map: Record<number, number[]> = {};
+  for (const row of data ?? []) {
+    const enrollmentId = row.enrollment_id as number;
+    const contentId = row.content_id as number;
+    (map[enrollmentId] ??= []).push(contentId);
+  }
+  return map;
+}
+
 
 /** Submissions (answers + score/feedback) for an exam; optionally one enrollment. */
 export async function getExamSubmissions(

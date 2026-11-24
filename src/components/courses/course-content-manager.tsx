@@ -113,6 +113,7 @@ export function CourseContentManager({
   ratingsByMember = {},
   classes = [],
   members = [],
+  completedByEnrollment = {},
 }: {
   course: CourseWithMeta;
   contents: CourseContent[];
@@ -121,6 +122,8 @@ export function CourseContentManager({
   ratingsByMember?: Record<number, number>;
   classes?: CourseClass[];
   members?: MemberProfile[];
+  /** Completed content ids keyed by enrollment id. */
+  completedByEnrollment?: Record<number, number[]>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -816,11 +819,13 @@ export function CourseContentManager({
                   >
                     <GripVertical className="size-4" />
                   </span>
-                  <span className="mt-2 w-6 shrink-0 text-center font-kufam text-sm text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                    <Icon className="size-4" />
+                  <span className="flex shrink-0 flex-col items-center gap-1 sm:mt-1 sm:flex-row sm:items-start sm:gap-3">
+                    <span className="w-6 text-center font-kufam text-sm text-muted-foreground sm:mt-1">
+                      {index + 1}
+                    </span>
+                    <span className="flex size-9 items-center justify-center rounded-full bg-primary/8 text-primary sm:size-10">
+                      <Icon className="size-4" />
+                    </span>
                   </span>
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -1080,16 +1085,27 @@ export function CourseContentManager({
               const done =
                 enrollment.status === "completed" ||
                 enrollment.progress_percentage >= 100;
-              const memberRole = enrollment.member.role;
               const classRole = enrollment.class_role ?? "participant";
-              return (
-                <li
-                  key={enrollment.id}
-                  className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 sm:px-6 lg:flex-row lg:items-center lg:gap-4"
-                >
+              const completedIds = new Set(
+                completedByEnrollment[enrollment.id] ?? [],
+              );
+              const completedLessons = classContents.filter(
+                (content) =>
+                  content.type !== "exam" && completedIds.has(content.id),
+              );
+              const completedExams = classContents.filter(
+                (content) =>
+                  content.type === "exam" && completedIds.has(content.id),
+              );
+              const completedItems = [...completedLessons, ...completedExams];
+              const canExpand = completedItems.length > 0;
+
+              const header = (
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
                   <Link
                     href={`/dashboard/members/${enrollment.member.id}`}
                     className="flex min-w-0 items-center gap-3 transition hover:opacity-90 lg:flex-1"
+                    onClick={(event) => event.stopPropagation()}
                   >
                     <RemoteAvatar
                       src={enrollment.member.avatar}
@@ -1105,9 +1121,21 @@ export function CourseContentManager({
                       <p className="break-words font-kufam text-lg leading-snug text-foreground">
                         {enrollment.member.name}
                       </p>
+                      {completedItems.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          أكمل {completedLessons.length} درس
+                          {completedExams.length > 0
+                            ? ` · ${completedExams.length} تقويم`
+                            : ""}
+                        </p>
+                      )}
                     </div>
                   </Link>
-                  <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+                  <div
+                    className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
                     <div
                       role="radiogroup"
                       aria-label="دور في الدفعة"
@@ -1160,7 +1188,61 @@ export function CourseContentManager({
                         <BookOpen className="size-4" />
                       )}
                     </span>
+                    {canExpand && (
+                      <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                    )}
                   </div>
+                </div>
+              );
+
+              return (
+                <li
+                  key={enrollment.id}
+                  className="border-b border-border/60 last:border-b-0"
+                >
+                  {canExpand ? (
+                    <details className="group">
+                      <summary className="cursor-pointer list-none px-4 py-4 transition hover:bg-muted/40 sm:px-6 [&::-webkit-details-marker]:hidden">
+                        {header}
+                      </summary>
+                      <div className="space-y-3 border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-kufam text-sm text-foreground">
+                            الدروس المكتملة
+                            <span className="ms-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                              {completedItems.length}
+                            </span>
+                          </p>
+                        </div>
+                        <ol className="space-y-2">
+                          {completedItems.map((content) => {
+                            const Icon = CONTENT_TYPE_ICON[content.type];
+                            return (
+                              <li
+                                key={content.id}
+                                className="flex items-center gap-2.5 rounded-2xl border border-border/70 bg-background px-3 py-2.5 shadow-sm"
+                              >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-800">
+                                  <Icon className="size-3.5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {content.title}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {CONTENT_TYPE_LABELS[content.type]}
+                                  </p>
+                                </div>
+                                <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+                    </details>
+                  ) : (
+                    <div className="px-4 py-4 sm:px-6">{header}</div>
+                  )}
                 </li>
               );
             })}

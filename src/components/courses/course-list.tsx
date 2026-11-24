@@ -16,12 +16,9 @@ import {
   BookOpen,
   CircleHelp,
   Eye,
-  EyeOff,
-  Globe,
   GripVertical,
   Pencil,
   Plus,
-  Shield,
   Trash2,
   Users,
 } from "lucide-react";
@@ -37,30 +34,17 @@ function CourseStatusBadges({
   course: CourseWithMeta;
   size?: "sm" | "md";
 }) {
-  const icon = size === "sm" ? "size-3" : "size-3.5";
   return (
     <>
       <StatusBadge
         tone={course.is_published ? "emerald" : "amber"}
-        icon={
-          course.is_published ? (
-            <Eye className={icon} />
-          ) : (
-            <EyeOff className={icon} />
-          )
-        }
+        icon={null}
         label={course.is_published ? "منشور" : "مخفي"}
         size={size}
       />
       <StatusBadge
         tone={course.visibility === "private" ? "violet" : "slate"}
-        icon={
-          course.visibility === "private" ? (
-            <Shield className={icon} />
-          ) : (
-            <Globe className={icon} />
-          )
-        }
+        icon={null}
         label={VISIBILITY_LABELS[course.visibility ?? "public"]}
         size={size}
       />
@@ -338,7 +322,7 @@ export function CourseList({
 
           {canReorder && (
             <span
-              className="absolute top-2 right-2 z-20 flex size-8 items-center justify-center rounded-lg bg-background/80 text-muted-foreground backdrop-blur-sm"
+              className="absolute top-5 right-5 z-20 flex size-8 items-center justify-center rounded-lg bg-background/80 text-muted-foreground backdrop-blur-sm"
               aria-hidden
               title="اسحب لإعادة الترتيب"
             >
@@ -348,7 +332,7 @@ export function CourseList({
 
           {canManage && (
             <div
-              className="absolute top-2 left-2 z-20"
+              className="absolute top-5 left-5 z-20"
               onClick={(event) => event.stopPropagation()}
             >
               <KebabMenu
