@@ -10,20 +10,30 @@ import {
   type MemberProfile,
 } from "@/app/actions/members";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
-import { FormDialog } from "@/components/dashboard/form-dialog";
 import { KebabMenu, type KebabMenuItem } from "@/components/dashboard/kebab-menu";
 import { ListRowActions } from "@/components/dashboard/list-row-actions";
 import { SearchFilterBar, matchesSelection } from "@/components/dashboard/search-filter-bar";
 import type { ViewLayout } from "@/components/layout-toggle";
+import { DiscordIcon, FortyTwoIcon } from "@/components/member-brand-icons";
+import {
+  MemberFormDialog,
+  emptyMemberForm as emptyForm,
+  type MemberFormState,
+} from "@/components/member-form-dialog";
+import {
+  MEMBER_ROLE_ICONS,
+  MEMBER_ROLE_TONES,
+  MemberRoleBadge,
+} from "@/components/member-role-badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { MemberRole } from "@/lib/members";
+import {
+  MEMBER_ROLE_ORDER,
+  isRoleVisibleTo,
+  type MemberRole,
+} from "@/lib/member-role";
 import {
   GRANTABLE_DASHBOARD_PAGES,
   type DashboardPagePath,
-  type PageAccessLevel,
-  type PageGrant,
 } from "@/lib/page-permissions";
 import {
   CalendarDays,
@@ -53,6 +63,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PhoneIcon } from "@phosphor-icons/react";
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: "مالك",
@@ -93,24 +104,6 @@ const ROLE_STYLES: Record<
   },
 };
 
-type MemberFormState = {
-  first_name: string;
-  last_name: string;
-  phone: string;
-  role: MemberRole;
-  ft_connection: string;
-  dc_connection: string;
-  google_connection: string;
-  page_permissions: PageGrant[];
-};
-
-const PAGE_ACCESS_OPTIONS: { value: PageAccessLevel | "none"; label: string }[] =
-  [
-    { value: "none", label: "بدون" },
-    { value: "view", label: "مشاهدة" },
-    { value: "edit", label: "تعديل" },
-  ];
-
 const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/members": Users,
   "/dashboard/calendar": CalendarDays,
@@ -123,47 +116,6 @@ const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/sessions": Clapperboard,
   "/dashboard/network": Network,
   "/dashboard/lists": ListChecks,
-};
-
-function FortyTwoIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      role="img"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M19.581 16.851H24v-4.439ZM24 3.574h-4.419v4.42l-4.419 4.418v4.44h4.419v-4.44L24 7.993Zm-4.419 0h-4.419v4.42zm-6.324 8.838H4.419l8.838-8.838H8.838L0 12.412v3.595h8.838v4.419h4.419z" />
-    </svg>
-  );
-}
-
-function DiscordIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      role="img"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
-    </svg>
-  );
-}
-
-const emptyForm: MemberFormState = {
-  first_name: "",
-  last_name: "",
-  phone: "",
-  role: "newcomer",
-  ft_connection: "",
-  dc_connection: "",
-  google_connection: "",
-  page_permissions: [],
 };
 
 type RoleFilter = MemberRole;
@@ -388,21 +340,31 @@ export function MembersManager({
     });
   }
 
-  const hidePrivilegedRoles = viewerRole !== "owner";
-
-  const roleOptions = (
-    [
-      { key: "owner" as const, label: "مالك", tone: "rose" as const, icon: <Crown /> },
-      { key: "admin" as const, label: "مشرف", tone: "amber" as const, icon: <Shield /> },
-      { key: "participant" as const, label: "عضو", tone: "emerald" as const, icon: <UserRound /> },
-      { key: "veteran" as const, label: "مخضرم", tone: "sky" as const, icon: <Medal /> },
-      { key: "newcomer" as const, label: "وافد", tone: "violet" as const, icon: <Sparkles /> },
-    ]
-  ).filter(
-    (option) =>
-      !hidePrivilegedRoles ||
-      (option.key !== "owner" && option.key !== "admin"),
+  const visibleRoles = MEMBER_ROLE_ORDER.filter((role) =>
+    isRoleVisibleTo(viewerRole, role),
   );
+  const statsColsClass =
+    visibleRoles.length >= 5
+      ? "lg:grid-cols-6"
+      : visibleRoles.length === 4
+        ? "lg:grid-cols-5"
+        : "lg:grid-cols-4";
+  const isOwnerViewer = viewerRole === "owner";
+  /** Non-owner editors can't change an owner/admin's role (the server keeps it). */
+  const roleLocked =
+    !isOwnerViewer &&
+    modal === "edit" &&
+    (editingMember?.role === "owner" || editingMember?.role === "admin");
+
+  const roleOptions = visibleRoles.map((role) => {
+    const Icon = MEMBER_ROLE_ICONS[role];
+    return {
+      key: role,
+      label: ROLE_LABELS[role],
+      tone: MEMBER_ROLE_TONES[role],
+      icon: <Icon />,
+    };
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 md:gap-10">
@@ -430,9 +392,7 @@ export function MembersManager({
         </div>
 
         <div
-          className={`relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 ${
-            hidePrivilegedRoles ? "lg:grid-cols-4" : "lg:grid-cols-6"
-          }`}
+          className={`relative mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 ${statsColsClass}`}
         >
           {(
             [
@@ -445,8 +405,7 @@ export function MembersManager({
             ] as const
           )
             .filter(
-              ([key]) =>
-                !hidePrivilegedRoles || (key !== "owner" && key !== "admin"),
+              ([key]) => key === "all" || isRoleVisibleTo(viewerRole, key),
             )
             .map(([key, label, value, Icon]) => (
             <div
@@ -516,8 +475,8 @@ export function MembersManager({
             });
             const connections = (
               <div
-                className={`flex flex-col gap-1 ${
-                  isGrid ? "items-center" : ""
+                className={`flex ${
+                  isGrid ? "items-center flex-col gap-1.5" : "flex-wrap gap-3"
                 }`}
               >
                 {member.login && (
@@ -550,6 +509,7 @@ export function MembersManager({
                         : "text-amber-800"
                     }`}
                   >
+                    <PhoneIcon className="size-3.5 shrink-0" />
                     {member.phone}
                     <span
                       className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ${
@@ -629,7 +589,7 @@ export function MembersManager({
                   className={
                     isGrid
                       ? "relative flex flex-1 flex-col items-center px-5 pt-0 pb-6"
-                      : "relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                      : "relative flex items-start gap-3 p-4 sm:items-center sm:justify-between sm:gap-4 sm:px-5"
                   }
                 >
                   <Link
@@ -649,31 +609,24 @@ export function MembersManager({
                       }`}
                     >
                       <h3
-                        className={`font-kufam font-medium text-foreground ${
+                        className={`flex min-w-0 items-center gap-2 font-kufam font-medium text-foreground ${
                           isGrid
-                            ? "mb-2 text-center text-xl"
-                            : "truncate text-lg space-x-2"
+                            ? "mb-3 justify-center text-center text-xl"
+                            : "text-lg"
                         }`}
                       >
-                        <span>{member.name}</span>
-                        {!isGrid && (
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}
-                          >
-                            {ROLE_LABELS[member.role]}
-                          </span>
-                        )}
-                      </h3>
-                      {isGrid && (
-                        <span
-                          className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}
-                        >
-                          {ROLE_LABELS[member.role]}
+                        <span className="truncate">{member.name}</span>
+                        <span className="shrink-0">
+                          <MemberRoleBadge
+                            role={member.role}
+                            size="sm"
+                            iconOnly
+                          />
                         </span>
-                      )}
+                      </h3>
                       <div
-                        className={`flex flex-col gap-2 ${
-                          isGrid ? "mt-auto w-full items-center" : ""
+                        className={`flex flex-col ${
+                          isGrid ? "mt-auto w-full items-center gap-1" : "gap-2"
                         }`}
                       >
                         {connections}
@@ -687,7 +640,7 @@ export function MembersManager({
                       className={
                         isGrid
                           ? "absolute top-3 left-3 z-20"
-                          : "relative shrink-0 self-end sm:self-center"
+                          : "relative shrink-0"
                       }
                     >
                       {isGrid ? (
@@ -714,7 +667,7 @@ export function MembersManager({
                             )
                           }
                           onClose={() => setOpenMenuId(null)}
-                          menuPlacement="up"
+                          menuPlacement="down"
                           ariaLabel="خيارات العضو"
                         />
                       )}
@@ -746,220 +699,22 @@ export function MembersManager({
       )}
 
       {modal && (
-        <FormDialog
-          title={modal === "create" ? "إضافة عضو" : "تعديل عضو"}
-          description="حدّد الاسم ورقم الهاتف والدور، واربط حسابات الدخول إن لزم."
+        <MemberFormDialog
+          mode={modal}
+          form={form}
+          setForm={setForm}
           onClose={closeModal}
           onSubmit={onSubmit}
           pending={pending}
-          submitLabel="حفظ"
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="member-first-name">الاسم الأول</Label>
-              <Input
-                id="member-first-name"
-                required
-                autoFocus
-                value={form.first_name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, first_name: e.target.value }))
-                }
-                placeholder="مثال: أحمد"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="member-last-name">اسم العائلة</Label>
-              <Input
-                id="member-last-name"
-                required
-                value={form.last_name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, last_name: e.target.value }))
-                }
-                placeholder="مثال: العلوي"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="member-phone">رقم الهاتف</Label>
-            <Input
-              id="member-phone"
-              type="tel"
-              dir="ltr"
-              className="text-left"
-              value={form.phone}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, phone: e.target.value }))
-              }
-              placeholder="06XXXXXXXX"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>الدور</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              {(
-                [
-                  "newcomer",
-                  "participant",
-                  "veteran",
-                  "admin",
-                  "owner",
-                ] as MemberRole[]
-              ).map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, role }))}
-                  className={`rounded-xl border px-3 py-2.5 text-sm transition-all ${
-                    form.role === role
-                      ? "border-primary/50 bg-primary/10 font-medium text-foreground"
-                      : "border-border text-muted-foreground hover:border-border hover:bg-muted/50"
-                  }`}
-                >
-                  {ROLE_LABELS[role]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="member-ft">حساب 42</Label>
-            <select
-              id="member-ft"
-              value={form.ft_connection}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  ft_connection: e.target.value,
-                }))
-              }
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <option value="">بدون ربط</option>
-              {ftOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.login}
-                  {c.name ? ` — ${c.name}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="member-dc">حساب ديسكورد</Label>
-            <select
-              id="member-dc"
-              value={form.dc_connection}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  dc_connection: e.target.value,
-                }))
-              }
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <option value="">بدون ربط</option>
-              {dcOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.username}
-                  {c.email ? ` — ${c.email}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="member-google">حساب Google</Label>
-            <select
-              id="member-google"
-              value={form.google_connection}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  google_connection: e.target.value,
-                }))
-              }
-              className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <option value="">بدون ربط</option>
-              {googleOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.email ?? c.id}
-                  {c.name ? ` — ${c.name}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {canManage && viewerRole === "owner" && (
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium leading-none">
-                صلاحيات الصفحات
-              </legend>
-              <p className="text-xs text-muted-foreground">
-                لكل صفحة: مشاهدة فقط، أو مشاهدة وتعديل.
-              </p>
-              <div className="space-y-2">
-                {GRANTABLE_DASHBOARD_PAGES.map((page) => {
-                  const access =
-                    form.page_permissions.find((item) => item.path === page.path)
-                      ?.access ?? "none";
-                  return (
-                    <div
-                      key={page.path}
-                      className="flex flex-col gap-2 rounded-xl border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <span className="inline-flex items-center gap-2 text-sm text-foreground">
-                        {(() => {
-                          const Icon = PAGE_ICONS[page.path];
-                          return <Icon className="size-4 shrink-0" />;
-                        })()}
-                        {page.label}
-                      </span>
-                      <div className="flex rounded-lg bg-muted p-0.5">
-                        {PAGE_ACCESS_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() =>
-                              setForm((prev) => ({
-                                ...prev,
-                                page_permissions:
-                                  option.value === "none"
-                                    ? prev.page_permissions.filter(
-                                        (item) => item.path !== page.path,
-                                      )
-                                    : [
-                                        ...prev.page_permissions.filter(
-                                          (item) => item.path !== page.path,
-                                        ),
-                                        {
-                                          path: page.path,
-                                          access: option.value,
-                                        },
-                                      ],
-                              }))
-                            }
-                            className={`rounded-md px-2.5 py-1 text-xs transition ${
-                              access === option.value
-                                ? "bg-background font-medium text-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </fieldset>
-          )}
-        </FormDialog>
+          ftOptions={ftOptions}
+          dcOptions={dcOptions}
+          googleOptions={googleOptions}
+          visibleRoles={visibleRoles}
+          canAssignPrivileged={isOwnerViewer}
+          roleLocked={roleLocked}
+          showPermissions={canManage && isOwnerViewer}
+          pageIcons={PAGE_ICONS}
+        />
       )}
 
       <ConfirmDeleteModal

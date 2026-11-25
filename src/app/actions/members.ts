@@ -124,6 +124,21 @@ async function canViewMemberPermissionGrants(memberId: number, role: MemberRole)
   return hasPageEdit(grants, MEMBERS_PATH);
 }
 
+/** Phone numbers: owner, or anyone with edit access to the members page. */
+async function canViewMemberPhones(memberId: number, role: MemberRole) {
+  if (canManageMembers(role)) return true;
+  const grants = await getMemberPagePermissions(memberId);
+  return hasPageEdit(grants, MEMBERS_PATH);
+}
+
+function withoutPhone(member: MemberProfile): MemberProfile {
+  return { ...member, phone: null, phone_verified_at: null };
+}
+
+function isPrivilegedRole(role: MemberRole | null | undefined) {
+  return role === "owner" || role === "admin";
+}
+
 export async function getClubMembers(): Promise<MemberProfile[]> {
   let member;
   try {
@@ -131,10 +146,10 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
   } catch {
     ({ member } = await requirePageAccess("/dashboard/courses"));
   }
-  const includePermissions = await canViewMemberPermissionGrants(
-    member.id,
-    member.role,
-  );
+  const [includePermissions, includePhones] = await Promise.all([
+    canViewMemberPermissionGrants(member.id, member.role),
+    canViewMemberPhones(member.id, member.role),
+  ]);
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -152,12 +167,13 @@ export async function getClubMembers(): Promise<MemberProfile[]> {
     : new Map<number, PageGrant[]>();
 
   return (data ?? [])
-    .map((row) =>
-      mapMemberProfileRow(
+    .map((row) => {
+      const profile = mapMemberProfileRow(
         row as Record<string, unknown>,
         permissionsByMember.get(row.id as number) ?? [],
-      ),
-    )
+      );
+      return includePhones ? profile : withoutPhone(profile);
+    })
     .sort((a, b) => {
       const byRole = memberRoleRank(a.role) - memberRoleRank(b.role);
       if (byRole !== 0) return byRole;
@@ -171,10 +187,10 @@ export async function getClubMemberById(
   if (!Number.isFinite(id)) return null;
 
   const { member } = await requirePageAccess(MEMBERS_PATH);
-  const includePermissions = await canViewMemberPermissionGrants(
-    member.id,
-    member.role,
-  );
+  const [includePermissions, includePhones] = await Promise.all([
+    canViewMemberPermissionGrants(member.id, member.role),
+    canViewMemberPhones(member.id, member.role),
+  ]);
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -193,7 +209,11 @@ export async function getClubMemberById(
     ? (await getPagePermissionsByMember()).get(id) ?? []
     : [];
 
-  return mapMemberProfileRow(data as Record<string, unknown>, permissions);
+  const profile = mapMemberProfileRow(
+    data as Record<string, unknown>,
+    permissions,
+  );
+  return includePhones ? profile : withoutPhone(profile);
 }
 
 export async function getAvailableFtConnections(
@@ -356,6 +376,8 @@ export async function createMember(input: {
       return { success: false, error: "رقم الهاتف غير صالح" };
     if (!ROLE_VALUES.includes(role))
       return { success: false, error: "الدور غير صالح" };
+    if (isPrivilegedRole(role) && !canManageMembers(current.role))
+      return { success: false, error: "تعيين هذا الدور للمالك فقط" };
 
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -430,7 +452,7 @@ export async function updateMember(input: {
     if (!ROLE_VALUES.includes(role))
       return { success: false, error: "الدور غير صالح" };
 
-    if (current.id === id && role !== "owner") {
+    if (current.id === id && current.role === "owner" && role !== "owner") {
       return {
         success: false,
         error: "لا يمكنك إزالة دور المالك عن نفسك",
@@ -440,10 +462,27 @@ export async function updateMember(input: {
     const supabase = await createClient();
     const { data: existing } = await supabase
       .from("members")
-      .select("phone")
+      .select("phone, role")
       .eq("id", id)
       .maybeSingle();
-    const phoneChanged = phone !== ((existing?.phone as string | null) ?? null);
+    if (!existing) return { success: false, error: "العضو غير موجود" };
+
+    const existingRole = existing.role as MemberRole;
+    const isOwner = canManageMembers(current.role);
+    // Only the owner grants or removes owner/admin. Other editors keep a
+    // privileged member's role as-is (they may see it masked in the UI).
+    let nextRole = role;
+    if (!isOwner) {
+      if (isPrivilegedRole(existingRole)) nextRole = existingRole;
+      else if (isPrivilegedRole(role))
+        return { success: false, error: "تعيين هذا الدور للمالك فقط" };
+    }
+
+    const canSeePhones = await canViewMemberPhones(current.id, current.role);
+    const existingPhone = (existing.phone as string | null) ?? null;
+    // Editors who can't see phones submit an empty field; keep the stored number.
+    const nextPhone = canSeePhones ? phone : existingPhone;
+    const phoneChanged = nextPhone !== existingPhone;
 
     const { error } = await supabase
       .from("members")
@@ -451,9 +490,9 @@ export async function updateMember(input: {
         first_name,
         last_name,
         name,
-        phone,
+        phone: nextPhone,
         ...(phoneChanged ? { phone_verified_at: null } : {}),
-        role,
+        role: nextRole,
         ft_connection,
         dc_connection,
         google_connection,
