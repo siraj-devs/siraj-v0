@@ -9,7 +9,11 @@ import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { FormSection } from "@/components/dashboard/form-section";
 import { SegmentedChoiceField } from "@/components/dashboard/segmented-choice-field";
 import { ThumbnailField } from "@/components/dashboard/thumbnail-field";
-import { GameQuestionEditor } from "@/components/games/game-question-editor";
+import {
+  GameQuestionEditor,
+  QUESTION_TYPE_ORDER,
+  QuestionTypeIcon,
+} from "@/components/games/game-question-editor";
 import { GameStatusBadge } from "@/components/games/games-manager";
 import { useStartGame } from "@/components/games/use-start-game";
 import { Button } from "@/components/ui/button";
@@ -24,6 +28,7 @@ import {
   collectTemplateIssues,
   GAME_LIMITS,
   GAME_POINTS_MODE_LABELS,
+  GAME_QUESTION_TYPE_LABELS,
   GAME_STATUS_LABELS,
   gameTemplateDraftSchema,
   makeQuestion,
@@ -36,10 +41,8 @@ import {
 } from "@/lib/games";
 import {
   ArrowRight,
-  CheckCheck,
   CheckCircle2,
   Gauge,
-  ListOrdered,
   Loader2,
   PencilLine,
   Play,
@@ -490,27 +493,26 @@ export function GameTemplateEditor({
         </ol>
 
         {canManage && draft.questions.length < GAME_LIMITS.questionsMax && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              onClick={() => addQuestion("single_choice")}
-            >
-              <Plus />
-              <ListOrdered />
-              سؤال اختيار من متعدد
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              onClick={() => addQuestion("true_false")}
-            >
-              <Plus />
-              <CheckCheck />
-              سؤال صح أو خطأ
-            </Button>
+          <div className="space-y-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <Plus className="size-4" />
+              إضافة سؤال
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {QUESTION_TYPE_ORDER.map((type) => (
+                <Button
+                  key={type}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => addQuestion(type)}
+                >
+                  <QuestionTypeIcon type={type} />
+                  {GAME_QUESTION_TYPE_LABELS[type]}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
       </fieldset>

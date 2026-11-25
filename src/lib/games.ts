@@ -13,6 +13,14 @@ export type GameSettings = GameSnapshotSettings;
 export type GameTemplateStatus = "draft" | "ready";
 export type GameSessionStatus = "launching" | "launched" | "failed" | "finished";
 
+export const GAME_QUESTION_TYPES = [
+  "single_choice",
+  "multi_choice",
+  "true_false",
+  "slider",
+  "puzzle",
+] as const satisfies readonly GameQuestionType[];
+
 export const GAME_LIMITS = {
   titleMax: 120,
   descriptionMax: 1000,
@@ -22,10 +30,15 @@ export const GAME_LIMITS = {
   urlMax: 2048,
   questionsMax: 100,
   optionsMin: 2,
-  optionsMax: 4,
+  optionsMax: 6,
+  puzzleItemsMin: 3,
+  puzzleItemsMax: 6,
   timeMinSec: 5,
   timeMaxSec: 120,
   pointsMax: 2000,
+  sliderAbsMax: 1_000_000_000,
+  sliderMaxSteps: 1000,
+  sliderUnitMax: 20,
 } as const;
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
@@ -38,8 +51,19 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
 export const DEFAULT_QUESTION_POINTS = 1000;
 
 export const GAME_QUESTION_TYPE_LABELS: Record<GameQuestionType, string> = {
-  single_choice: "اختيار من متعدد",
+  single_choice: "إجابة واحدة",
+  multi_choice: "عدة إجابات",
   true_false: "صح أو خطأ",
+  slider: "شريط تمرير",
+  puzzle: "ترتيب",
+};
+
+export const GAME_QUESTION_TYPE_HINTS: Record<GameQuestionType, string> = {
+  single_choice: "يختار اللاعب إجابة واحدة صحيحة.",
+  multi_choice: "يختار اللاعب كل الإجابات الصحيحة.",
+  true_false: "يختار اللاعب صح أو خطأ.",
+  slider: "يحدد اللاعب رقماً على شريط.",
+  puzzle: "يرتّب اللاعب العناصر بالترتيب الصحيح.",
 };
 
 export const GAME_POINTS_MODE_LABELS: Record<GamePointsMode, string> = {
@@ -55,10 +79,27 @@ export const GAME_STATUS_LABELS: Record<GameTemplateStatus, string> = {
 
 export const TRUE_FALSE_LABELS = ["صح", "خطأ"] as const;
 
+/** Questions answered by picking among `options` with `isCorrect` flags. */
+export function isChoiceType(type: GameQuestionType) {
+  return type === "single_choice" || type === "multi_choice" || type === "true_false";
+}
+
 export type GameOptionDraft = {
   id: string;
   text: string;
+  /** Choice questions only; ignored for puzzle items. */
   isCorrect: boolean;
+};
+
+export type GameSliderConfig = {
+  min: number;
+  max: number;
+  step: number;
+  correctValue: number;
+  /** ± margin around `correctValue` that still counts as correct. */
+  tolerance: number;
+  /** Empty string = no unit. */
+  unit: string;
 };
 
 export type GameQuestionDraft = {
@@ -70,7 +111,10 @@ export type GameQuestionDraft = {
   timeLimitSec: number | null;
   points: number;
   explanation: string;
+  /** Choice options, or puzzle items in the correct order. Empty for slider. */
   options: GameOptionDraft[];
+  /** Slider questions only. */
+  slider: GameSliderConfig | null;
 };
 
 /** Editor state; question / option order is the array order. */
@@ -102,23 +146,42 @@ export type GameTemplateRecord = {
   draft: GameTemplateDraft;
 };
 
+export const DEFAULT_SLIDER: GameSliderConfig = {
+  min: 0,
+  max: 100,
+  step: 1,
+  correctValue: 50,
+  tolerance: 0,
+  unit: "",
+};
+
 function newId() {
   return crypto.randomUUID();
 }
 
-export function makeOptions(type: GameQuestionType): GameOptionDraft[] {
-  if (type === "true_false") {
-    return TRUE_FALSE_LABELS.map((text, index) => ({
-      id: newId(),
-      text,
-      isCorrect: index === 0,
-    }));
-  }
-  return Array.from({ length: 4 }, (_, index) => ({
+function blankOptions(count: number, firstCorrect: boolean): GameOptionDraft[] {
+  return Array.from({ length: count }, (_, index) => ({
     id: newId(),
     text: "",
-    isCorrect: index === 0,
+    isCorrect: firstCorrect && index === 0,
   }));
+}
+
+export function makeOptions(type: GameQuestionType): GameOptionDraft[] {
+  switch (type) {
+    case "true_false":
+      return TRUE_FALSE_LABELS.map((text, index) => ({
+        id: newId(),
+        text,
+        isCorrect: index === 0,
+      }));
+    case "slider":
+      return [];
+    case "puzzle":
+      return blankOptions(4, false);
+    default:
+      return blankOptions(4, true);
+  }
 }
 
 export function makeQuestion(type: GameQuestionType = "single_choice"): GameQuestionDraft {
@@ -131,7 +194,55 @@ export function makeQuestion(type: GameQuestionType = "single_choice"): GameQues
     points: DEFAULT_QUESTION_POINTS,
     explanation: "",
     options: makeOptions(type),
+    slider: type === "slider" ? { ...DEFAULT_SLIDER } : null,
   };
+}
+
+/**
+ * Switch a question's type, keeping option texts where they still make sense
+ * (between single / multi choice and puzzle).
+ */
+export function changeQuestionType(
+  question: GameQuestionDraft,
+  type: GameQuestionType,
+): GameQuestionDraft {
+  if (type === question.type) return question;
+  const base = { ...question, type, slider: null };
+
+  if (type === "true_false" || type === "slider") {
+    return {
+      ...base,
+      options: makeOptions(type),
+      slider: type === "slider" ? (question.slider ?? { ...DEFAULT_SLIDER }) : null,
+    };
+  }
+
+  const reusable =
+    question.type === "single_choice" ||
+    question.type === "multi_choice" ||
+    question.type === "puzzle";
+  if (!reusable) return { ...base, options: makeOptions(type) };
+
+  if (type === "puzzle") {
+    const options = question.options.map((option) => ({ ...option, isCorrect: false }));
+    while (options.length < GAME_LIMITS.puzzleItemsMin) {
+      options.push({ id: newId(), text: "", isCorrect: false });
+    }
+    return { ...base, options };
+  }
+
+  const firstCorrect = Math.max(
+    0,
+    question.options.findIndex((option) => option.isCorrect),
+  );
+  const options = question.options.map((option, index) => ({
+    ...option,
+    isCorrect:
+      type === "multi_choice" && question.type === "multi_choice"
+        ? option.isCorrect
+        : index === firstCorrect,
+  }));
+  return { ...base, options };
 }
 
 export function makeTemplateDraft(): GameTemplateDraft {
@@ -151,6 +262,7 @@ export function cloneQuestion(question: GameQuestionDraft): GameQuestionDraft {
     ...question,
     id: newId(),
     options: question.options.map((option) => ({ ...option, id: newId() })),
+    slider: question.slider ? { ...question.slider } : null,
   };
 }
 
@@ -183,12 +295,27 @@ const urlField = z
 
 const TIME_MESSAGE = `المدة بين ${GAME_LIMITS.timeMinSec} و${GAME_LIMITS.timeMaxSec} ثانية`;
 const POINTS_MESSAGE = `النقاط بين 0 و${GAME_LIMITS.pointsMax}`;
+const SLIDER_NUMBER_MESSAGE = "قيمة الشريط غير صالحة";
 
 const timeField = z
   .number(TIME_MESSAGE)
   .int(TIME_MESSAGE)
   .min(GAME_LIMITS.timeMinSec, TIME_MESSAGE)
   .max(GAME_LIMITS.timeMaxSec, TIME_MESSAGE);
+
+const sliderNumber = z
+  .number(SLIDER_NUMBER_MESSAGE)
+  .min(-GAME_LIMITS.sliderAbsMax, SLIDER_NUMBER_MESSAGE)
+  .max(GAME_LIMITS.sliderAbsMax, SLIDER_NUMBER_MESSAGE);
+
+const sliderSchema = z.object({
+  min: sliderNumber,
+  max: sliderNumber,
+  step: sliderNumber,
+  correctValue: sliderNumber,
+  tolerance: sliderNumber,
+  unit: z.string().trim().max(GAME_LIMITS.sliderUnitMax),
+});
 
 const optionSchema = z.object({
   id: z.uuid(),
@@ -199,7 +326,7 @@ const optionSchema = z.object({
 const questionSchema = z
   .object({
     id: z.uuid(),
-    type: z.enum(["single_choice", "true_false"]),
+    type: z.enum(GAME_QUESTION_TYPES),
     text: z.string().trim().max(GAME_LIMITS.questionTextMax),
     mediaUrl: urlField,
     timeLimitSec: timeField.nullable(),
@@ -209,12 +336,25 @@ const questionSchema = z
       .min(0, POINTS_MESSAGE)
       .max(GAME_LIMITS.pointsMax, POINTS_MESSAGE),
     explanation: z.string().trim().max(GAME_LIMITS.explanationMax),
-    options: z.array(optionSchema).max(GAME_LIMITS.optionsMax),
+    options: z
+      .array(optionSchema)
+      .max(GAME_LIMITS.optionsMax, `الحد الأقصى ${GAME_LIMITS.optionsMax} خيارات`),
+    slider: sliderSchema.nullable(),
   })
   .refine(
     (question) => question.type !== "true_false" || question.options.length === 2,
     "سؤال صح أو خطأ يحتاج خيارين بالضبط",
-  );
+  )
+  .refine(
+    (question) => question.type !== "slider" || question.slider !== null,
+    "إعدادات الشريط مطلوبة",
+  )
+  // Normalize: options / slider only where the type uses them.
+  .transform((question) => ({
+    ...question,
+    options: question.type === "slider" ? [] : question.options,
+    slider: question.type === "slider" ? question.slider : null,
+  }));
 
 /** Structural shape + bounds. Enforced on every save (draft or ready). */
 export const gameTemplateDraftSchema = z.object({
@@ -239,6 +379,91 @@ export type GameTemplateIssue = {
   message: string;
 };
 
+function isOnStep(value: number, slider: GameSliderConfig) {
+  const steps = (value - slider.min) / slider.step;
+  return Math.abs(steps - Math.round(steps)) < 1e-6;
+}
+
+export function collectSliderIssues(slider: GameSliderConfig | null): string[] {
+  if (!slider) return ["إعدادات الشريط مطلوبة"];
+  const values = [slider.min, slider.max, slider.step, slider.correctValue, slider.tolerance];
+  if (values.some((value) => !Number.isFinite(value))) {
+    return ["أكمل كل قيم الشريط"];
+  }
+
+  const issues: string[] = [];
+  if (slider.min >= slider.max) issues.push("الحد الأدنى يجب أن يكون أصغر من الحد الأعلى");
+  if (slider.step <= 0) issues.push("الخطوة يجب أن تكون أكبر من صفر");
+  if (issues.length > 0) return issues;
+
+  if ((slider.max - slider.min) / slider.step > GAME_LIMITS.sliderMaxSteps) {
+    issues.push(`الشريط لا يتجاوز ${GAME_LIMITS.sliderMaxSteps} خطوة؛ كبّر الخطوة`);
+  }
+  if (!isOnStep(slider.max, slider)) {
+    issues.push("المسافة بين الحدين يجب أن تقبل القسمة على الخطوة");
+  }
+  if (slider.correctValue < slider.min || slider.correctValue > slider.max) {
+    issues.push("الإجابة الصحيحة يجب أن تكون بين الحدين");
+  } else if (!isOnStep(slider.correctValue, slider)) {
+    issues.push("الإجابة الصحيحة يجب أن تقع على إحدى خطوات الشريط");
+  }
+  if (slider.tolerance < 0 || slider.tolerance > slider.max - slider.min) {
+    issues.push("هامش الخطأ بين صفر والمسافة بين الحدين");
+  }
+  return issues;
+}
+
+function collectQuestionIssues(question: GameQuestionDraft): string[] {
+  const issues: string[] = [];
+  if (!question.text.trim()) issues.push("نص السؤال مطلوب");
+
+  if (
+    question.timeLimitSec !== null &&
+    (question.timeLimitSec < GAME_LIMITS.timeMinSec ||
+      question.timeLimitSec > GAME_LIMITS.timeMaxSec)
+  ) {
+    issues.push(TIME_MESSAGE);
+  }
+
+  if (question.type === "slider") {
+    return [...issues, ...collectSliderIssues(question.slider)];
+  }
+
+  const count = question.options.length;
+  const emptyText = question.options.some((option) => !option.text.trim());
+
+  if (question.type === "puzzle") {
+    if (count < GAME_LIMITS.puzzleItemsMin || count > GAME_LIMITS.puzzleItemsMax) {
+      issues.push(
+        `الترتيب يحتاج من ${GAME_LIMITS.puzzleItemsMin} إلى ${GAME_LIMITS.puzzleItemsMax} عناصر`,
+      );
+    }
+    if (emptyText) issues.push("لا يمكن ترك عنصر فارغاً");
+    const texts = question.options.map((option) => option.text.trim());
+    if (!emptyText && new Set(texts).size !== texts.length) {
+      issues.push("العناصر يجب أن تكون مختلفة");
+    }
+    return issues;
+  }
+
+  if (question.type === "true_false" && count !== 2) {
+    issues.push("سؤال صح أو خطأ يحتاج خيارين بالضبط");
+  } else if (count < GAME_LIMITS.optionsMin || count > GAME_LIMITS.optionsMax) {
+    issues.push(
+      `يحتاج السؤال من ${GAME_LIMITS.optionsMin} إلى ${GAME_LIMITS.optionsMax} خيارات`,
+    );
+  }
+  if (emptyText) issues.push("لا يمكن ترك خيار فارغاً");
+
+  const correct = question.options.filter((option) => option.isCorrect).length;
+  if (question.type === "multi_choice") {
+    if (correct === 0) issues.push("حدّد إجابة صحيحة واحدة على الأقل");
+  } else if (correct !== 1) {
+    issues.push("حدّد إجابة صحيحة واحدة");
+  }
+  return issues;
+}
+
 /**
  * Rules a template must pass to be marked `ready` or started. Drafts may be
  * saved incomplete (structure and bounds are still enforced by the schema).
@@ -253,34 +478,8 @@ export function collectTemplateIssues(draft: GameTemplateDraft): GameTemplateIss
   }
 
   draft.questions.forEach((question, questionIndex) => {
-    const push = (message: string) => issues.push({ questionIndex, message });
-
-    if (!question.text.trim()) push("نص السؤال مطلوب");
-
-    const count = question.options.length;
-    if (question.type === "true_false" && count !== 2) {
-      push("سؤال صح أو خطأ يحتاج خيارين بالضبط");
-    }
-    if (
-      question.type === "single_choice" &&
-      (count < GAME_LIMITS.optionsMin || count > GAME_LIMITS.optionsMax)
-    ) {
-      push("يحتاج السؤال من خيارين إلى أربعة خيارات");
-    }
-    if (question.options.some((option) => !option.text.trim())) {
-      push("لا يمكن ترك خيار فارغاً");
-    }
-    const correct = question.options.filter((option) => option.isCorrect).length;
-    if (correct !== 1) push("حدّد إجابة صحيحة واحدة");
-
-    if (
-      question.timeLimitSec !== null &&
-      (question.timeLimitSec < GAME_LIMITS.timeMinSec ||
-        question.timeLimitSec > GAME_LIMITS.timeMaxSec)
-    ) {
-      push(
-        `مدة السؤال بين ${GAME_LIMITS.timeMinSec} و${GAME_LIMITS.timeMaxSec} ثانية`,
-      );
+    for (const message of collectQuestionIssues(question)) {
+      issues.push({ questionIndex, message });
     }
   });
 

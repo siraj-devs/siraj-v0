@@ -7,7 +7,12 @@
  * shared package used by both apps.
  */
 
-export type GameSnapshotQuestionType = "single_choice" | "true_false";
+export type GameSnapshotQuestionType =
+  | "single_choice"
+  | "multi_choice"
+  | "true_false"
+  | "slider"
+  | "puzzle";
 
 /**
  * - `standard`: correct answers earn up to `points`, faster answers earn more
@@ -19,31 +24,78 @@ export type GameSnapshotPointsMode = "standard" | "fixed" | "none";
 export type GameSnapshotSettings = {
   timePerQuestionSec: number;
   shuffleQuestions: boolean;
+  /** Choice questions only. Puzzle items are always shown shuffled. */
   shuffleOptions: boolean;
   pointsMode: GameSnapshotPointsMode;
 };
 
 export type GameSnapshotOption = {
   id: string;
-  /** 1-based. */
+  /** 1-based display order. */
   position: number;
   text: string;
   isCorrect: boolean;
 };
 
-export type GameSnapshotQuestion = {
+export type GameSnapshotPuzzleItem = {
+  id: string;
+  /** 1-based position in the correct order. */
+  position: number;
+  text: string;
+};
+
+export type GameSnapshotSlider = {
+  min: number;
+  max: number;
+  step: number;
+  correctValue: number;
+  /** Answers within ±tolerance of `correctValue` count as correct (0 = exact). */
+  tolerance: number;
+  /** Optional label shown next to the value (e.g. "kg", "سنة"). */
+  unit: string | null;
+};
+
+type GameSnapshotQuestionBase = {
   id: string;
   /** 1-based. */
   position: number;
-  type: GameSnapshotQuestionType;
   text: string;
   mediaUrl: string | null;
   /** Already resolved: the question override, or the template default. */
   timeLimitSec: number;
   points: number;
   explanation: string | null;
+};
+
+export type GameSnapshotChoiceQuestion = GameSnapshotQuestionBase & {
+  /**
+   * - `single_choice` / `true_false`: exactly one option is correct; the
+   *   player picks one.
+   * - `multi_choice`: one or more options are correct; the player selects
+   *   every option they think is correct.
+   */
+  type: "single_choice" | "multi_choice" | "true_false";
+  /** 2–6 options (`true_false`: exactly 2). */
   options: GameSnapshotOption[];
 };
+
+export type GameSnapshotPuzzleQuestion = GameSnapshotQuestionBase & {
+  /** The player drags the items into the correct order. */
+  type: "puzzle";
+  /** 3–6 items, listed in the correct order. Shuffle before showing. */
+  items: GameSnapshotPuzzleItem[];
+};
+
+export type GameSnapshotSliderQuestion = GameSnapshotQuestionBase & {
+  /** The player picks a number on a range. */
+  type: "slider";
+  slider: GameSnapshotSlider;
+};
+
+export type GameSnapshotQuestion =
+  | GameSnapshotChoiceQuestion
+  | GameSnapshotPuzzleQuestion
+  | GameSnapshotSliderQuestion;
 
 export type GameSnapshot = {
   source: {

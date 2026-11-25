@@ -7,11 +7,13 @@ import {
   cloneQuestion,
   collectTemplateIssues,
   DEFAULT_GAME_SETTINGS,
+  DEFAULT_SLIDER,
   GAME_LIMITS,
   parseTemplateDraft,
   resolveTimeLimit,
   type GameQuestionDraft,
   type GameSettings,
+  type GameSliderConfig,
   type GameTemplateDraft,
   type GameTemplateRecord,
   type GameTemplateStatus,
@@ -19,7 +21,7 @@ import {
 } from "@/lib/games";
 import { createPlayGame, PlayAppError } from "@/lib/play-app/client";
 import { createClient } from "@/lib/supabase/server";
-import type { GameSnapshot } from "@/types/game-snapshot";
+import type { GameSnapshot, GameSnapshotQuestion } from "@/types/game-snapshot";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -33,7 +35,7 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const TEMPLATE_SELECT =
-  "id, title, description, cover_image_url, default_settings, version, status, updated_at, game_questions(id, position, type, text, media_url, time_limit_sec, points, explanation, game_question_options(id, position, text, is_correct))";
+  "id, title, description, cover_image_url, default_settings, version, status, updated_at, game_questions(id, position, type, text, media_url, time_limit_sec, points, explanation, config, game_question_options(id, position, text, is_correct))";
 
 const uuidSchema = z.uuid();
 
@@ -64,6 +66,20 @@ function normalizeSettings(raw: unknown): GameSettings {
   };
 }
 
+function normalizeSlider(raw: unknown): GameSliderConfig {
+  const value = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const num = (key: keyof GameSliderConfig) =>
+    typeof value[key] === "number" ? (value[key] as number) : (DEFAULT_SLIDER[key] as number);
+  return {
+    min: num("min"),
+    max: num("max"),
+    step: num("step"),
+    correctValue: num("correctValue"),
+    tolerance: num("tolerance"),
+    unit: typeof value.unit === "string" ? value.unit : "",
+  };
+}
+
 type OptionRow = { id: string; position: number; text: string; is_correct: boolean };
 type QuestionRow = {
   id: string;
@@ -74,6 +90,7 @@ type QuestionRow = {
   time_limit_sec: number | null;
   points: number;
   explanation: string | null;
+  config: unknown;
   game_question_options: OptionRow[] | null;
 };
 type TemplateRow = {
@@ -107,6 +124,7 @@ function mapTemplateRow(row: TemplateRow): GameTemplateRecord {
             text: option.text,
             isCorrect: option.is_correct,
           })),
+        slider: question.type === "slider" ? normalizeSlider(question.config) : null,
       }),
     );
 
@@ -158,11 +176,12 @@ function toRpcQuestions(questions: GameQuestionDraft[]) {
     time_limit_sec: question.timeLimitSec,
     points: question.points,
     explanation: question.explanation,
+    config: question.type === "slider" ? question.slider : null,
     options: question.options.map((option, optionIndex) => ({
       id: option.id,
       position: optionIndex + 1,
       text: option.text,
-      is_correct: option.isCorrect,
+      is_correct: question.type === "puzzle" ? false : option.isCorrect,
     })),
   }));
 }
@@ -417,23 +436,65 @@ function buildSnapshot({
     host: { hostId: String(host.id), displayName: host.name },
     settings: { ...draft.settings },
     title: draft.title,
-    questions: draft.questions.map((question, index) => ({
-      id: question.id,
-      position: index + 1,
-      type: question.type,
-      text: question.text,
-      mediaUrl: question.mediaUrl,
-      timeLimitSec: resolveTimeLimit(question, draft.settings),
-      points: question.points,
-      explanation: question.explanation.trim() || null,
-      options: question.options.map((option, optionIndex) => ({
-        id: option.id,
-        position: optionIndex + 1,
-        text: option.text,
-        isCorrect: option.isCorrect,
-      })),
-    })),
+    questions: draft.questions.map((question, index) =>
+      snapshotQuestion(question, index, draft.settings),
+    ),
   };
+}
+
+function snapshotQuestion(
+  question: GameQuestionDraft,
+  index: number,
+  settings: GameSettings,
+): GameSnapshotQuestion {
+  const base = {
+    id: question.id,
+    position: index + 1,
+    text: question.text,
+    mediaUrl: question.mediaUrl,
+    timeLimitSec: resolveTimeLimit(question, settings),
+    points: question.points,
+    explanation: question.explanation.trim() || null,
+  };
+
+  switch (question.type) {
+    case "slider": {
+      const slider = question.slider ?? DEFAULT_SLIDER;
+      return {
+        ...base,
+        type: "slider",
+        slider: {
+          min: slider.min,
+          max: slider.max,
+          step: slider.step,
+          correctValue: slider.correctValue,
+          tolerance: slider.tolerance,
+          unit: slider.unit.trim() || null,
+        },
+      };
+    }
+    case "puzzle":
+      return {
+        ...base,
+        type: "puzzle",
+        items: question.options.map((option, optionIndex) => ({
+          id: option.id,
+          position: optionIndex + 1,
+          text: option.text,
+        })),
+      };
+    default:
+      return {
+        ...base,
+        type: question.type,
+        options: question.options.map((option, optionIndex) => ({
+          id: option.id,
+          position: optionIndex + 1,
+          text: option.text,
+          isCorrect: option.isCorrect,
+        })),
+      };
+  }
 }
 
 function launchErrorMessage(error: unknown) {
