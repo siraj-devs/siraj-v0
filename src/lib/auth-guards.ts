@@ -1,3 +1,4 @@
+import { canManageGames, type GamesPermission } from "@/lib/games-access";
 import { getMemberPagePermissions } from "@/lib/member-permissions";
 import {
   canAccessDashboard,
@@ -75,6 +76,18 @@ export async function requirePageAccess(
 
   const permissions = await getMemberPagePermissions(ctx.member.id);
   if (!hasPagePermission(permissions, path)) throw new Error("غير مصرح");
+  return ctx;
+}
+
+/** Game templates: see `canManageGames` for the rule. */
+export async function requireGamesPermission(
+  permission: GamesPermission,
+): Promise<OwnerGuardContext> {
+  const ctx = await requireSessionMember();
+  const permissions = await getMemberPagePermissions(ctx.member.id);
+  if (!canManageGames(ctx.member, permissions, permission)) {
+    throw new Error("غير مصرح");
+  }
   return ctx;
 }
 

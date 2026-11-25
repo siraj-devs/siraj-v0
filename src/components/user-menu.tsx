@@ -5,12 +5,14 @@ import {
   MEMBER_ROLE_LABELS,
   type MemberRole,
 } from "@/lib/member-role";
+import { canManageGames, GAMES_PATH } from "@/lib/games-access";
 import type { PageGrant } from "@/lib/page-permissions";
 import {
   CalendarDays,
   Clapperboard,
   ClipboardList,
   FileText,
+  Gamepad2,
   GraduationCap,
   Handshake,
   Link2,
@@ -31,6 +33,8 @@ const DASHBOARD_LINKS: {
   label: string;
   icon: LucideIcon;
   viewerDefault?: boolean;
+  /** Overrides the default owner / viewer / page-grant visibility rule. */
+  canSee?: (role: MemberRole | null, permissions: PageGrant[]) => boolean;
 }[] = [
   { href: "/dashboard/members", label: "الأعضاء", icon: Users, viewerDefault: true },
   {
@@ -63,6 +67,13 @@ const DASHBOARD_LINKS: {
   },
   { href: "/dashboard/network", label: "الشبكة", icon: Network },
   { href: "/dashboard/lists", label: "اللوائح", icon: ListChecks },
+  {
+    href: GAMES_PATH,
+    label: "الألعاب",
+    icon: Gamepad2,
+    canSee: (role, permissions) =>
+      canManageGames({ role }, permissions, "games.view"),
+  },
 ];
 
 export function UserMenu({
@@ -94,11 +105,12 @@ export function UserMenu({
 
   const dashboardLinks = useMemo(() => {
     return DASHBOARD_LINKS.filter((link) => {
+      if (link.canSee) return link.canSee(user?.role ?? null, permissions);
       if (isOwner) return true;
       if (link.viewerDefault && hasViewerRole) return true;
       return permissions.some((grant) => grant.path === link.href);
     });
-  }, [isOwner, hasViewerRole, permissions]);
+  }, [isOwner, hasViewerRole, permissions, user?.role]);
 
   return (
     <div className="relative">

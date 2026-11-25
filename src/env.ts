@@ -24,6 +24,9 @@ const env = createEnv({
 
     SUPABASE_SECRET_KEY: z.string().min(1),
 
+    PLAY_APP_URL: z.url().optional(),
+    PLAY_APP_SHARED_SECRET: z.string().min(32).optional(),
+
     NODE_ENV: z.enum(["development", "test", "production"]),
   },
   client: {

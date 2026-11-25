@@ -44,6 +44,7 @@ import {
   GraduationCap,
   Handshake,
   Link2,
+  Gamepad2,
   ListChecks,
   Medal,
   Network,
@@ -116,6 +117,7 @@ const PAGE_ICONS: Record<DashboardPagePath, LucideIcon> = {
   "/dashboard/sessions": Clapperboard,
   "/dashboard/network": Network,
   "/dashboard/lists": ListChecks,
+  "/dashboard/games": Gamepad2,
 };
 
 type RoleFilter = MemberRole;
